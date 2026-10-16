@@ -1,0 +1,20 @@
+{
+  "name": "sonub-skills",
+  "owner": {
+    "name": "JaeHo Song",
+    "email": "thruthesky@gmail.com"
+  },
+  "metadata": {
+    "description": "Agent Skills from SONUB (sonub.com) — standard SKILL.md skills that work in Claude Code, Codex, Gemini CLI, GitHub Copilot CLI and other agents.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "gp",
+      "source": "./skills/gp",
+      "description": "Manage all your work in GitHub Projects (v2) with the gh CLI — boards, kanban columns, fields, views, issues, images, TODO checklists, assignees.",
+      "version": "1.0.0",
+      "category": "productivity"
+    }
+  ]
+}

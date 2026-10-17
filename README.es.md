@@ -44,8 +44,9 @@ Ruta del skill: https://github.com/thruthesky/sonub-skills/tree/main/skills/gp �
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - Si te pedí "solo para este proyecto", ejecuta la última línea en la carpeta del proyecto añadiendo --scope project.
    - Si ya está instalado, ejecuta en su lugar: claude plugin update gp@sonub-skills
-2. Cualquier otro agente: ponlo en tu carpeta de skills de usuario DIR (Codex, Gemini CLI, Copilot CLI: ~/.agents/skills).
+2. Cualquier otro agente: ponlo en la carpeta de skills DIR — todos los proyectos: ~/.agents/skills, solo este proyecto: <proyecto>/.agents/skills.
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. Ejecuta: python3 <carpeta del skill>/scripts/gp.py doctor — y corrige lo que indique (instalar gh, gh auth login, gh auth refresh -s project,repo).
 4. Dime brevemente qué se instaló, el resultado de doctor, y que ya puedo decir cosas como "muestra mis proyectos de GitHub".
@@ -72,6 +73,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### Instalación global e instalación local (del proyecto)
+
+| | Global — todos los proyectos | Local — solo este proyecto |
+|------|------|------|
+| Plugin de Claude Code | `claude plugin install gp@sonub-skills` | en la carpeta del proyecto: `claude plugin install gp@sonub-skills --scope project` (se escribe en `.claude/settings.json` y se comparte con el equipo · solo tú: `--scope local`) |
+| Claude Code, copiando la carpeta | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| Tablero que se usa | `/gp init <URL del tablero> --global` → `~/.config/gp/config.json` | `/gp init <URL del tablero>` → `<proyecto>/.gp.json` |
+
+Dónde se instala el skill y qué tablero usa se eligen por separado. Normalmente instalas el skill de forma global una vez y le das a cada proyecto su tablero con `/gp init <URL del tablero>`.
+
 ### Primera ejecución
 
 Pídele a tu agente *"configura gp"* (Claude Code: `/gp:gp`, Codex: `$gp`). Ejecuta:
@@ -81,16 +93,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · sesión iniciada ✓
 gh auth login                                   # solo si no has iniciado sesión — escribe el código de un solo uso en el navegador
 gh auth refresh -s project,repo                 # solo si falta un permiso
 python3 scripts/gp.py projects                  # tus tableros
-python3 scripts/gp.py use <owner> <number>      # elige uno … o crea uno:
+python3 scripts/gp.py init <URL del tablero>    # el tablero de este proyecto (.gp.json) · todos los proyectos: --global … o crea uno:
 python3 scripts/gp.py project-create --title "Mi trabajo" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### Elige el tablero — `/gp init`
+
+Cada proyecto de desarrollo puede tener su propio tablero de GitHub Project. Dale a tu agente la dirección del tablero en la carpeta del proyecto, y el trabajo de ese proyecto irá a ese tablero.
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+Si lo instalaste como plugin de Claude Code: `/gp:gp init …`; Codex: `$gp init …`. También funciona decir "usa https://… como tablero de este proyecto".
+
+- **Local (por defecto)** — dentro de un repositorio git se guarda en `<raíz del repositorio>/.gp.json` y solo se usa en ese proyecto (y sus subcarpetas). No contiene ningún secreto: haz commit de él para que tu equipo use el mismo tablero, o añádelo a `.gitignore` para que quede solo para ti.
+- **Global** — `/gp init <URL> --global` (o "hazlo el tablero por defecto de todos los proyectos") → `~/.config/gp/config.json`, se usa en cualquier carpeta sin `.gp.json`.
+- Sirve cualquier página del tablero (`/views/2`, tableros de usuario `/users/…`, tableros de organización `/orgs/…`). Antes de guardarlo se comprueba que el tablero existe y se puede leer.
+- `/gp init` sin nada más muestra el tablero en uso y su archivo de configuración. Quitarlo: `gp.py init --unset` (global: `--unset --global`).
+- Qué tablero se usa: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → el `.gp.json` del proyecto → la configuración global.
 
 ### Cómo usarlo — solo dilo
 
 | Tú dices | El agente ejecuta |
 |------|------|
 | "Crea un issue: el botón de inicio de sesión no hace nada en iPhone. Pasos: reproducir, corregir, probar. Adjunta shot.png" | `create --repo app --title "…" --todo reproducir --todo corregir --todo probar --image shot.png` → columna Todo |
+| "/gp init https://github.com/orgs/my-team/projects/3" | `init …` → se guarda como el tablero de este proyecto (`.gp.json`) |
 | "Ponlo en progreso" · "Mueve #12 a Review" | `move app#12 doing` · `move app#12 review` |
 | "¡Hecho!" | `close app#12` — cierra el issue y lo mueve a Done |
 | "Añade 'actualizar la documentación' a su TODO" · "marca el primero" | `todo app#12 add "actualizar la documentación"` · `todo app#12 done 1` |
@@ -109,7 +138,7 @@ Todos los comandos: [skills/gp/references/commands.md](skills/gp/references/comm
 - **Cada cambio se vuelve a leer.** Después de un cambio, el script imprime una línea `check:` con el estado real en GitHub (estado, columna, responsables, etiquetas). El agente informa a partir de ella.
 - **Las imágenes** usan `--attach` de gh (GitHub user-attachments). Con un gh más antiguo, las imágenes se suben con un commit a una rama `gp-assets` del repositorio del issue y se enlazan.
 - **Seguro por defecto.** Todo comando que hace cambios tiene `--dry-run`. Eliminar un issue, un tablero, un campo o una columna con tarjetas requiere `--yes`, y el skill le indica al agente que te pregunte primero. Las invitaciones (que envían un correo a una persona real) también se preguntan primero.
-- **El tablero por defecto** se guarda en `~/.config/gp/config.json`; puedes cambiarlo con `--owner/--number` o `GP_OWNER`/`GP_PROJECT`.
+- **La configuración del tablero** se guarda por proyecto en `.gp.json` (local) y para todos los proyectos en `~/.config/gp/config.json` (global). `--owner/--number` o `GP_OWNER`/`GP_PROJECT` tienen prioridad sobre ambos.
 
 Nota: justo después de crear un issue, la lista del proyecto en GitHub puede tardar unos segundos en mostrarlo. La línea `check:` lee el issue directamente y siempre está al día.
 

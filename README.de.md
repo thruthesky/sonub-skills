@@ -44,8 +44,9 @@ Skill-Pfad: https://github.com/thruthesky/sonub-skills/tree/main/skills/gp — e
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - Wenn ich „nur für dieses Projekt“ gesagt habe, führe die letzte Zeile im Projektordner aus und hänge --scope project an.
    - Wenn er schon installiert ist, führe stattdessen aus: claude plugin update gp@sonub-skills
-2. Jeder andere Agent: Lege ihn in deinen Benutzer-Skill-Ordner DIR (Codex, Gemini CLI, Copilot CLI: ~/.agents/skills).
+2. Jeder andere Agent: Lege ihn in den Skill-Ordner DIR — alle Projekte: ~/.agents/skills, nur dieses Projekt: <Projekt>/.agents/skills.
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. Führe aus: python3 <Skill-Ordner>/scripts/gp.py doctor — und behebe, was es meldet (gh installieren, gh auth login, gh auth refresh -s project,repo).
 4. Sag mir kurz, was installiert wurde, das Ergebnis von doctor und dass ich jetzt Dinge sagen kann wie „Zeig meine GitHub-Projekte“.
@@ -72,6 +73,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### Globale Installation und lokale (Projekt-)Installation
+
+| | Global — alle Projekte | Lokal — nur dieses Projekt |
+|------|------|------|
+| Claude Code Plugin | `claude plugin install gp@sonub-skills` | im Projektordner: `claude plugin install gp@sonub-skills --scope project` (wird in `.claude/settings.json` geschrieben und mit dem Team geteilt · nur für dich: `--scope local`) |
+| Claude Code Ordnerkopie | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| Zu verwendendes Board | `/gp init <Board-URL> --global` → `~/.config/gp/config.json` | `/gp init <Board-URL>` → `<Projekt>/.gp.json` |
+
+Wo der Skill installiert ist und welches Board er verwendet, wird getrennt festgelegt. Meist installierst du den Skill einmal global und gibst jedem Projekt mit `/gp init <Board-URL>` sein eigenes Board.
+
 ### Erster Start
 
 Bitte deinen Agenten *„Richte gp ein“* (Claude Code: `/gp:gp`, Codex: `$gp`). Er führt aus:
@@ -81,16 +93,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · angemeldet ✓ · Sc
 gh auth login                                   # nur wenn nicht angemeldet — Einmalcode im Browser eingeben
 gh auth refresh -s project,repo                 # nur wenn ein Scope fehlt
 python3 scripts/gp.py projects                  # deine Boards
-python3 scripts/gp.py use <owner> <number>      # eins auswählen … oder eins erstellen:
+python3 scripts/gp.py init <Board-URL>          # Board dieses Projekts (.gp.json) · alle Projekte: --global … oder eins erstellen:
 python3 scripts/gp.py project-create --title "Meine Arbeit" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### Board wählen — `/gp init`
+
+Jedes Entwicklungsprojekt kann sein eigenes GitHub-Project-Board haben. Gib deinem Agenten im Projektordner die Adresse des Boards, dann landet die Arbeit dieses Projekts auf diesem Board.
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+Als Claude-Code-Plugin installiert: `/gp:gp init …`; Codex: `$gp init …`. Auch „Nimm https://… als Board für dieses Projekt“ funktioniert.
+
+- **Lokal (Standard)** — innerhalb eines git-Repositorys wird es in `<Repository-Wurzel>/.gp.json` gespeichert und nur in diesem Projekt (und seinen Unterordnern) verwendet. Die Datei enthält keine Geheimnisse: Committe sie, damit dein Team dasselbe Board nutzt, oder trage sie in `.gitignore` ein, um sie für dich zu behalten.
+- **Global** — `/gp init <URL> --global` (oder „Mach es zum Standard-Board für alle Projekte“) → `~/.config/gp/config.json`, wird in jedem Ordner ohne `.gp.json` verwendet.
+- Jede Seite des Boards funktioniert (`/views/2`, Benutzer-Boards `/users/…`, Organisations-Boards `/orgs/…`). Vor dem Speichern wird geprüft, ob das Board existiert und lesbar ist.
+- `/gp init` allein zeigt das verwendete Board und seine Einstellungsdatei. Entfernen: `gp.py init --unset` (global: `--unset --global`).
+- Welches Board verwendet wird: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → `.gp.json` des Projekts → die globale Einstellung.
 
 ### Benutzung — einfach sagen
 
 | Du sagst | Der Agent führt aus |
 |------|------|
 | „Erstelle ein Issue: Der Login-Button tut auf dem iPhone nichts. Schritte: reproduzieren, beheben, testen. Hänge shot.png an“ | `create --repo app --title "…" --todo reproduzieren --todo beheben --todo testen --image shot.png` → Spalte Todo |
+| „/gp init https://github.com/orgs/my-team/projects/3“ | `init …` → als Board dieses Projekts gespeichert (`.gp.json`) |
 | „Setz es auf in Arbeit“ · „Verschieb #12 nach Review“ | `move app#12 doing` · `move app#12 review` |
 | „Fertig!“ | `close app#12` — schließt das Issue und verschiebt es nach Done |
 | „Füge ‚Doku aktualisieren‘ zu seinem TODO hinzu“ · „Hak den ersten ab“ | `todo app#12 add "Doku aktualisieren"` · `todo app#12 done 1` |
@@ -109,7 +138,7 @@ Alle Befehle: [skills/gp/references/commands.md](skills/gp/references/commands.m
 - **Jede Änderung wird zurückgelesen.** Nach einer Änderung gibt das Skript eine `check:`-Zeile mit dem tatsächlichen Zustand auf GitHub aus (Status, Spalte, zugewiesene Personen, Labels). Der Agent berichtet auf dieser Grundlage.
 - **Bilder** nutzen `--attach` von gh (GitHub user-attachments). Mit einer älteren gh-Version werden Bilder in einen Branch `gp-assets` des Issue-Repositorys committet und verlinkt.
 - **Standardmäßig sicher.** Jeder ändernde Befehl hat `--dry-run`. Das Löschen eines Issues, eines Boards, eines Felds oder einer Spalte mit Karten erfordert `--yes`, und der Skill weist den Agenten an, dich vorher zu fragen. Bei Einladungen (die einer echten Person eine E-Mail schicken) wird ebenfalls vorher gefragt.
-- **Das Standard-Board** wird in `~/.config/gp/config.json` gespeichert; überschreibe es mit `--owner/--number` oder `GP_OWNER`/`GP_PROJECT`.
+- **Die Board-Einstellung** wird pro Projekt in `.gp.json` (lokal) und für alle Projekte in `~/.config/gp/config.json` (global) gespeichert. `--owner/--number` oder `GP_OWNER`/`GP_PROJECT` haben Vorrang vor beiden.
 
 Hinweis: Direkt nach dem Erstellen eines Issues kann es einige Sekunden dauern, bis die Projektliste auf GitHub es anzeigt. Die `check:`-Zeile liest das Issue direkt und ist immer aktuell.
 

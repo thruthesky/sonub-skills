@@ -44,8 +44,9 @@ thruthesky/sonub-skills リポジトリの gp スキルをインストールし�
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - 「このプロジェクトだけ」と頼んだ場合は、プロジェクトフォルダで最後の行に --scope project を付けて実行してください。
    - すでにインストール済みなら、代わりに実行：claude plugin update gp@sonub-skills
-2. それ以外のエージェント：ユーザースキルフォルダ DIR（Codex、Gemini CLI、Copilot CLI は ~/.agents/skills）に入れます。
+2. それ以外のエージェント：スキルフォルダ DIR に入れます — すべてのプロジェクト：~/.agents/skills、このプロジェクトだけ：<プロジェクト>/.agents/skills。
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. 実行：python3 <スキルフォルダ>/scripts/gp.py doctor — 報告された問題を直してください（gh のインストール、gh auth login、gh auth refresh -s project,repo）。
 4. 何をインストールしたか、doctor の結果、そしてこれからは「自分の GitHub プロジェクトを見せて」のように話しかければ使えることを、短く教えてください。
@@ -72,6 +73,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### グローバルインストールとローカル（プロジェクト）インストール
+
+| | グローバル — すべてのプロジェクト | ローカル — このプロジェクトだけ |
+|------|------|------|
+| Claude Code プラグイン | `claude plugin install gp@sonub-skills` | プロジェクトフォルダで：`claude plugin install gp@sonub-skills --scope project`（`.claude/settings.json` に書かれ、チームで共有 · 自分だけ：`--scope local`） |
+| Claude Code フォルダをコピー | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| 使うボード | `/gp init <ボード URL> --global` → `~/.config/gp/config.json` | `/gp init <ボード URL>` → `<プロジェクト>/.gp.json` |
+
+スキルをどこにインストールするかと、どのボードを使うかは別々に決めます。ふつうはスキルをグローバルに一度インストールし、プロジェクトごとに `/gp init <ボード URL>` でそのプロジェクトのボードを決めます。
+
 ### 最初の一回
 
 エージェントに *「gp をセットアップして」* と頼みます（Claude Code：`/gp:gp`、Codex：`$gp`）。エージェントは次を実行します：
@@ -81,16 +93,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · ログイン ✓ · 
 gh auth login                                   # ログインしていないときだけ — ブラウザにワンタイムコードを入力
 gh auth refresh -s project,repo                 # スコープが足りないときだけ
 python3 scripts/gp.py projects                  # 自分のボード
-python3 scripts/gp.py use <owner> <number>      # 一つ選ぶ……または新しく作る：
+python3 scripts/gp.py init <ボード URL>         # このプロジェクトのボード（.gp.json）· すべてのプロジェクト：--global ……または新しく作る：
 python3 scripts/gp.py project-create --title "自分の作業" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### ボードを選ぶ — `/gp init`
+
+開発プロジェクトごとに、それぞれの GitHub Project ボードを使えます。プロジェクトフォルダでエージェントにボードのアドレスを渡すと、そのプロジェクトの作業はそのボードに入ります。
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+Claude Code プラグインとしてインストールした場合は `/gp:gp init …`、Codex では `$gp init …` です。「このプロジェクトのボードは https://… にして」と言っても使えます。
+
+- **ローカル（デフォルト）** — git リポジトリの中では `<リポジトリのルート>/.gp.json` に保存され、そのプロジェクト（とそのサブフォルダ）でだけ使われます。秘密の値は入っていないので、コミットすればチームメンバーも同じボードを使えます。自分だけで使うなら `.gitignore` に追加します。
+- **グローバル** — `/gp init <URL> --global`（または「すべてのプロジェクトのデフォルトボードにして」）→ `~/.config/gp/config.json`。`.gp.json` がないすべてのフォルダで使われます。
+- ボードのどのページのアドレスでも使えます（`/views/2`、ユーザーのボード `/users/…`、Organization のボード `/orgs/…`）。保存する前に、ボードが存在して読めるかを確認します。
+- `/gp init` だけを入力すると、いま使っているボードとその設定ファイルを表示します。削除：`gp.py init --unset`（グローバル：`--unset --global`）。
+- 使うボードを決める順序：`--owner/--number` → `GP_OWNER`/`GP_PROJECT` → プロジェクトの `.gp.json` → グローバル設定。
 
 ### 使い方 — 話しかけるだけ
 
 | こう言うと | エージェントが実行 |
 |------|------|
 | 「issue を作って：iPhone でログインボタンが反応しない。手順：再現、修正、テスト。shot.png を添付」 | `create --repo app --title "…" --todo 再現 --todo 修正 --todo テスト --image shot.png` → Todo 列 |
+| 「/gp init https://github.com/orgs/my-team/projects/3」 | `init …` → このプロジェクトのボードとして保存（`.gp.json`） |
 | 「進行中にして」 · 「#12 を Review に移して」 | `move app#12 doing` · `move app#12 review` |
 | 「終わった！」 | `close app#12` — issue をクローズして Done に移動 |
 | 「TODO に『ドキュメントを更新』を追加」 · 「1 つ目にチェック」 | `todo app#12 add "ドキュメントを更新"` · `todo app#12 done 1` |
@@ -109,7 +138,7 @@ python3 scripts/gp.py view-add Board --layout board
 - **変更はすべて読み直して確認します。** 変更のあと、スクリプトは GitHub 上の実際の状態（状態、列、担当者、ラベル）を `check:` 行で表示します。エージェントはその行をもとに報告します。
 - **画像** は gh の `--attach`（GitHub user-attachments）を使います。gh が古いバージョンの場合は、issue のリポジトリの `gp-assets` ブランチに画像をコミットしてリンクします。
 - **初期設定で安全。** 変更を行うコマンドにはすべて `--dry-run` があります。issue・ボード・フィールド・カードが入った列の削除には `--yes` が必要で、スキルはエージェントに先にあなたへ確認するよう指示します。実際の人にメールが届く招待も、先に確認します。
-- **デフォルトボード** は `~/.config/gp/config.json` に保存されます。`--owner/--number` または `GP_OWNER`/`GP_PROJECT` で上書きできます。
+- **ボード設定** は、プロジェクトごとに `.gp.json`（ローカル）、すべてのプロジェクト共通で `~/.config/gp/config.json`（グローバル）に保存されます。`--owner/--number` または `GP_OWNER`/`GP_PROJECT` はその両方より優先されます。
 
 注意：issue を作成した直後は、GitHub のプロジェクト一覧に表示されるまで数秒かかることがあります。`check:` 行は issue を直接読むので、常に最新です。
 

@@ -44,8 +44,9 @@ thruthesky/sonub-skills रिपॉज़िटरी से gp स्किल
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - अगर मैंने "सिर्फ़ इस प्रोजेक्ट के लिए" कहा है, तो आख़िरी लाइन प्रोजेक्ट फ़ोल्डर में --scope project जोड़कर चलाओ।
    - अगर यह पहले से इंस्टॉल है, तो इसकी जगह यह चलाओ: claude plugin update gp@sonub-skills
-2. कोई और एजेंट हो तो: इसे अपने यूज़र स्किल फ़ोल्डर DIR में रखो (Codex, Gemini CLI, Copilot CLI: ~/.agents/skills)।
+2. कोई और एजेंट हो तो: इसे स्किल फ़ोल्डर DIR में रखो — सभी प्रोजेक्ट: ~/.agents/skills, सिर्फ़ यह प्रोजेक्ट: <प्रोजेक्ट>/.agents/skills।
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. चलाओ: python3 <स्किल फ़ोल्डर>/scripts/gp.py doctor — और जो समस्याएँ यह बताए उन्हें ठीक करो (gh इंस्टॉल करना, gh auth login, gh auth refresh -s project,repo)।
 4. मुझे संक्षेप में बताओ कि क्या इंस्टॉल हुआ, doctor का नतीजा क्या रहा, और यह कि अब मैं "मेरे GitHub प्रोजेक्ट दिखाओ" जैसी बातें कह सकता हूँ।
@@ -72,6 +73,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### ग्लोबल इंस्टॉल और लोकल (प्रोजेक्ट) इंस्टॉल
+
+| | ग्लोबल — सभी प्रोजेक्ट | लोकल — सिर्फ़ यह प्रोजेक्ट |
+|------|------|------|
+| Claude Code प्लगइन | `claude plugin install gp@sonub-skills` | प्रोजेक्ट फ़ोल्डर में: `claude plugin install gp@sonub-skills --scope project` (`.claude/settings.json` में लिखा जाता है, टीम के साथ साझा होता है · सिर्फ़ आपके लिए: `--scope local`) |
+| Claude Code फ़ोल्डर कॉपी | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| इस्तेमाल होने वाला बोर्ड | `/gp init <बोर्ड URL> --global` → `~/.config/gp/config.json` | `/gp init <बोर्ड URL>` → `<प्रोजेक्ट>/.gp.json` |
+
+स्किल कहाँ इंस्टॉल है और वह कौन-सा बोर्ड इस्तेमाल करती है, ये दोनों अलग-अलग चुने जाते हैं। आमतौर पर आप स्किल को एक बार ग्लोबल इंस्टॉल करते हैं और हर प्रोजेक्ट को `/gp init <बोर्ड URL>` से उसका बोर्ड देते हैं।
+
 ### पहली बार चलाना
 
 अपने एजेंट से कहें *"gp सेट अप करो"* (Claude Code: `/gp:gp`, Codex: `$gp`)। यह ये चलाता है:
@@ -81,16 +93,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · लॉगिन ✓ 
 gh auth login                                   # सिर्फ़ तब जब लॉगिन न हो — ब्राउज़र में एक बार वाला कोड लिखें
 gh auth refresh -s project,repo                 # सिर्फ़ तब जब कोई अनुमति छूट गई हो
 python3 scripts/gp.py projects                  # आपके बोर्ड
-python3 scripts/gp.py use <owner> <number>      # एक चुनें … या नया बनाएँ:
+python3 scripts/gp.py init <बोर्ड URL>          # इस प्रोजेक्ट का बोर्ड (.gp.json) · सभी प्रोजेक्ट: --global … या नया बनाएँ:
 python3 scripts/gp.py project-create --title "मेरा काम" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### बोर्ड चुनें — `/gp init`
+
+हर डेवलपमेंट प्रोजेक्ट का अपना GitHub Project बोर्ड हो सकता है। प्रोजेक्ट फ़ोल्डर में अपने एजेंट को बोर्ड का पता दें, और उस प्रोजेक्ट का काम उसी बोर्ड पर जाएगा।
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+Claude Code प्लगइन के रूप में इंस्टॉल हो तो: `/gp:gp init …`; Codex: `$gp init …`। "https://… को इस प्रोजेक्ट का बोर्ड बनाओ" कहना भी काम करता है।
+
+- **लोकल (डिफ़ॉल्ट)** — git रिपॉज़िटरी के अंदर यह `<रिपॉज़िटरी का रूट>/.gp.json` में सहेजा जाता है और सिर्फ़ उसी प्रोजेक्ट (और उसके सब-फ़ोल्डरों) में इस्तेमाल होता है। इसमें कोई गोपनीय जानकारी नहीं होती: इसे commit करें ताकि टीम के साथी भी वही बोर्ड इस्तेमाल करें, या इसे सिर्फ़ अपने पास रखने के लिए `.gitignore` में जोड़ें।
+- **ग्लोबल** — `/gp init <URL> --global` (या "इसे सभी प्रोजेक्ट का डिफ़ॉल्ट बोर्ड बनाओ") → `~/.config/gp/config.json`, जो हर उस फ़ोल्डर में इस्तेमाल होता है जहाँ `.gp.json` नहीं है।
+- बोर्ड का कोई भी पेज चलता है (`/views/2`, यूज़र बोर्ड `/users/…`, संगठन के बोर्ड `/orgs/…`)। सहेजने से पहले जाँचा जाता है कि बोर्ड मौजूद है और पढ़ा जा सकता है।
+- सिर्फ़ `/gp init` लिखने पर इस्तेमाल हो रहा बोर्ड और उसकी सेटिंग फ़ाइल दिखती है। हटाना: `gp.py init --unset` (ग्लोबल: `--unset --global`)।
+- कौन-सा बोर्ड इस्तेमाल होगा: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → प्रोजेक्ट की `.gp.json` → ग्लोबल सेटिंग।
 
 ### इस्तेमाल — बस कह दीजिए
 
 | आप कहते हैं | एजेंट चलाता है |
 |------|------|
 | "issue बनाओ: iPhone पर लॉगिन बटन काम नहीं करता। चरण: दोहराएँ, सुधारें, जाँचें। shot.png जोड़ो" | `create --repo app --title "…" --todo दोहराएँ --todo सुधारें --todo जाँचें --image shot.png` → Todo कॉलम |
+| "/gp init https://github.com/orgs/my-team/projects/3" | `init …` → इस प्रोजेक्ट के बोर्ड के रूप में सहेजा जाता है (`.gp.json`) |
 | "इसे प्रगति में डालो" · "#12 को Review में ले जाओ" | `move app#12 doing` · `move app#12 review` |
 | "हो गया!" | `close app#12` — issue बंद करता है और उसे Done में ले जाता है |
 | "इसके TODO में 'दस्तावेज़ अपडेट करें' जोड़ो" · "पहले वाले पर टिक करो" | `todo app#12 add "दस्तावेज़ अपडेट करें"` · `todo app#12 done 1` |
@@ -109,7 +138,7 @@ python3 scripts/gp.py view-add Board --layout board
 - **हर बदलाव दोबारा पढ़ा जाता है।** बदलाव के बाद स्क्रिप्ट एक `check:` लाइन छापती है जिसमें GitHub पर असली स्थिति (स्थिति, कॉलम, ज़िम्मेदार लोग, लेबल) होती है। एजेंट उसी के आधार पर रिपोर्ट करता है।
 - **तस्वीरें** gh के `--attach` (GitHub user-attachments) से जाती हैं। पुराने gh में तस्वीरें issue की रिपॉज़िटरी की `gp-assets` ब्रांच में commit होती हैं और उनका लिंक दिया जाता है।
 - **डिफ़ॉल्ट रूप से सुरक्षित।** बदलाव करने वाले हर कमांड में `--dry-run` है। किसी issue, बोर्ड, फ़ील्ड या कार्ड वाले कॉलम को मिटाने के लिए `--yes` चाहिए, और स्किल एजेंट से कहती है कि पहले आपसे पूछे। आमंत्रण (जो किसी असली व्यक्ति को ई-मेल भेजते हैं) के लिए भी पहले पूछा जाता है।
-- **डिफ़ॉल्ट बोर्ड** `~/.config/gp/config.json` में सहेजा जाता है; इसे `--owner/--number` या `GP_OWNER`/`GP_PROJECT` से बदला जा सकता है।
+- **बोर्ड सेटिंग** हर प्रोजेक्ट के लिए `.gp.json` (लोकल) में और सभी प्रोजेक्ट के लिए `~/.config/gp/config.json` (ग्लोबल) में सहेजी जाती है। `--owner/--number` या `GP_OWNER`/`GP_PROJECT` इन दोनों से ऊपर रहते हैं।
 
 ध्यान दें: issue बनाने के ठीक बाद GitHub की प्रोजेक्ट सूची में उसे दिखने में कुछ सेकंड लग सकते हैं। `check:` लाइन issue को सीधे पढ़ती है, इसलिए हमेशा ताज़ा होती है।
 

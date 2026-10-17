@@ -44,8 +44,9 @@ repository นี้คือ **ตลาดสกิล (skill marketplace)** �
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - ถ้าฉันบอกว่า "เฉพาะโปรเจกต์นี้" ให้รันบรรทัดสุดท้ายในโฟลเดอร์โปรเจกต์โดยเพิ่ม --scope project
    - ถ้าติดตั้งไว้แล้ว ให้รันคำสั่งนี้แทน: claude plugin update gp@sonub-skills
-2. ถ้าเป็นเอเจนต์อื่น: ให้ใส่ไว้ในโฟลเดอร์สกิลของผู้ใช้ DIR (Codex, Gemini CLI, Copilot CLI: ~/.agents/skills)
+2. ถ้าเป็นเอเจนต์อื่น: ให้ใส่ไว้ในโฟลเดอร์สกิล DIR — ทุกโปรเจกต์: ~/.agents/skills, เฉพาะโปรเจกต์นี้: <โปรเจกต์>/.agents/skills
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. รัน: python3 <โฟลเดอร์สกิล>/scripts/gp.py doctor — แล้วแก้ปัญหาที่มันรายงาน (ติดตั้ง gh, gh auth login, gh auth refresh -s project,repo)
 4. บอกฉันสั้น ๆ ว่าติดตั้งอะไรไปบ้าง ผลของ doctor เป็นอย่างไร และบอกว่าตอนนี้ฉันพูดได้เลย เช่น "แสดง GitHub project ของฉัน"
@@ -72,6 +73,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### ติดตั้งแบบ global และแบบ local (เฉพาะโปรเจกต์)
+
+| | global — ทุกโปรเจกต์ | local — เฉพาะโปรเจกต์นี้ |
+|------|------|------|
+| ปลั๊กอิน Claude Code | `claude plugin install gp@sonub-skills` | ในโฟลเดอร์โปรเจกต์: `claude plugin install gp@sonub-skills --scope project` (บันทึกลง `.claude/settings.json` ใช้ร่วมกันทั้งทีม · ใช้คนเดียว: `--scope local`) |
+| คัดลอกโฟลเดอร์สำหรับ Claude Code | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| บอร์ดที่ใช้ | `/gp init <URL บอร์ด> --global` → `~/.config/gp/config.json` | `/gp init <URL บอร์ด>` → `<โปรเจกต์>/.gp.json` |
+
+ตำแหน่งที่ติดตั้งสกิลกับบอร์ดที่ใช้นั้นเลือกแยกกัน โดยทั่วไปจะติดตั้งสกิลแบบ global ครั้งเดียว แล้วกำหนดบอร์ดให้แต่ละโปรเจกต์ด้วย `/gp init <URL บอร์ด>`
+
 ### ใช้งานครั้งแรก
 
 บอกเอเจนต์ว่า *"ตั้งค่า gp ให้หน่อย"* (Claude Code: `/gp:gp`, Codex: `$gp`) เอเจนต์จะรัน:
@@ -81,16 +93,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · เข้าสู�
 gh auth login                                   # เฉพาะเมื่อยังไม่ได้เข้าสู่ระบบ — พิมพ์รหัสใช้ครั้งเดียวในเบราว์เซอร์
 gh auth refresh -s project,repo                 # เฉพาะเมื่อสิทธิ์ขาดไป
 python3 scripts/gp.py projects                  # บอร์ดของคุณ
-python3 scripts/gp.py use <owner> <number>      # เลือกหนึ่งบอร์ด … หรือสร้างใหม่:
+python3 scripts/gp.py init <URL บอร์ด>          # บอร์ดของโปรเจกต์นี้ (.gp.json) · ทุกโปรเจกต์: --global … หรือสร้างใหม่:
 python3 scripts/gp.py project-create --title "งานของฉัน" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### เลือกบอร์ด — `/gp init`
+
+แต่ละโปรเจกต์ที่พัฒนาอยู่มีบอร์ด GitHub Project ของตัวเองได้ ให้ที่อยู่ของบอร์ดกับเอเจนต์ในโฟลเดอร์โปรเจกต์ แล้วงานของโปรเจกต์นั้นจะไปอยู่ที่บอร์ดนั้น
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+ถ้าติดตั้งเป็นปลั๊กอิน Claude Code: `/gp:gp init …` ส่วน Codex: `$gp init …` จะพูดว่า "ใช้ https://… เป็นบอร์ดของโปรเจกต์นี้" ก็ได้เช่นกัน
+
+- **local (ค่าเริ่มต้น)** — ถ้าอยู่ใน git repository จะบันทึกไว้ที่ `<รากของ repository>/.gp.json` และใช้เฉพาะในโปรเจกต์นั้น (รวมโฟลเดอร์ย่อย) ไฟล์นี้ไม่มีข้อมูลลับ: commit ไว้เพื่อให้เพื่อนร่วมทีมใช้บอร์ดเดียวกัน หรือใส่ใน `.gitignore` เพื่อใช้คนเดียว
+- **global** — `/gp init <URL> --global` (หรือพูดว่า "ตั้งเป็นบอร์ดหลักของทุกโปรเจกต์") → `~/.config/gp/config.json` ใช้ในทุกโฟลเดอร์ที่ไม่มี `.gp.json`
+- ใช้หน้าไหนของบอร์ดก็ได้ (`/views/2`, บอร์ดของผู้ใช้ `/users/…`, บอร์ดขององค์กร `/orgs/…`) ก่อนบันทึกจะตรวจว่าบอร์ดมีอยู่จริงและอ่านได้
+- พิมพ์ `/gp init` อย่างเดียวจะแสดงบอร์ดที่ใช้อยู่และไฟล์ตั้งค่าของมัน ลบ: `gp.py init --unset` (global: `--unset --global`)
+- ลำดับการเลือกบอร์ด: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → `.gp.json` ของโปรเจกต์ → ค่าตั้ง global
 
 ### วิธีใช้ — แค่พูดออกมา
 
 | คุณพูดว่า | เอเจนต์รัน |
 |------|------|
 | "สร้าง issue: ปุ่มเข้าสู่ระบบบน iPhone กดไม่ได้ ขั้นตอน: ทำซ้ำ, แก้ไข, ทดสอบ แนบ shot.png" | `create --repo app --title "…" --todo ทำซ้ำ --todo แก้ไข --todo ทดสอบ --image shot.png` → คอลัมน์ Todo |
+| "/gp init https://github.com/orgs/my-team/projects/3" | `init …` → บันทึกเป็นบอร์ดของโปรเจกต์นี้ (`.gp.json`) |
 | "เปลี่ยนเป็นกำลังทำ" · "ย้าย #12 ไป Review" | `move app#12 doing` · `move app#12 review` |
 | "เสร็จแล้ว!" | `close app#12` — ปิด issue และย้ายไป Done |
 | "เพิ่ม 'อัปเดตเอกสาร' ใน TODO" · "ติ๊กข้อแรก" | `todo app#12 add "อัปเดตเอกสาร"` · `todo app#12 done 1` |
@@ -109,7 +138,7 @@ python3 scripts/gp.py view-add Board --layout board
 - **ทุกการเปลี่ยนแปลงจะถูกอ่านกลับมา** หลังเปลี่ยนแปลง สคริปต์จะพิมพ์บรรทัด `check:` ที่แสดงสถานะจริงบน GitHub (สถานะ, คอลัมน์, ผู้รับผิดชอบ, label) แล้วเอเจนต์จะรายงานจากบรรทัดนั้น
 - **รูปภาพ** ใช้ `--attach` ของ gh (GitHub user-attachments) ถ้า gh เป็นเวอร์ชันเก่า รูปภาพจะถูก commit ลงใน branch `gp-assets` ของ repository ของ issue แล้วใส่ลิงก์
 - **ปลอดภัยเป็นค่าเริ่มต้น** ทุกคำสั่งที่เปลี่ยนแปลงข้อมูลมี `--dry-run` การลบ issue, บอร์ด, field หรือคอลัมน์ที่มีการ์ดต้องใช้ `--yes` และสกิลจะบอกให้เอเจนต์ถามคุณก่อน การเชิญ (ซึ่งส่งอีเมลถึงคนจริง) ก็จะถามก่อนเช่นกัน
-- **บอร์ดหลัก** ถูกบันทึกไว้ใน `~/.config/gp/config.json`; เปลี่ยนได้ด้วย `--owner/--number` หรือ `GP_OWNER`/`GP_PROJECT`
+- **การตั้งค่าบอร์ด** ถูกบันทึกแยกตามโปรเจกต์ใน `.gp.json` (local) และสำหรับทุกโปรเจกต์ใน `~/.config/gp/config.json` (global); `--owner/--number` หรือ `GP_OWNER`/`GP_PROJECT` มีลำดับก่อนทั้งสองอย่าง
 
 หมายเหตุ: ทันทีหลังสร้าง issue รายการของ GitHub project อาจใช้เวลาสองสามวินาทีกว่าจะแสดง issue นั้น บรรทัด `check:` อ่าน issue โดยตรง จึงเป็นข้อมูลล่าสุดเสมอ
 

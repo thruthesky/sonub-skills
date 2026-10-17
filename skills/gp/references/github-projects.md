@@ -49,6 +49,8 @@ python3 scripts/gp.py close shop-app#1 --comment "Fixed in v1.2"
 
 Then open the board URL that `info` prints: the issue moved across the columns.
 
+Already have a board? Skip `project-create` and run `python3 scripts/gp.py init <board URL>` in the project folder — the board is saved in the project's `.gp.json` (add `--global` to use it in every project). `--use` above does the same for a new board.
+
 ## 5. Working with others
 
 - To **assign** an issue to someone, they must be able to see the repo: invite them as a collaborator (`gp.py invite LOGIN --repo R`) — they accept the e-mail, then `assign` works.

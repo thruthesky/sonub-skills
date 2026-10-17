@@ -1,6 +1,6 @@
 {
   "name": "gp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Manage all your work in GitHub Projects (v2) with git and the gh CLI — boards, columns (kanban), fields, views, issues (create/edit/move/close/delete), image attachments, TODO checklists, drafts, assignees and collaborators. scripts/gp.py looks up IDs by name and reads every change back.",
   "author": {
     "name": "JaeHo Song",

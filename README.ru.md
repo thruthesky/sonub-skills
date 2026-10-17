@@ -44,8 +44,9 @@
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - Если я просил установить «только для этого проекта», выполни последнюю строку в папке проекта, добавив --scope project.
    - Если он уже установлен, вместо этого выполни: claude plugin update gp@sonub-skills
-2. Любой другой агент: помести его в свою пользовательскую папку навыков DIR (Codex, Gemini CLI, Copilot CLI: ~/.agents/skills).
+2. Любой другой агент: помести его в папку навыков DIR — для всех проектов: ~/.agents/skills, только для этого проекта: <проект>/.agents/skills.
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. Выполни: python3 <папка навыка>/scripts/gp.py doctor — и исправь то, о чём он сообщит (установить gh, gh auth login, gh auth refresh -s project,repo).
 4. Кратко сообщи мне, что установлено, каков результат doctor и что теперь я могу говорить, например, «покажи мои проекты GitHub».
@@ -72,6 +73,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### Глобальная и локальная (для проекта) установка
+
+| | Глобально — все проекты | Локально — только этот проект |
+|------|------|------|
+| Плагин Claude Code | `claude plugin install gp@sonub-skills` | в папке проекта: `claude plugin install gp@sonub-skills --scope project` (записывается в `.claude/settings.json` и общий для всей команды · только для вас: `--scope local`) |
+| Копия папки для Claude Code | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| Используемая доска | `/gp init <URL доски> --global` → `~/.config/gp/config.json` | `/gp init <URL доски>` → `<проект>/.gp.json` |
+
+Где установлен навык и какую доску он использует, выбирается отдельно. Обычно навык устанавливают глобально один раз, а каждому проекту задают его доску через `/gp init <URL доски>`.
+
 ### Первый запуск
 
 Попросите агента *«настрой gp»* (Claude Code: `/gp:gp`, Codex: `$gp`). Он выполнит:
@@ -81,16 +93,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · вход ✓ · пр
 gh auth login                                   # только если вход не выполнен — введите одноразовый код в браузере
 gh auth refresh -s project,repo                 # только если не хватает прав
 python3 scripts/gp.py projects                  # ваши доски
-python3 scripts/gp.py use <owner> <number>      # выберите одну … или создайте новую:
+python3 scripts/gp.py init <URL доски>          # доска этого проекта (.gp.json) · для всех проектов: --global … или создайте новую:
 python3 scripts/gp.py project-create --title "Моя работа" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### Выбор доски — `/gp init`
+
+У каждого проекта разработки может быть своя доска GitHub Project. Дайте агенту адрес доски в папке проекта — и работа этого проекта будет вестись на этой доске.
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+Если навык установлен как плагин Claude Code: `/gp:gp init …`; в Codex: `$gp init …`. Можно сказать и так: «используй https://… как доску этого проекта».
+
+- **Локально (по умолчанию)** — внутри git-репозитория настройка сохраняется в `<корень репозитория>/.gp.json` и используется только в этом проекте (и его подпапках). Секретов в файле нет: закоммитьте его, чтобы команда работала с той же доской, или добавьте в `.gitignore`, чтобы оставить только себе.
+- **Глобально** — `/gp init <URL> --global` (или «сделай её доской по умолчанию для всех проектов») → `~/.config/gp/config.json`, используется в любой папке без `.gp.json`.
+- Подходит любая страница доски (`/views/2`, доски пользователя `/users/…`, доски организации `/orgs/…`). Перед сохранением проверяется, что доска существует и доступна для чтения.
+- `/gp init` без аргументов показывает текущую доску и её файл настроек. Удалить: `gp.py init --unset` (глобально: `--unset --global`).
+- Какая доска используется: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → `.gp.json` проекта → глобальная настройка.
 
 ### Как пользоваться — просто скажите
 
 | Вы говорите | Агент выполняет |
 |------|------|
 | «Создай issue: на iPhone кнопка входа ничего не делает. Шаги: воспроизвести, исправить, протестировать. Приложи shot.png» | `create --repo app --title "…" --todo воспроизвести --todo исправить --todo протестировать --image shot.png` → колонка Todo |
+| «/gp init https://github.com/orgs/my-team/projects/3» | `init …` → сохраняется как доска этого проекта (`.gp.json`) |
 | «Возьми в работу» · «Перенеси #12 в Review» | `move app#12 doing` · `move app#12 review` |
 | «Готово!» | `close app#12` — закрывает issue и переносит его в Done |
 | «Добавь в его TODO „обновить документацию“» · «отметь первый пункт» | `todo app#12 add "обновить документацию"` · `todo app#12 done 1` |
@@ -109,7 +138,7 @@ python3 scripts/gp.py view-add Board --layout board
 - **Каждое изменение перечитывается.** После изменения скрипт выводит строку `check:` с реальным состоянием на GitHub (состояние, колонка, исполнители, метки). Агент отчитывается по ней.
 - **Изображения** загружаются через `--attach` в gh (GitHub user-attachments). Со старой версией gh изображения коммитятся в ветку `gp-assets` репозитория issue, и на них ставится ссылка.
 - **Безопасно по умолчанию.** У каждой изменяющей команды есть `--dry-run`. Удаление issue, доски, поля или колонки с карточками требует `--yes`, а навык велит агенту сначала спросить вас. Перед приглашениями (они отправляют письмо реальному человеку) агент тоже сначала спрашивает.
-- **Доска по умолчанию** сохраняется в `~/.config/gp/config.json`; её можно переопределить через `--owner/--number` или `GP_OWNER`/`GP_PROJECT`.
+- **Настройка доски** сохраняется для каждого проекта в `.gp.json` (локально) и для всех проектов в `~/.config/gp/config.json` (глобально). `--owner/--number` или `GP_OWNER`/`GP_PROJECT` имеют приоритет над обеими.
 
 Примечание: сразу после создания issue список проекта на GitHub может показать его только через несколько секунд. Строка `check:` читает issue напрямую и всегда актуальна.
 

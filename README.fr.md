@@ -44,8 +44,9 @@ Chemin de la skill : https://github.com/thruthesky/sonub-skills/tree/main/skills
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - Si je t'ai demandé « pour ce projet uniquement », exécute la dernière ligne dans le dossier du projet en ajoutant --scope project.
    - Si elle est déjà installée, exécute plutôt : claude plugin update gp@sonub-skills
-2. Tout autre agent : place-la dans ton dossier de skills utilisateur DIR (Codex, Gemini CLI, Copilot CLI : ~/.agents/skills).
+2. Tout autre agent : place-la dans le dossier de skills DIR — tous les projets : ~/.agents/skills, ce projet uniquement : <projet>/.agents/skills.
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. Exécute : python3 <dossier de la skill>/scripts/gp.py doctor — et corrige ce qu'il signale (installer gh, gh auth login, gh auth refresh -s project,repo).
 4. Dis-moi en bref ce qui a été installé, le résultat de doctor, et que je peux maintenant dire des choses comme « montre mes projets GitHub ».
@@ -72,6 +73,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### Installation globale et installation locale (projet)
+
+| | Globale — tous les projets | Locale — ce projet uniquement |
+|------|------|------|
+| Plugin Claude Code | `claude plugin install gp@sonub-skills` | dans le dossier du projet : `claude plugin install gp@sonub-skills --scope project` (écrit dans `.claude/settings.json`, partagé avec l'équipe · vous seul : `--scope local`) |
+| Claude Code, copie du dossier | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| Tableau utilisé | `/gp init <URL du tableau> --global` → `~/.config/gp/config.json` | `/gp init <URL du tableau>` → `<projet>/.gp.json` |
+
+L'endroit où la skill est installée et le tableau qu'elle utilise se choisissent séparément. En général, on installe la skill globalement une seule fois, puis on donne à chaque projet son tableau avec `/gp init <URL du tableau>`.
+
 ### Premier lancement
 
 Demandez à votre agent *« configure gp »* (Claude Code : `/gp:gp`, Codex : `$gp`). Il exécute :
@@ -81,16 +93,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · connecté ✓ · sco
 gh auth login                                   # seulement si vous n'êtes pas connecté — saisissez le code à usage unique dans le navigateur
 gh auth refresh -s project,repo                 # seulement s'il manque un scope
 python3 scripts/gp.py projects                  # vos tableaux
-python3 scripts/gp.py use <owner> <number>      # choisissez-en un … ou créez-en un :
+python3 scripts/gp.py init <URL du tableau>     # le tableau de ce projet (.gp.json) · tous les projets : --global … ou créez-en un :
 python3 scripts/gp.py project-create --title "Mon travail" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### Choisir le tableau — `/gp init`
+
+Chaque projet de développement peut avoir son propre tableau GitHub Project. Donnez l'adresse du tableau à votre agent dans le dossier du projet, et le travail de ce projet ira sur ce tableau.
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+Installée comme plugin Claude Code : `/gp:gp init …` ; Codex : `$gp init …`. Dire « utilise https://… comme tableau de ce projet » fonctionne aussi.
+
+- **Local (par défaut)** — dans un dépôt git, le réglage est enregistré dans `<racine du dépôt>/.gp.json` et utilisé uniquement dans ce projet (et ses sous-dossiers). Il ne contient aucun secret : commitez-le pour que vos coéquipiers utilisent le même tableau, ou ajoutez-le à `.gitignore` pour le garder pour vous.
+- **Global** — `/gp init <URL> --global` (ou « fais-en le tableau par défaut de tous les projets ») → `~/.config/gp/config.json`, utilisé dans tout dossier sans `.gp.json`.
+- N'importe quelle page du tableau convient (`/views/2`, tableaux d'utilisateur `/users/…`, tableaux d'organisation `/orgs/…`). On vérifie que le tableau existe et est lisible avant de l'enregistrer.
+- `/gp init` seul affiche le tableau utilisé et son fichier de réglages. Supprimer : `gp.py init --unset` (global : `--unset --global`).
+- Quel tableau est utilisé : `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → le `.gp.json` du projet → le réglage global.
 
 ### Utilisation — il suffit de le dire
 
 | Vous dites | L'agent exécute |
 |------|------|
 | « Crée une issue : le bouton de connexion ne fait rien sur iPhone. Étapes : reproduire, corriger, tester. Joins shot.png » | `create --repo app --title "…" --todo reproduire --todo corriger --todo tester --image shot.png` → colonne Todo |
+| « /gp init https://github.com/orgs/my-team/projects/3 » | `init …` → enregistré comme tableau de ce projet (`.gp.json`) |
 | « Mets-la en cours » · « Déplace #12 dans Review » | `move app#12 doing` · `move app#12 review` |
 | « Terminé ! » | `close app#12` — ferme l'issue et la déplace dans Done |
 | « Ajoute "mettre à jour la doc" à son TODO » · « coche le premier » | `todo app#12 add "mettre à jour la doc"` · `todo app#12 done 1` |
@@ -109,7 +138,7 @@ Toutes les commandes : [skills/gp/references/commands.md](skills/gp/references/c
 - **Chaque modification est relue.** Après une modification, le script affiche une ligne `check:` avec l'état réel sur GitHub (état, colonne, personnes assignées, labels). L'agent fait son rapport à partir de cette ligne.
 - **Les images** utilisent le `--attach` de gh (GitHub user-attachments). Avec un gh plus ancien, les images sont commitées sur une branche `gp-assets` du dépôt de l'issue, puis liées.
 - **Sûr par défaut.** Chaque commande qui modifie quelque chose a `--dry-run`. Supprimer une issue, un tableau, un champ ou une colonne contenant des cartes nécessite `--yes`, et la skill demande à l'agent de vous poser la question d'abord. Les invitations (qui envoient un e-mail à une vraie personne) sont aussi demandées d'abord.
-- **Le tableau par défaut** est enregistré dans `~/.config/gp/config.json` ; remplacez-le avec `--owner/--number` ou `GP_OWNER`/`GP_PROJECT`.
+- **Le réglage du tableau** est enregistré par projet dans `.gp.json` (local) et pour tous les projets dans `~/.config/gp/config.json` (global). `--owner/--number` ou `GP_OWNER`/`GP_PROJECT` l'emportent sur les deux.
 
 Remarque : juste après la création d'une issue, la liste du projet sur GitHub peut mettre quelques secondes à l'afficher. La ligne `check:` lit l'issue directement et est toujours à jour.
 

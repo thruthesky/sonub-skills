@@ -44,8 +44,9 @@ thruthesky/sonub-skills 저장소의 gp 스킬을 설치해 줘.
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - "이 프로젝트에만" 설치하라고 했으면 프로젝트 폴더에서 마지막 줄에 --scope project 를 붙인다.
    - 이미 설치돼 있으면 마지막 줄 대신: claude plugin update gp@sonub-skills
-2. 그 밖의 에이전트면 사용자 스킬 폴더 DIR(Codex·Gemini CLI·Copilot CLI 는 ~/.agents/skills)에 받는다.
+2. 그 밖의 에이전트면 스킬 폴더 DIR 에 받는다 — 모든 프로젝트: ~/.agents/skills, 이 프로젝트만: <프로젝트>/.agents/skills.
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. python3 <스킬 폴더>/scripts/gp.py doctor 를 실행하고, 알려 주는 문제를 고친다(gh 설치, gh auth login, gh auth refresh -s project,repo).
 4. 무엇을 설치했는지, doctor 결과, 이제 "내 GitHub 프로젝트 보여 줘" 같은 말로 쓰면 된다는 것을 짧게 알려 준다.
@@ -72,6 +73,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### 전역 설치와 로컬(프로젝트) 설치
+
+| | 전역 — 모든 프로젝트 | 로컬 — 이 프로젝트만 |
+|------|------|------|
+| Claude Code 플러그인 | `claude plugin install gp@sonub-skills` | 프로젝트 폴더에서 `claude plugin install gp@sonub-skills --scope project`(`.claude/settings.json` 에 적혀 팀이 함께 씀 · 나만: `--scope local`) |
+| Claude Code 폴더 복사 | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| 쓸 보드 | `/gp init <보드 URL> --global` → `~/.config/gp/config.json` | `/gp init <보드 URL>` → `<프로젝트>/.gp.json` |
+
+스킬을 어디에 설치했는지와 어느 보드를 쓰는지는 따로 정합니다. 보통은 스킬을 전역으로 한 번 설치하고, 프로젝트마다 `/gp init <보드 URL>` 로 그 프로젝트의 보드를 정합니다.
+
 ### 처음 한 번
 
 에이전트에게 *"gp 설정해 줘"* 라고 말합니다(Claude Code: `/gp:gp`, Codex: `$gp`). 에이전트가 이렇게 합니다.
@@ -81,16 +93,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · 로그인 ✓ · 권
 gh auth login                                   # 로그인이 안 돼 있을 때만 — 브라우저에 일회용 코드 입력
 gh auth refresh -s project,repo                 # 권한이 빠졌을 때만
 python3 scripts/gp.py projects                  # 내 보드 목록
-python3 scripts/gp.py use <owner> <number>      # 하나를 고르거나… 새로 만들기:
+python3 scripts/gp.py init <보드 URL>           # 이 프로젝트의 보드(.gp.json) · 모든 프로젝트는 --global … 없으면 새로 만들기:
 python3 scripts/gp.py project-create --title "나의 일" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### 보드 정하기 — `/gp init`
+
+개발 프로젝트마다 GitHub Project 보드가 다를 수 있습니다. 프로젝트 폴더에서 에이전트에게 보드 주소를 주면, 그 프로젝트의 일은 그 보드에서 관리합니다.
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+Claude Code 플러그인으로 설치했으면 `/gp:gp init …`, Codex 는 `$gp init …` 입니다. "이 프로젝트 보드는 https://… 로 해 줘" 처럼 말해도 됩니다.
+
+- **로컬(기본)** — git 저장소 안에서 하면 `<저장소 맨 위>/.gp.json` 에 저장되고, 그 프로젝트(하위 폴더 포함)에서만 씁니다. 비밀 값이 없으니 커밋하면 팀원도 같은 보드를 쓰고, 나만 쓰려면 `.gitignore` 에 넣습니다.
+- **전역** — `/gp init <URL> --global`(또는 "모든 프로젝트의 기본 보드로") → `~/.config/gp/config.json`. `.gp.json` 이 없는 모든 폴더에서 씁니다.
+- 주소는 보드의 어느 화면이든 됩니다(`/views/2`, 사용자 보드 `/users/…`, 조직 보드 `/orgs/…`). 저장하기 전에 보드가 있고 읽을 수 있는지 확인합니다.
+- `/gp init` 만 입력하면 지금 쓰는 보드와 설정 파일을 보여 줍니다. 지우기: `gp.py init --unset`(전역은 `--unset --global`).
+- 어느 보드를 쓸지 정하는 순서: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → 프로젝트의 `.gp.json` → 전역 설정.
 
 ### 쓰는 법 — 말로 부탁하기
 
 | 이렇게 말하면 | 에이전트가 실행 |
 |------|------|
 | "이슈 만들어: 아이폰에서 로그인 버튼이 안 눌림. 단계: 재현, 수정, 테스트. shot.png 첨부" | `create --repo app --title "…" --todo 재현 --todo 수정 --todo 테스트 --image shot.png` → Todo 칸 |
+| "/gp init https://github.com/orgs/my-team/projects/3" | `init …` → 이 프로젝트의 보드로 저장(`.gp.json`) |
 | "진행 중으로" · "#12 Review 로 옮겨" | `move app#12 doing` · `move app#12 review` |
 | "끝났어!" | `close app#12` — 이슈를 닫고 Done 칸으로 |
 | "TODO 에 '문서 고치기' 추가" · "첫 번째 체크" | `todo app#12 add "문서 고치기"` · `todo app#12 done 1` |
@@ -109,7 +138,7 @@ python3 scripts/gp.py view-add Board --layout board
 - **바꾼 것은 다시 읽어 확인합니다.** 바꾼 뒤 GitHub 의 실제 상태(열림·닫힘, 칸, 담당자, 라벨)를 `check:` 줄로 보여 주고, 에이전트는 그 줄로 보고합니다.
 - **이미지**는 gh 의 `--attach`(GitHub user-attachments)로 올립니다. gh 가 오래된 판이면 이슈 저장소의 `gp-assets` 브랜치에 커밋하고 링크합니다.
 - **기본이 안전합니다.** 바꾸는 명령은 모두 `--dry-run` 이 있습니다. 이슈·보드·필드·카드가 든 칸 삭제는 `--yes` 가 필요하고, 스킬은 에이전트에게 먼저 묻게 합니다. 실제 사람에게 이메일이 가는 초대도 먼저 묻습니다.
-- **기본 보드**는 `~/.config/gp/config.json` 에 저장됩니다. `--owner/--number` 나 `GP_OWNER`/`GP_PROJECT` 로 바꿀 수 있습니다.
+- **보드 설정**은 프로젝트마다 `.gp.json`(로컬), 모든 프로젝트 공통은 `~/.config/gp/config.json`(전역)에 저장됩니다. `--owner/--number` 나 `GP_OWNER`/`GP_PROJECT` 가 둘 다보다 앞섭니다.
 
 참고: 이슈를 만든 직후에는 GitHub 의 보드 목록에 몇 초 늦게 나타날 수 있습니다. `check:` 줄은 이슈를 직접 읽으므로 항상 최신입니다.
 

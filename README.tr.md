@@ -44,8 +44,9 @@ Beceri yolu: https://github.com/thruthesky/sonub-skills/tree/main/skills/gp — 
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - "Yalnızca bu proje" dediysem, son satırı proje klasöründe --scope project ekleyerek çalıştır.
    - Zaten kuruluysa bunun yerine şunu çalıştır: claude plugin update gp@sonub-skills
-2. Başka bir ajansan: kullanıcı beceri klasörün DIR içine koy (Codex, Gemini CLI, Copilot CLI: ~/.agents/skills).
+2. Başka bir ajansan: beceri klasörü DIR içine koy — tüm projeler: ~/.agents/skills, yalnızca bu proje: <proje>/.agents/skills.
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. Çalıştır: python3 <beceri klasörü>/scripts/gp.py doctor — ve bildirdiği sorunları düzelt (gh kur, gh auth login, gh auth refresh -s project,repo).
 4. Bana kısaca neyin kurulduğunu, doctor sonucunu ve artık "GitHub projelerimi göster" gibi şeyler söyleyebileceğimi bildir.
@@ -72,6 +73,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### Global kurulum ve yerel (proje) kurulum
+
+| | Global — tüm projeler | Yerel — yalnızca bu proje |
+|------|------|------|
+| Claude Code eklentisi | `claude plugin install gp@sonub-skills` | proje klasöründe: `claude plugin install gp@sonub-skills --scope project` (`.claude/settings.json` dosyasına yazılır, ekiple paylaşılır · yalnızca siz: `--scope local`) |
+| Claude Code klasör kopyası | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| Kullanılacak pano | `/gp init <pano URL'si> --global` → `~/.config/gp/config.json` | `/gp init <pano URL'si>` → `<proje>/.gp.json` |
+
+Becerinin nereye kurulduğu ile hangi panoyu kullandığı ayrı ayrı seçilir. Genellikle beceriyi bir kez global olarak kurar, her projeye panosunu `/gp init <pano URL'si>` ile verirsiniz.
+
 ### İlk çalıştırma
 
 Ajanınıza *"gp'yi kur ve ayarla"* deyin (Claude Code: `/gp:gp`, Codex: `$gp`). Şunları çalıştırır:
@@ -81,16 +93,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · giriş yapıldı ✓
 gh auth login                                   # yalnızca giriş yapılmamışsa — tek kullanımlık kodu tarayıcıya yazın
 gh auth refresh -s project,repo                 # yalnızca bir kapsam eksikse
 python3 scripts/gp.py projects                  # panolarınız
-python3 scripts/gp.py use <owner> <number>      # birini seçin … ya da yeni bir tane oluşturun:
+python3 scripts/gp.py init <pano URL'si>        # bu projenin panosu (.gp.json) · tüm projeler: --global … ya da yeni bir tane oluşturun:
 python3 scripts/gp.py project-create --title "İşlerim" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### Panoyu seçin — `/gp init`
+
+Her geliştirme projesinin kendi GitHub Project panosu olabilir. Proje klasöründe ajanınıza panonun adresini verin; o projenin işleri o panoya gider.
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+Claude Code eklentisi olarak kurulduysa: `/gp:gp init …`; Codex: `$gp init …`. "https://… adresini bu projenin panosu olarak kullan" demek de işe yarar.
+
+- **Yerel (varsayılan)** — bir git deposunun içinde `<depo kökü>/.gp.json` dosyasına kaydedilir ve yalnızca o projede (ve alt klasörlerinde) kullanılır. Gizli bir bilgi içermez: ekip arkadaşlarınız aynı panoyu kullansın diye commit edin ya da yalnızca size kalsın diye `.gitignore` dosyasına ekleyin.
+- **Global** — `/gp init <URL> --global` (ya da "bunu tüm projeler için varsayılan pano yap") → `~/.config/gp/config.json`; `.gp.json` olmayan her klasörde kullanılır.
+- Panonun herhangi bir sayfası olur (`/views/2`, kullanıcı panoları `/users/…`, kuruluş panoları `/orgs/…`). Kaydetmeden önce panonun var olduğu ve okunabildiği kontrol edilir.
+- Tek başına `/gp init`, kullanılan panoyu ve ayar dosyasını gösterir. Kaldırma: `gp.py init --unset` (global: `--unset --global`).
+- Hangi pano kullanılır: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → projenin `.gp.json` dosyası → global ayar.
 
 ### Kullanım — sadece söyleyin
 
 | Siz dersiniz | Ajan çalıştırır |
 |------|------|
 | "Bir issue aç: iPhone'da giriş düğmesi çalışmıyor. Adımlar: tekrarla, düzelt, test. shot.png ekle" | `create --repo app --title "…" --todo tekrarla --todo düzelt --todo test --image shot.png` → Todo sütunu |
+| "/gp init https://github.com/orgs/my-team/projects/3" | `init …` → bu projenin panosu olarak kaydedilir (`.gp.json`) |
 | "Devam ediyor yap" · "#12'yi Review'a taşı" | `move app#12 doing` · `move app#12 review` |
 | "Bitti!" | `close app#12` — issue'yu kapatır ve Done'a taşır |
 | "TODO'suna 'belgeleri güncelle' ekle" · "ilkini işaretle" | `todo app#12 add "belgeleri güncelle"` · `todo app#12 done 1` |
@@ -109,7 +138,7 @@ Tüm komutlar: [skills/gp/references/commands.md](skills/gp/references/commands.
 - **Her değişiklik geri okunur.** Bir değişiklikten sonra betik, GitHub'daki gerçek durumu (durum, sütun, atananlar, etiketler) gösteren bir `check:` satırı yazdırır. Ajan raporunu bu satıra göre verir.
 - **Görseller** gh'nin `--attach` seçeneğini (GitHub user-attachments) kullanır. Daha eski bir gh ile görseller, issue'nun deposundaki `gp-assets` dalına commit edilir ve bağlantısı verilir.
 - **Varsayılan olarak güvenli.** Değişiklik yapan her komutun `--dry-run` seçeneği vardır. Bir issue'yu, panoyu, alanı ya da kart içeren bir sütunu silmek `--yes` gerektirir ve beceri ajana önce size sormasını söyler. Davetler (gerçek bir kişiye e-posta gönderir) için de önce sorulur.
-- **Varsayılan pano** `~/.config/gp/config.json` dosyasına kaydedilir; `--owner/--number` ya da `GP_OWNER`/`GP_PROJECT` ile geçersiz kılabilirsiniz.
+- **Pano ayarı** proje başına `.gp.json` dosyasına (yerel), tüm projeler için `~/.config/gp/config.json` dosyasına (global) kaydedilir. `--owner/--number` ya da `GP_OWNER`/`GP_PROJECT` ikisinden de önce gelir.
 
 Not: bir issue oluşturduktan hemen sonra GitHub'ın proje listesinde görünmesi birkaç saniye sürebilir. `check:` satırı issue'yu doğrudan okur ve her zaman günceldir.
 

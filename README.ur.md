@@ -46,8 +46,9 @@ thruthesky/sonub-skills ریپوزیٹری سے gp اسکل انسٹال کرو�
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - اگر میں نے "صرف اس پروجیکٹ کے لیے" کہا ہے تو آخری لائن پروجیکٹ فولڈر میں --scope project لگا کر چلاؤ۔
    - اگر یہ پہلے سے انسٹال ہے تو اس کی جگہ یہ چلاؤ: claude plugin update gp@sonub-skills
-2. کوئی اور ایجنٹ: اسے اپنے یوزر اسکل فولڈر DIR میں رکھو (Codex، Gemini CLI، Copilot CLI: ~/.agents/skills)۔
+2. کوئی اور ایجنٹ: اسے اسکل فولڈر DIR میں رکھو — تمام پروجیکٹس: ~/.agents/skills، صرف یہ پروجیکٹ: <پروجیکٹ>/.agents/skills۔
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. چلاؤ: python3 <اسکل فولڈر>/scripts/gp.py doctor — اور جو مسئلہ یہ بتائے اسے ٹھیک کرو (gh انسٹال کرنا، gh auth login، gh auth refresh -s project,repo)۔
 4. مجھے مختصر طور پر بتاؤ کہ کیا انسٹال ہوا، doctor کا نتیجہ کیا رہا، اور یہ کہ اب میں "میرے GitHub پروجیکٹس دکھاؤ" جیسی باتیں کہہ سکتا ہوں۔
@@ -74,6 +75,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### گلوبل انسٹال اور لوکل (پروجیکٹ) انسٹال
+
+| | گلوبل — تمام پروجیکٹس | لوکل — صرف یہ پروجیکٹ |
+|------|------|------|
+| Claude Code پلگ ان | `claude plugin install gp@sonub-skills` | پروجیکٹ فولڈر میں: `claude plugin install gp@sonub-skills --scope project` (`.claude/settings.json` میں لکھا جاتا ہے، ٹیم کے ساتھ شیئر ہوتا ہے · صرف آپ کے لیے: `--scope local`) |
+| Claude Code فولڈر کاپی | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| استعمال ہونے والا بورڈ | `/gp init <بورڈ URL> --global` ← `~/.config/gp/config.json` | `/gp init <بورڈ URL>` ← `<پروجیکٹ>/.gp.json` |
+
+اسکل کہاں انسٹال ہے اور وہ کون سا بورڈ استعمال کرتی ہے، یہ دونوں الگ الگ چنے جاتے ہیں۔ عام طور پر آپ اسکل کو ایک بار گلوبل انسٹال کرتے ہیں اور ہر پروجیکٹ کو `/gp init <بورڈ URL>` سے اس کا بورڈ دیتے ہیں۔
+
 ### پہلی بار چلانا
 
 اپنے ایجنٹ سے کہیں *"gp سیٹ اپ کرو"* (Claude Code: `/gp:gp`، Codex: `$gp`)۔ یہ چلاتا ہے:
@@ -83,16 +95,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · لاگ اِن ✓ ·
 gh auth login                                   # صرف اگر لاگ اِن نہیں ہیں — براؤزر میں ایک بار کا کوڈ لکھیں
 gh auth refresh -s project,repo                 # صرف اگر کوئی اسکوپ موجود نہ ہو
 python3 scripts/gp.py projects                  # آپ کے بورڈز
-python3 scripts/gp.py use <owner> <number>      # ایک چنیں … یا نیا بنائیں:
+python3 scripts/gp.py init <بورڈ URL>           # اس پروجیکٹ کا بورڈ (.gp.json) · تمام پروجیکٹس: --global … یا نیا بنائیں:
 python3 scripts/gp.py project-create --title "میرا کام" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### بورڈ چنیں — `/gp init`
+
+ہر ڈیولپمنٹ پروجیکٹ کا اپنا GitHub Project بورڈ ہو سکتا ہے۔ پروجیکٹ فولڈر میں اپنے ایجنٹ کو بورڈ کا پتہ دیں، اور اس پروجیکٹ کا کام اسی بورڈ پر جائے گا۔
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+Claude Code پلگ ان کے طور پر انسٹال ہو تو: `/gp:gp init …`؛ Codex: `$gp init …`۔ "https://… کو اس پروجیکٹ کا بورڈ بناؤ" کہنا بھی کام کرتا ہے۔
+
+- **لوکل (ڈیفالٹ)** — git ریپوزیٹری کے اندر یہ `<ریپوزیٹری کی جڑ>/.gp.json` میں محفوظ ہوتا ہے اور صرف اسی پروجیکٹ (اور اس کے ذیلی فولڈرز) میں استعمال ہوتا ہے۔ اس میں کوئی خفیہ معلومات نہیں: اسے کمٹ کریں تاکہ ٹیم کے ساتھی بھی وہی بورڈ استعمال کریں، یا اسے صرف اپنے پاس رکھنے کے لیے `.gitignore` میں شامل کریں۔
+- **گلوبل** — `/gp init <URL> --global` (یا "اسے تمام پروجیکٹس کا ڈیفالٹ بورڈ بنا دو") ← `~/.config/gp/config.json`، جو ہر اس فولڈر میں استعمال ہوتا ہے جہاں `.gp.json` نہیں۔
+- بورڈ کا کوئی بھی صفحہ چلتا ہے (`/views/2`، یوزر بورڈز `/users/…`، تنظیم کے بورڈز `/orgs/…`)۔ محفوظ کرنے سے پہلے دیکھا جاتا ہے کہ بورڈ موجود ہے اور پڑھا جا سکتا ہے۔
+- صرف `/gp init` لکھنے سے استعمال میں موجود بورڈ اور اس کی سیٹنگ فائل دکھائی دیتی ہے۔ ہٹانا: `gp.py init --unset` (گلوبل: `--unset --global`)۔
+- کون سا بورڈ استعمال ہوگا: `--owner/--number` ← `GP_OWNER`/`GP_PROJECT` ← پروجیکٹ کی `.gp.json` ← گلوبل سیٹنگ۔
 
 ### استعمال — بس کہہ دیں
 
 | آپ کہتے ہیں | ایجنٹ چلاتا ہے |
 |------|------|
 | "ایک ایشو بناؤ: iPhone پر لاگ اِن بٹن کچھ نہیں کرتا۔ مراحل: دہرانا، ٹھیک کرنا، ٹیسٹ۔ shot.png لگا دو" | `create --repo app --title "…" --todo دہرانا --todo "ٹھیک کرنا" --todo ٹیسٹ --image shot.png` ← Todo کالم |
+| "/gp init https://github.com/orgs/my-team/projects/3" | `init …` ← اس پروجیکٹ کے بورڈ کے طور پر محفوظ (`.gp.json`) |
 | "اسے In Progress میں ڈال دو" · "‎#12 کو Review میں لے جاؤ" | `move app#12 doing` · `move app#12 review` |
 | "ہو گیا!" | `close app#12` — ایشو بند کر کے اسے Done میں لے جاتا ہے |
 | "اس کے TODO میں 'دستاویزات اپ ڈیٹ کرنا' شامل کرو" · "پہلے والے پر ٹک لگا دو" | `todo app#12 add "دستاویزات اپ ڈیٹ کرنا"` · `todo app#12 done 1` |
@@ -111,7 +140,7 @@ python3 scripts/gp.py view-add Board --layout board
 - **ہر تبدیلی دوبارہ پڑھی جاتی ہے۔** تبدیلی کے بعد اسکرپٹ GitHub کی اصل حالت (حالت، کالم، ذمہ دار افراد، لیبلز) کے ساتھ ایک `check:` لائن دکھاتا ہے۔ ایجنٹ اسی سے رپورٹ کرتا ہے۔
 - **تصاویر** کے لیے gh کا `--attach` (GitHub user-attachments) استعمال ہوتا ہے۔ پرانے gh کے ساتھ تصاویر ایشو کی ریپوزیٹری کی `gp-assets` برانچ میں کمٹ کر کے لنک کی جاتی ہیں۔
 - **ڈیفالٹ طور پر محفوظ۔** ہر تبدیلی کرنے والی کمانڈ میں `--dry-run` موجود ہے۔ ایشو، بورڈ، فیلڈ یا کارڈز والا کالم حذف کرنے کے لیے `--yes` چاہیے، اور اسکل ایجنٹ کو کہتی ہے کہ پہلے آپ سے پوچھے۔ دعوت نامے (جو کسی حقیقی شخص کو ای میل بھیجتے ہیں) بھیجنے سے پہلے بھی پوچھا جاتا ہے۔
-- **ڈیفالٹ بورڈ** `~/.config/gp/config.json` میں محفوظ ہوتا ہے؛ اسے `--owner/--number` یا `GP_OWNER`/`GP_PROJECT` سے بدلا جا سکتا ہے۔
+- **بورڈ سیٹنگ** ہر پروجیکٹ کے لیے `.gp.json` (لوکل) میں اور تمام پروجیکٹس کے لیے `~/.config/gp/config.json` (گلوبل) میں محفوظ ہوتی ہے۔ `--owner/--number` یا `GP_OWNER`/`GP_PROJECT` دونوں پر فوقیت رکھتے ہیں۔
 
 نوٹ: ایشو بنانے کے فوراً بعد GitHub کی پروجیکٹ فہرست میں اسے نظر آنے میں چند سیکنڈ لگ سکتے ہیں۔ `check:` لائن ایشو کو براہ راست پڑھتی ہے اور ہمیشہ تازہ ہوتی ہے۔
 

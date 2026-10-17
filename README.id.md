@@ -44,8 +44,9 @@ Path skill: https://github.com/thruthesky/sonub-skills/tree/main/skills/gp — s
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - Jika saya meminta "hanya untuk proyek ini", jalankan baris terakhir di folder proyek dengan menambahkan --scope project.
    - Jika sudah terpasang, jalankan ini sebagai gantinya: claude plugin update gp@sonub-skills
-2. Agen lain: taruh di folder skill pengguna DIR milikmu (Codex, Gemini CLI, Copilot CLI: ~/.agents/skills).
+2. Agen lain: taruh di folder skill DIR — semua proyek: ~/.agents/skills, hanya proyek ini: <proyek>/.agents/skills.
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. Jalankan: python3 <folder skill>/scripts/gp.py doctor — lalu perbaiki apa yang dilaporkannya (pasang gh, gh auth login, gh auth refresh -s project,repo).
 4. Beri tahu saya secara singkat apa yang terpasang, hasil doctor, dan bahwa sekarang saya bisa mengatakan hal seperti "tampilkan GitHub project saya".
@@ -72,6 +73,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### Instalasi global dan instalasi lokal (proyek)
+
+| | Global — semua proyek | Lokal — hanya proyek ini |
+|------|------|------|
+| Plugin Claude Code | `claude plugin install gp@sonub-skills` | di folder proyek: `claude plugin install gp@sonub-skills --scope project` (ditulis ke `.claude/settings.json`, dipakai bersama tim · hanya Anda: `--scope local`) |
+| Salin folder Claude Code | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| Papan yang dipakai | `/gp init <URL papan> --global` → `~/.config/gp/config.json` | `/gp init <URL papan>` → `<proyek>/.gp.json` |
+
+Lokasi pemasangan skill dan papan yang dipakainya ditentukan secara terpisah. Biasanya Anda memasang skill secara global sekali, lalu memberi setiap proyek papannya sendiri dengan `/gp init <URL papan>`.
+
 ### Pertama kali dijalankan
 
 Minta agen Anda *"siapkan gp"* (Claude Code: `/gp:gp`, Codex: `$gp`). Agen akan menjalankan:
@@ -81,16 +93,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · sudah login ✓ · s
 gh auth login                                   # hanya jika belum login — ketik kode sekali pakai di browser
 gh auth refresh -s project,repo                 # hanya jika ada scope yang kurang
 python3 scripts/gp.py projects                  # papan-papan Anda
-python3 scripts/gp.py use <owner> <number>      # pilih satu … atau buat yang baru:
+python3 scripts/gp.py init <URL papan>          # papan proyek ini (.gp.json) · semua proyek: --global … atau buat yang baru:
 python3 scripts/gp.py project-create --title "Pekerjaan saya" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### Memilih papan — `/gp init`
+
+Setiap proyek pengembangan bisa punya papan GitHub Project sendiri. Berikan alamat papan kepada agen Anda di folder proyek, maka pekerjaan proyek itu masuk ke papan tersebut.
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+Jika dipasang sebagai plugin Claude Code: `/gp:gp init …`; Codex: `$gp init …`. Mengatakan "pakai https://… sebagai papan proyek ini" juga bisa.
+
+- **Lokal (default)** — di dalam repositori git, papan disimpan di `<root repositori>/.gp.json` dan hanya dipakai di proyek itu (beserta subfoldernya). File ini tidak berisi rahasia: commit agar rekan tim memakai papan yang sama, atau tambahkan ke `.gitignore` agar hanya untuk Anda sendiri.
+- **Global** — `/gp init <URL> --global` (atau "jadikan papan default untuk semua proyek") → `~/.config/gp/config.json`, dipakai di setiap folder yang tidak punya `.gp.json`.
+- Halaman mana pun dari papan bisa dipakai (`/views/2`, papan pengguna `/users/…`, papan organisasi `/orgs/…`). Sebelum disimpan, papan diperiksa apakah ada dan bisa dibaca.
+- `/gp init` saja menampilkan papan yang sedang dipakai dan file pengaturannya. Hapus: `gp.py init --unset` (global: `--unset --global`).
+- Urutan penentuan papan: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → `.gp.json` proyek → pengaturan global.
 
 ### Cara memakainya — cukup katakan
 
 | Anda bilang | Agen menjalankan |
 |------|------|
 | "Buat issue: tombol login tidak merespons di iPhone. Langkah: reproduksi, perbaiki, uji. Lampirkan shot.png" | `create --repo app --title "…" --todo reproduksi --todo perbaiki --todo uji --image shot.png` → kolom Todo |
+| "/gp init https://github.com/orgs/my-team/projects/3" | `init …` → disimpan sebagai papan proyek ini (`.gp.json`) |
 | "Masukkan ke in progress" · "Pindahkan #12 ke Review" | `move app#12 doing` · `move app#12 review` |
 | "Selesai!" | `close app#12` — menutup issue dan memindahkannya ke Done |
 | "Tambahkan 'perbarui dokumentasi' ke TODO-nya" · "centang yang pertama" | `todo app#12 add "perbarui dokumentasi"` · `todo app#12 done 1` |
@@ -109,7 +138,7 @@ Semua perintah: [skills/gp/references/commands.md](skills/gp/references/commands
 - **Setiap perubahan dibaca ulang.** Setelah ada perubahan, skrip mencetak baris `check:` berisi keadaan sebenarnya di GitHub (status, kolom, penanggung jawab, label). Agen melapor berdasarkan baris itu.
 - **Gambar** memakai `--attach` milik gh (GitHub user-attachments). Dengan gh versi lama, gambar di-commit ke branch `gp-assets` di repositori issue lalu ditautkan.
 - **Aman secara default.** Setiap perintah yang mengubah sesuatu punya `--dry-run`. Menghapus issue, papan, field, atau kolom yang berisi kartu memerlukan `--yes`, dan skill ini menyuruh agen bertanya kepada Anda dulu. Undangan (yang mengirim e-mail ke orang sungguhan) juga ditanyakan dulu.
-- **Papan default** disimpan di `~/.config/gp/config.json`; bisa diganti dengan `--owner/--number` atau `GP_OWNER`/`GP_PROJECT`.
+- **Pengaturan papan** disimpan per proyek di `.gp.json` (lokal) dan untuk semua proyek di `~/.config/gp/config.json` (global). `--owner/--number` atau `GP_OWNER`/`GP_PROJECT` lebih diutamakan daripada keduanya.
 
 Catatan: tepat setelah issue dibuat, daftar project di GitHub bisa butuh beberapa detik untuk menampilkannya. Baris `check:` membaca issue secara langsung sehingga selalu terkini.
 

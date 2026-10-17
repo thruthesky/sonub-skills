@@ -44,8 +44,9 @@ thruthesky/sonub-skills রিপোজিটরি থেকে gp স্কি
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - আমি যদি "শুধু এই প্রজেক্টে" বলে থাকি, তাহলে শেষ লাইনটি প্রজেক্ট ফোল্ডারে --scope project যোগ করে চালাও।
    - যদি আগে থেকেই ইনস্টল করা থাকে, তার বদলে চালাও: claude plugin update gp@sonub-skills
-2. অন্য যেকোনো এজেন্ট: এটি তোমার ব্যবহারকারী স্কিল ফোল্ডার DIR-এ রাখো (Codex, Gemini CLI, Copilot CLI: ~/.agents/skills)।
+2. অন্য যেকোনো এজেন্ট: এটি স্কিল ফোল্ডার DIR-এ রাখো — সব প্রজেক্ট: ~/.agents/skills, শুধু এই প্রজেক্ট: <প্রজেক্ট>/.agents/skills।
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. চালাও: python3 <স্কিল ফোল্ডার>/scripts/gp.py doctor — এবং এটি যা জানায় তা ঠিক করো (gh ইনস্টল, gh auth login, gh auth refresh -s project,repo)।
 4. সংক্ষেপে আমাকে জানাও কী ইনস্টল হলো, doctor-এর ফলাফল কী, এবং এখন আমি "আমার GitHub প্রজেক্টগুলো দেখাও" এর মতো কথা বলতে পারি।
@@ -72,6 +73,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### গ্লোবাল ইনস্টল ও লোকাল (প্রজেক্ট) ইনস্টল
+
+| | গ্লোবাল — সব প্রজেক্ট | লোকাল — শুধু এই প্রজেক্ট |
+|------|------|------|
+| Claude Code প্লাগইন | `claude plugin install gp@sonub-skills` | প্রজেক্ট ফোল্ডারে: `claude plugin install gp@sonub-skills --scope project` (`.claude/settings.json`-এ লেখা হয়, টিমের সাথে শেয়ার হয় · শুধু আপনার জন্য: `--scope local`) |
+| Claude Code ফোল্ডার কপি | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| যে বোর্ড ব্যবহার হবে | `/gp init <বোর্ড URL> --global` → `~/.config/gp/config.json` | `/gp init <বোর্ড URL>` → `<প্রজেক্ট>/.gp.json` |
+
+স্কিল কোথায় ইনস্টল হবে আর এটি কোন বোর্ড ব্যবহার করবে — এ দুটো আলাদাভাবে বেছে নেওয়া হয়। সাধারণত স্কিলটি একবার গ্লোবালি ইনস্টল করে প্রতিটি প্রজেক্টকে `/gp init <বোর্ড URL>` দিয়ে তার বোর্ড দিয়ে দিন।
+
 ### প্রথমবার চালানো
 
 আপনার এজেন্টকে বলুন *"gp সেট আপ করো"* (Claude Code: `/gp:gp`, Codex: `$gp`)। এটি চালায়:
@@ -81,16 +93,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · লগইন ✓ · 
 gh auth login                                   # শুধু লগইন না থাকলে — ব্রাউজারে এককালীন কোডটি লিখুন
 gh auth refresh -s project,repo                 # শুধু কোনো স্কোপ না থাকলে
 python3 scripts/gp.py projects                  # আপনার বোর্ডগুলো
-python3 scripts/gp.py use <owner> <number>      # একটি বেছে নিন … অথবা নতুন একটি তৈরি করুন:
+python3 scripts/gp.py init <বোর্ড URL>          # এই প্রজেক্টের বোর্ড (.gp.json) · সব প্রজেক্ট: --global … অথবা নতুন একটি তৈরি করুন:
 python3 scripts/gp.py project-create --title "আমার কাজ" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### বোর্ড বেছে নিন — `/gp init`
+
+প্রতিটি ডেভেলপমেন্ট প্রজেক্টের নিজস্ব GitHub Project বোর্ড থাকতে পারে। প্রজেক্ট ফোল্ডারে আপনার এজেন্টকে বোর্ডের ঠিকানা দিন, তাহলে সেই প্রজেক্টের কাজ সেই বোর্ডে যাবে।
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+Claude Code প্লাগইন হিসেবে ইনস্টল করা থাকলে: `/gp:gp init …`; Codex: `$gp init …`। "https://… কে এই প্রজেক্টের বোর্ড হিসেবে ব্যবহার করো" বললেও কাজ হয়।
+
+- **লোকাল (ডিফল্ট)** — git রিপোজিটরির ভেতরে এটি `<রিপোজিটরির রুট>/.gp.json`-এ সংরক্ষিত হয় এবং শুধু সেই প্রজেক্টে (ও তার সাব-ফোল্ডারে) ব্যবহৃত হয়। এতে কোনো গোপন তথ্য নেই: টিমের সবাই যেন একই বোর্ড ব্যবহার করে সেজন্য এটি কমিট করুন, অথবা শুধু নিজের কাছে রাখতে `.gitignore`-এ যোগ করুন।
+- **গ্লোবাল** — `/gp init <URL> --global` (অথবা "এটাকে সব প্রজেক্টের ডিফল্ট বোর্ড করো") → `~/.config/gp/config.json`, যেসব ফোল্ডারে `.gp.json` নেই সেখানে ব্যবহৃত হয়।
+- বোর্ডের যেকোনো পেজ চলে (`/views/2`, ব্যবহারকারীর বোর্ড `/users/…`, সংগঠনের বোর্ড `/orgs/…`)। সংরক্ষণের আগে যাচাই করা হয় যে বোর্ডটি আছে এবং পড়া যায়।
+- শুধু `/gp init` দিলে এখন ব্যবহৃত বোর্ড ও তার সেটিং ফাইল দেখায়। সরাতে: `gp.py init --unset` (গ্লোবাল: `--unset --global`)।
+- কোন বোর্ড ব্যবহৃত হবে: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → প্রজেক্টের `.gp.json` → গ্লোবাল সেটিং।
 
 ### ব্যবহার — শুধু বলুন
 
 | আপনি বলেন | এজেন্ট চালায় |
 |------|------|
 | "একটা ইস্যু বানাও: iPhone-এ লগইন বোতাম কিছুই করে না। ধাপ: পুনরুৎপাদন, সংশোধন, পরীক্ষা। shot.png যুক্ত করো" | `create --repo app --title "…" --todo পুনরুৎপাদন --todo সংশোধন --todo পরীক্ষা --image shot.png` → Todo কলাম |
+| "/gp init https://github.com/orgs/my-team/projects/3" | `init …` → এই প্রজেক্টের বোর্ড হিসেবে সংরক্ষিত হয় (`.gp.json`) |
 | "এটা In Progress-এ দাও" · "#12 কে Review-তে সরাও" | `move app#12 doing` · `move app#12 review` |
 | "শেষ!" | `close app#12` — ইস্যুটি বন্ধ করে Done-এ সরিয়ে দেয় |
 | "এর TODO-তে 'ডকুমেন্ট হালনাগাদ' যোগ করো" · "প্রথমটায় টিক দাও" | `todo app#12 add "ডকুমেন্ট হালনাগাদ"` · `todo app#12 done 1` |
@@ -109,7 +138,7 @@ python3 scripts/gp.py view-add Board --layout board
 - **প্রতিটি পরিবর্তন আবার পড়ে দেখা হয়।** কোনো পরিবর্তনের পর স্ক্রিপ্ট GitHub-এর আসল অবস্থা (অবস্থা, কলাম, দায়িত্বপ্রাপ্ত ব্যক্তি, লেবেল) দিয়ে একটি `check:` লাইন দেখায়। এজেন্ট সেটি দেখেই জানায়।
 - **ছবি** gh-এর `--attach` (GitHub user-attachments) ব্যবহার করে। পুরনো gh হলে ছবিগুলো ইস্যুর রিপোজিটরির `gp-assets` ব্রাঞ্চে কমিট করে লিংক দেওয়া হয়।
 - **ডিফল্টভাবে নিরাপদ।** পরিবর্তন করে এমন প্রতিটি কমান্ডে `--dry-run` আছে। ইস্যু, বোর্ড, ফিল্ড বা কার্ডসহ কলাম মুছতে `--yes` লাগে, আর স্কিল এজেন্টকে বলে আগে আপনাকে জিজ্ঞেস করতে। আমন্ত্রণ (যা একজন সত্যিকারের মানুষকে ই-মেইল পাঠায়) পাঠানোর আগেও জিজ্ঞেস করা হয়।
-- **ডিফল্ট বোর্ড** `~/.config/gp/config.json`-এ সংরক্ষিত থাকে; `--owner/--number` বা `GP_OWNER`/`GP_PROJECT` দিয়ে বদলানো যায়।
+- **বোর্ড সেটিং** প্রতিটি প্রজেক্টের জন্য `.gp.json`-এ (লোকাল) এবং সব প্রজেক্টের জন্য `~/.config/gp/config.json`-এ (গ্লোবাল) সংরক্ষিত থাকে। `--owner/--number` বা `GP_OWNER`/`GP_PROJECT` দুটোর চেয়েই অগ্রাধিকার পায়।
 
 মনে রাখবেন: ইস্যু তৈরির ঠিক পরে GitHub-এর প্রজেক্ট তালিকায় সেটি দেখাতে কয়েক সেকেন্ড লাগতে পারে। `check:` লাইন সরাসরি ইস্যুটি পড়ে, তাই সবসময় হালনাগাদ থাকে।
 

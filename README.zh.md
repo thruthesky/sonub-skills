@@ -44,8 +44,9 @@
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - 如果我说“只装在这个项目”，请在项目文件夹中运行最后一行，并加上 --scope project。
    - 如果已经安装过，请改为运行：claude plugin update gp@sonub-skills
-2. 其他智能体：把它放到你的用户技能文件夹 DIR 中（Codex、Gemini CLI、Copilot CLI：~/.agents/skills）。
+2. 其他智能体：把它放到技能文件夹 DIR 中 —— 所有项目：~/.agents/skills，仅此项目：<项目>/.agents/skills。
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. 运行：python3 <技能文件夹>/scripts/gp.py doctor —— 并修复它报告的问题（安装 gh、gh auth login、gh auth refresh -s project,repo）。
 4. 简短告诉我安装了什么、doctor 的结果，以及我现在可以说“显示我的 GitHub 项目”之类的话来使用它。
@@ -72,6 +73,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### 全局安装与本地（项目）安装
+
+| | 全局 —— 所有项目 | 本地 —— 仅此项目 |
+|------|------|------|
+| Claude Code 插件 | `claude plugin install gp@sonub-skills` | 在项目文件夹中：`claude plugin install gp@sonub-skills --scope project`（写入 `.claude/settings.json`，与团队共享 · 仅自己：`--scope local`） |
+| Claude Code 复制文件夹 | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| 使用的看板 | `/gp init <看板 URL> --global` → `~/.config/gp/config.json` | `/gp init <看板 URL>` → `<项目>/.gp.json` |
+
+技能安装在哪里和使用哪个看板是分开决定的。通常只需全局安装一次技能，然后在每个项目中用 `/gp init <看板 URL>` 指定该项目的看板。
+
 ### 首次运行
 
 对智能体说 *"设置 gp"*（Claude Code：`/gp:gp`，Codex：`$gp`）。它会运行：
@@ -81,16 +93,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · 已登录 ✓ · 权
 gh auth login                                   # 仅在未登录时 —— 在浏览器中输入一次性代码
 gh auth refresh -s project,repo                 # 仅在缺少权限范围时
 python3 scripts/gp.py projects                  # 你的看板
-python3 scripts/gp.py use <owner> <number>      # 选一个……或者新建一个：
+python3 scripts/gp.py init <看板 URL>           # 本项目的看板（.gp.json）· 所有项目：--global ……或者新建一个：
 python3 scripts/gp.py project-create --title "我的工作" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### 选择看板 —— `/gp init`
+
+每个开发项目都可以有自己的 GitHub Project 看板。在项目文件夹中把看板地址告诉智能体，这个项目的工作就会放到那个看板上。
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+作为 Claude Code 插件安装时用 `/gp:gp init …`，Codex 用 `$gp init …`。也可以直接说“把 https://… 作为这个项目的看板”。
+
+- **本地（默认）** —— 在 git 仓库中运行时，保存到 `<仓库根目录>/.gp.json`，只在该项目（及其子文件夹）中使用。其中没有任何机密：提交它，团队成员就会使用同一个看板；或者把它加入 `.gitignore`，只留给自己用。
+- **全局** —— `/gp init <URL> --global`（或者说“设为所有项目的默认看板”）→ `~/.config/gp/config.json`，在所有没有 `.gp.json` 的文件夹中使用。
+- 看板的任何页面地址都可以（`/views/2`、用户看板 `/users/…`、组织看板 `/orgs/…`）。保存前会检查看板是否存在且可以读取。
+- 只输入 `/gp init` 会显示当前使用的看板及其设置文件。删除：`gp.py init --unset`（全局：`--unset --global`）。
+- 决定使用哪个看板的顺序：`--owner/--number` → `GP_OWNER`/`GP_PROJECT` → 项目的 `.gp.json` → 全局设置。
 
 ### 使用方法 —— 直接说出来
 
 | 你说 | 智能体运行 |
 |------|------|
 | "建一个 issue：在 iPhone 上点登录按钮没反应。步骤：复现、修复、测试。附上 shot.png" | `create --repo app --title "…" --todo 复现 --todo 修复 --todo 测试 --image shot.png` → Todo 列 |
+| "/gp init https://github.com/orgs/my-team/projects/3" | `init …` → 保存为这个项目的看板（`.gp.json`） |
 | "改成进行中" · "把 #12 移到 Review" | `move app#12 doing` · `move app#12 review` |
 | "完成了！" | `close app#12` —— 关闭 issue 并移到 Done |
 | "在它的 TODO 里加上'更新文档'" · "勾选第一项" | `todo app#12 add "更新文档"` · `todo app#12 done 1` |
@@ -109,7 +138,7 @@ python3 scripts/gp.py view-add Board --layout board
 - **每次修改都会读回确认。** 修改之后，脚本会输出一行 `check:`，显示 GitHub 上的真实状态（状态、列、负责人、标签）。智能体根据这一行来汇报。
 - **图片** 使用 gh 的 `--attach`（GitHub user-attachments）。如果 gh 版本较旧，图片会提交到该 issue 所在仓库的 `gp-assets` 分支并加上链接。
 - **默认安全。** 每个会做修改的命令都有 `--dry-run`。删除 issue、看板、字段或带卡片的列需要 `--yes`，并且技能会要求智能体先征求你的同意。邀请（会给真实的人发邮件）也会先询问。
-- **默认看板** 保存在 `~/.config/gp/config.json`；可以用 `--owner/--number` 或 `GP_OWNER`/`GP_PROJECT` 覆盖。
+- **看板设置** 按项目保存在 `.gp.json`（本地），对所有项目则保存在 `~/.config/gp/config.json`（全局）。`--owner/--number` 或 `GP_OWNER`/`GP_PROJECT` 优先于这两者。
 
 注意：刚创建 issue 后，GitHub 的项目列表可能要过几秒才会显示它。`check:` 这一行是直接读取 issue 的，所以总是最新的。
 

@@ -46,8 +46,9 @@
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - إذا طلبتُ "لهذا المشروع فقط"، فشغّل السطر الأخير في مجلد المشروع مع إضافة --scope project.
    - إذا كانت مثبّتة من قبل، فشغّل بدلًا من ذلك: claude plugin update gp@sonub-skills
-2. أي وكيل آخر: ضعها في مجلد مهارات المستخدم DIR (في Codex وGemini CLI وCopilot CLI: ~/.agents/skills).
+2. أي وكيل آخر: ضعها في مجلد المهارات DIR — لكل المشاريع: ~/.agents/skills، ولهذا المشروع فقط: <المشروع>/.agents/skills.
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. شغّل: python3 <مجلد المهارة>/scripts/gp.py doctor — وأصلح ما يُبلغ عنه (تثبيت gh، gh auth login، gh auth refresh -s project,repo).
 4. أخبرني باختصار بما تم تثبيته، وبنتيجة doctor، وبأنني أستطيع الآن أن أقول أشياء مثل "اعرض مشاريعي على GitHub".
@@ -74,6 +75,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### التثبيت العام والتثبيت المحلي (للمشروع)
+
+| | عام — كل المشاريع | محلي — هذا المشروع فقط |
+|------|------|------|
+| إضافة Claude Code | `claude plugin install gp@sonub-skills` | في مجلد المشروع: `claude plugin install gp@sonub-skills --scope project` (يُكتب في `.claude/settings.json` ويُشارَك مع الفريق · لك وحدك: `--scope local`) |
+| نسخ المجلد في Claude Code | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| اللوحة المستخدمة | `/gp init <رابط اللوحة> --global` ← `~/.config/gp/config.json` | `/gp init <رابط اللوحة>` ← `<المشروع>/.gp.json` |
+
+مكان تثبيت المهارة واللوحة التي تستخدمها يُختاران كلٌّ على حدة. عادةً تثبّت المهارة تثبيتًا عامًا مرة واحدة، ثم تعطي كل مشروع لوحته بـ `/gp init <رابط اللوحة>`.
+
 ### التشغيل الأول
 
 اطلب من وكيلك *"اضبط gp"* (في Claude Code: `/gp:gp`، وفي Codex: `$gp`). سيشغّل ما يلي:
@@ -83,16 +95,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · تسجيل الدخ�
 gh auth login                                   # فقط إذا لم تكن مسجّل الدخول — اكتب الرمز المؤقت في المتصفح
 gh auth refresh -s project,repo                 # فقط إذا كانت إحدى الصلاحيات ناقصة
 python3 scripts/gp.py projects                  # لوحاتك
-python3 scripts/gp.py use <owner> <number>      # اختر واحدة … أو أنشئ واحدة:
+python3 scripts/gp.py init <رابط اللوحة>        # لوحة هذا المشروع (.gp.json) · لكل المشاريع: --global … أو أنشئ واحدة:
 python3 scripts/gp.py project-create --title "عملي" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### اختر اللوحة — `/gp init`
+
+يمكن أن تكون لكل مشروع تطوير لوحة GitHub Project خاصة به. أعطِ وكيلك عنوان اللوحة داخل مجلد المشروع، فيذهب عمل ذلك المشروع إلى تلك اللوحة.
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+إذا كانت مثبّتة كإضافة Claude Code: `/gp:gp init …`؛ وفي Codex: `$gp init …`. ويمكنك أيضًا أن تقول "استخدم https://… لوحةً لهذا المشروع".
+
+- **محلي (الافتراضي)** — داخل مستودع git تُحفظ في `<جذر المستودع>/.gp.json` وتُستخدم في ذلك المشروع فقط (ومجلداته الفرعية). لا تحتوي على أي سرّ: أرسِلها (commit) ليستخدم زملاؤك اللوحة نفسها، أو أضفها إلى `.gitignore` لتبقى لك وحدك.
+- **عام** — `/gp init <URL> --global` (أو "اجعلها اللوحة الافتراضية لكل المشاريع") ← `~/.config/gp/config.json`، وتُستخدم في كل مجلد لا يحتوي على `.gp.json`.
+- أي صفحة من اللوحة تصلح (`/views/2`، ولوحات المستخدمين `/users/…`، ولوحات المؤسسات `/orgs/…`). ويُتحقَّق قبل الحفظ من أن اللوحة موجودة ويمكن قراءتها.
+- `/gp init` وحده يعرض اللوحة المستخدمة وملف إعداداتها. للإزالة: `gp.py init --unset` (للعام: `--unset --global`).
+- أي لوحة تُستخدم: `--owner/--number` ← `GP_OWNER`/`GP_PROJECT` ← ملف `.gp.json` في المشروع ← الإعداد العام.
 
 ### الاستخدام — قلها فقط
 
 | تقول أنت | يشغّل الوكيل |
 |------|------|
 | "أنشئ مشكلة: زر تسجيل الدخول لا يعمل على iPhone. الخطوات: إعادة الإنتاج، إصلاح، اختبار. أرفق shot.png" | `create --repo app --title "…" --todo "إعادة الإنتاج" --todo إصلاح --todo اختبار --image shot.png` ← عمود Todo |
+| "/gp init https://github.com/orgs/my-team/projects/3" | `init …` ← تُحفظ لوحةً لهذا المشروع (`.gp.json`) |
 | "ضعها قيد التنفيذ" · "انقل ‎#12 إلى Review" | `move app#12 doing` · `move app#12 review` |
 | "انتهيت!" | `close app#12` — يغلق المشكلة وينقلها إلى Done |
 | "أضف 'تحديث المستندات' إلى قائمة TODO الخاصة بها" · "حدّد الأول" | `todo app#12 add "تحديث المستندات"` · `todo app#12 done 1` |
@@ -111,7 +140,7 @@ python3 scripts/gp.py view-add Board --layout board
 - **كل تغيير يُقرأ مرة أخرى.** بعد أي تغيير يطبع السكربت سطر `check:` بالحالة الحقيقية على GitHub (الحالة، العمود، المكلَّفون، التسميات). ويعتمد الوكيل عليه في تقريره.
 - **الصور** تستخدم `--attach` في gh ‏(GitHub user-attachments). ومع إصدار أقدم من gh، تُرسَل الصور (commit) إلى فرع `gp-assets` في مستودع المشكلة ويُوضع رابط لها.
 - **آمنة افتراضيًا.** كل أمر يُجري تغييرًا له خيار `--dry-run`. وحذف مشكلة أو لوحة أو حقل أو عمود فيه بطاقات يحتاج إلى `--yes`، والمهارة تطلب من الوكيل أن يسألك أولًا. والدعوات (التي ترسل بريدًا إلكترونيًا إلى شخص حقيقي) يُسأل عنها أولًا أيضًا.
-- **اللوحة الافتراضية** تُحفظ في `~/.config/gp/config.json`؛ ويمكن تجاوزها بـ `--owner/--number` أو `GP_OWNER`/`GP_PROJECT`.
+- **إعداد اللوحة** يُحفظ لكل مشروع في `.gp.json` (محلي) ولكل المشاريع في `~/.config/gp/config.json` (عام). وتتقدّم `--owner/--number` أو `GP_OWNER`/`GP_PROJECT` على كليهما.
 
 ملاحظة: بعد إنشاء مشكلة مباشرة، قد تحتاج قائمة المشروع في GitHub بضع ثوانٍ لتظهر فيها. أما سطر `check:` فيقرأ المشكلة مباشرة ويكون محدّثًا دائمًا.
 

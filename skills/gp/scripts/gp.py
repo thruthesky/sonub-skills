@@ -8,7 +8,7 @@ so renaming a column on GitHub never breaks this script.
 
     gp.py doctor                                  # is gh installed, logged in, with the right scopes?
     gp.py projects [--owner O]                    # list boards
-    gp.py use <owner> <number>                    # remember the default board
+    gp.py init <board URL> [--global]             # this project's board (.gp.json), or --global for every project
     gp.py project-create --title T [--columns "Todo,In Progress,Done"] [--repo R] [--use]
     gp.py info                                    # fields, columns, counts, views
     gp.py column-add NAME | column-rename OLD NEW | column-delete NAME --yes | column-order "A,B,C"
@@ -19,8 +19,9 @@ so renaming a column on GitHub never breaks this script.
     gp.py todo <issue> [add "text" | done N | undo N | remove N]
     gp.py attach <issue> FILE... [--comment "text"]
 
-Run `gp.py <command> -h` for every option. The default board comes from
---owner/--number, then GP_OWNER/GP_PROJECT, then the file saved by `use`.
+Run `gp.py <command> -h` for every option. The board comes from --owner/--number,
+then GP_OWNER/GP_PROJECT, then the project's .gp.json (nearest one from the current
+folder up to the git root), then the global file (~/.config/gp/config.json).
 Every command that changes something accepts --dry-run.
 """
 import argparse
@@ -36,6 +37,7 @@ from collections import Counter, defaultdict
 
 CONFIG_PATH = os.environ.get("GP_CONFIG") or os.path.join(
     os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "gp", "config.json")
+LOCAL_CONFIG = ".gp.json"  # one project's board, in the root of its git repository
 STATUS_FIELD = os.environ.get("GP_STATUS_FIELD", "Status")
 ASSETS_BRANCH = "gp-assets"
 
@@ -152,18 +154,76 @@ def login_of(owner):
     return me() if owner in (None, "", "@me", "me") else owner
 
 
-def load_config():
+def read_json(path):
     try:
-        with open(CONFIG_PATH, encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except (OSError, ValueError):
         return {}
 
 
-def save_config(cfg):
-    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+def write_json(path, cfg):
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(cfg, f, ensure_ascii=False, indent=1)
+        f.write("\n")
+
+
+def project_root():
+    """Root folder of the git repository of the current folder, or None."""
+    try:
+        r = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True)
+    except OSError:
+        return None
+    return os.path.abspath(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip() else None
+
+
+def find_local_config():
+    """Nearest .gp.json from the current folder up to the git root (or the file system root)."""
+    d, root = os.path.abspath(os.getcwd()), project_root()
+    while True:
+        path = os.path.join(d, LOCAL_CONFIG)
+        if os.path.isfile(path):
+            return path
+        parent = os.path.dirname(d)
+        if parent == d or d == root:
+            return None
+        d = parent
+
+
+def config_path(scope):
+    """local → <git root or current folder>/.gp.json · global → ~/.config/gp/config.json."""
+    if scope == "global":
+        return CONFIG_PATH
+    return find_local_config() or os.path.join(project_root() or os.getcwd(), LOCAL_CONFIG)
+
+
+def config_scope(a):
+    """--global / --local, else local inside a git repository and global outside."""
+    if getattr(a, "global_", False):
+        return "global"
+    if getattr(a, "local", False):
+        return "local"
+    return "local" if project_root() else "global"
+
+
+def load_config():
+    """The board setting in effect (+ _scope, _path): the project's .gp.json, else the global file."""
+    for scope, path in (("local", find_local_config()), ("global", CONFIG_PATH)):
+        cfg = read_json(path) if path else {}
+        if cfg.get("number"):
+            return dict(cfg, _scope=scope, _path=path)
+    return {}
+
+
+def save_config(cfg, scope="global"):
+    path = config_path(scope)
+    write_json(path, cfg)
+    return path
+
+
+def board_config(p):
+    return {"owner": p["owner"]["login"], "number": p["number"], "title": p["title"], "url": p["url"]}
 
 
 def board(a):
@@ -172,8 +232,26 @@ def board(a):
     owner = a.owner or os.environ.get("GP_OWNER") or cfg.get("owner") or "@me"
     number = a.number or os.environ.get("GP_PROJECT") or cfg.get("number")
     if not number:
-        die("no board chosen. Run `gp.py projects` then `gp.py use <owner> <number>`, or pass --owner/--number.")
+        die("no board chosen. Run `gp.py init <board URL>` (this project) or `gp.py init <board URL> --global` "
+            "(every project), or pass --owner/--number. `gp.py projects` lists your boards.")
     return login_of(owner), int(number)
+
+
+def parse_board(target, number=None):
+    """Board URL | owner/number | owner number | number (= my board) → (owner, number)."""
+    t = target.strip()
+    m = re.match(r"(?:https?://)?(?:www\.)?github\.com/(?:users|orgs)/([^/\s]+)/projects/(\d+)", t)
+    if m:
+        return m.group(1), int(m.group(2))
+    if number is not None:
+        return t, int(number)
+    m = re.fullmatch(r"(@?[\w.-]+)\s*[/#]\s*(\d+)", t)
+    if m:
+        return m.group(1), int(m.group(2))
+    if t.isdigit():
+        return "@me", int(t)
+    die(f"not a board: {target!r} — use the board URL, e.g. https://github.com/users/<you>/projects/1 "
+        "(or https://github.com/orgs/<org>/projects/1), or <owner> <number>")
 
 
 def run(cmd, dry, input_text=None):
@@ -475,11 +553,7 @@ def cmd_doctor(a):
             print(f"✗ scope '{need}' missing → gh auth refresh -s project,repo")
     if not gh_supports_attach():
         print("• this gh cannot --attach images; gp will upload images to a 'gp-assets' branch instead (or: gh upgrade)")
-    cfg = load_config()
-    if cfg.get("number"):
-        print(f"✓ default board: {cfg.get('owner')} #{cfg.get('number')}  ({CONFIG_PATH})")
-    else:
-        print("• no default board yet → gp.py projects, then gp.py use <owner> <number>")
+    print_board_settings()
     print("ready" if ok else "fix the ✗ lines above")
 
 
@@ -499,11 +573,58 @@ def cmd_projects(a):
         print(f"  #{p['number']} {p['title']} · {p.get('items', {}).get('totalCount', '?')} items · {flags} · {p['url']}")
 
 
-def cmd_use(a):
-    owner = login_of(a.owner_arg)
-    p = load_project(owner, a.number_arg, with_items=False)
-    save_config({"owner": p["owner"]["login"], "number": p["number"]})
-    print(f"default board: {p['title']} ({p['owner']['login']} #{p['number']}) {p['url']}")
+def print_board_settings():
+    """Which board this folder uses, and from which file."""
+    cfg, local, glob = load_config(), find_local_config(), read_json(CONFIG_PATH)
+    if os.environ.get("GP_PROJECT"):
+        print(f"• GP_OWNER/GP_PROJECT override the files: {os.environ.get('GP_OWNER') or '@me'} #{os.environ['GP_PROJECT']}")
+    if cfg:
+        name = " ".join(str(x) for x in (cfg.get("title"), f"{cfg.get('owner')} #{cfg.get('number')}", cfg.get("url")) if x)
+        print(f"✓ board ({cfg['_scope']}): {name}  ← {cfg['_path']}")
+        if cfg["_scope"] == "local" and glob.get("number"):
+            print(f"• global board (used outside this project): {glob.get('owner')} #{glob.get('number')}  ← {CONFIG_PATH}")
+        elif cfg["_scope"] == "global" and project_root():
+            print(f"• this project has no {LOCAL_CONFIG}; `gp.py init <board URL>` gives it its own board")
+    else:
+        print("• no board yet → gp.py init <board URL> (this project) or gp.py init <board URL> --global (every project)")
+    if local and not read_json(local).get("number"):
+        print(f"• {local} has no board number — run gp.py init <board URL> again")
+
+
+def cmd_init(a):
+    scope = config_scope(a)
+    if a.unset:
+        path = config_path(scope)
+        if not os.path.isfile(path):
+            print(f"no {scope} board setting ({path})")
+        elif not a.dry_run:
+            os.remove(path)
+            print(f"removed the {scope} board setting: {path}")
+        else:
+            print(f"[dry-run] remove {path}")
+        print_board_settings()
+        return
+    if not a.target:
+        print_board_settings()
+        return
+    owner, number = parse_board(a.target, a.number_arg)
+    p = load_project(login_of(owner), number, with_items=False)
+    path = config_path(scope)
+    if a.dry_run:
+        print(f"[dry-run] write {path}: {board_config(p)}")
+        return
+    save_config(board_config(p), scope)
+    print(f"{scope} board: {p['title']} ({p['owner']['login']} #{p['number']}) {p['url']}")
+    print(f"  saved in {path}")
+    if scope == "local":
+        print(f"  used in {os.path.dirname(path)} and its sub folders. Commit {LOCAL_CONFIG} to share the board "
+              f"with the team, or add it to .gitignore to keep it to yourself.")
+    else:
+        local = find_local_config()
+        if local:
+            print(f"  note: this folder still uses its own board from {local} (gp.py init --unset --local removes it)")
+        else:
+            print("  used in every folder that has no .gp.json of its own")
 
 
 def update_options(project, field, options, dry):
@@ -542,8 +663,9 @@ def cmd_project_create(a):
     for repo in a.repo or []:
         run(["gh", "project", "link", str(number), "--owner", owner, "--repo", repo_full(repo, owner)], False)
     if a.use:
-        save_config({"owner": owner, "number": number})
-        print(f"  default board is now {owner} #{number}")
+        scope = config_scope(a)
+        path = save_config(board_config(load_project(owner, number, with_items=False)), scope)
+        print(f"  {scope} board is now {owner} #{number} ({path})")
     a.owner, a.number = owner, number
     cmd_info(a)
 
@@ -569,10 +691,11 @@ def cmd_project_delete(a):
     if not a.yes:
         die(f"this deletes the whole board '{p['title']}' ({p['url']}) and cannot be undone. Add --yes after the user agrees.")
     run(["gh", "project", "delete", str(number), "--owner", owner], a.dry_run)
-    cfg = load_config()
-    if cfg.get("number") == number and cfg.get("owner") == owner and not a.dry_run:
-        save_config({})
-        print("  default board cleared")
+    for path in (find_local_config(), CONFIG_PATH):
+        cfg = read_json(path) if path else {}
+        if cfg.get("number") == number and cfg.get("owner") == owner and not a.dry_run:
+            os.remove(path)
+            print(f"  board setting removed: {path}")
 
 
 def cmd_project_link(a):
@@ -1106,9 +1229,16 @@ def main():
     s = p("projects", cmd_projects, "list boards of an owner")
     s.add_argument("--closed", action="store_true")
     s.add_argument("--json", action="store_true")
-    s = p("use", cmd_use, "save the default board")
-    s.add_argument("owner_arg", metavar="owner")
-    s.add_argument("number_arg", metavar="number", type=int)
+    for name, help_text in (("init", "choose the board: this project (.gp.json) or --global (every project)"),
+                            ("use", "same as init")):
+        s = p(name, cmd_init, help_text, dry=True)
+        s.add_argument("target", nargs="?", help="board URL (https://github.com/users/U/projects/N[/views/1]), "
+                                                 "owner/number or owner; none = show the current setting")
+        s.add_argument("number_arg", metavar="number", nargs="?", type=int, help="board number when target is an owner")
+        where = s.add_mutually_exclusive_group()
+        where.add_argument("--local", action="store_true", help=f"this project: <git root>/{LOCAL_CONFIG} (default in a git repository)")
+        where.add_argument("--global", dest="global_", action="store_true", help=f"every project: {CONFIG_PATH} (default outside git)")
+        s.add_argument("--unset", action="store_true", help="remove the local (or --global) setting")
 
     s = p("project-create", cmd_project_create, "create a board", dry=True)
     s.add_argument("--title", required=True)
@@ -1117,7 +1247,8 @@ def main():
     s.add_argument("--public", action="store_true")
     s.add_argument("--columns", help='Status columns, e.g. "Todo,In Progress,Review,Done"')
     s.add_argument("--repo", action="append", help="link a repository (repeatable)")
-    s.add_argument("--use", action="store_true", help="make it the default board")
+    s.add_argument("--use", action="store_true", help="make it this project's board (with --global: every project's)")
+    s.add_argument("--global", dest="global_", action="store_true", help="with --use: save it as the global board")
     s = p("project-edit", cmd_project_edit, "rename, describe, publish, close or reopen a board", dry=True)
     s.add_argument("--title")
     s.add_argument("--desc")

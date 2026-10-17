@@ -44,8 +44,9 @@ Hãy cài kỹ năng gp từ kho thruthesky/sonub-skills.
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - Nếu tôi yêu cầu "chỉ cho dự án này", hãy chạy dòng cuối trong thư mục dự án và thêm --scope project.
    - Nếu đã cài rồi, hãy chạy lệnh này thay thế: claude plugin update gp@sonub-skills
-2. Agent khác: đặt nó vào thư mục kỹ năng người dùng DIR của bạn (Codex, Gemini CLI, Copilot CLI: ~/.agents/skills).
+2. Agent khác: đặt nó vào thư mục kỹ năng DIR — mọi dự án: ~/.agents/skills, chỉ dự án này: <dự án>/.agents/skills.
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. Chạy: python3 <thư mục kỹ năng>/scripts/gp.py doctor — và sửa những gì nó báo (cài gh, gh auth login, gh auth refresh -s project,repo).
 4. Cho tôi biết ngắn gọn những gì đã được cài, kết quả của doctor, và rằng giờ tôi có thể nói những câu như "cho tôi xem các GitHub project của tôi".
@@ -72,6 +73,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### Cài toàn cục và cài cục bộ (theo dự án)
+
+| | Toàn cục — mọi dự án | Cục bộ — chỉ dự án này |
+|------|------|------|
+| Plugin Claude Code | `claude plugin install gp@sonub-skills` | trong thư mục dự án: `claude plugin install gp@sonub-skills --scope project` (ghi vào `.claude/settings.json`, dùng chung với nhóm · chỉ riêng bạn: `--scope local`) |
+| Sao chép thư mục cho Claude Code | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| Bảng sử dụng | `/gp init <URL bảng> --global` → `~/.config/gp/config.json` | `/gp init <URL bảng>` → `<dự án>/.gp.json` |
+
+Nơi cài kỹ năng và bảng mà nó dùng được chọn riêng. Thông thường bạn cài kỹ năng toàn cục một lần, rồi chỉ định bảng cho từng dự án bằng `/gp init <URL bảng>`.
+
 ### Lần chạy đầu tiên
 
 Hãy nhờ agent *"thiết lập gp"* (Claude Code: `/gp:gp`, Codex: `$gp`). Agent sẽ chạy:
@@ -81,16 +93,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · đã đăng nhập �
 gh auth login                                   # chỉ khi chưa đăng nhập — nhập mã dùng một lần trong trình duyệt
 gh auth refresh -s project,repo                 # chỉ khi thiếu quyền
 python3 scripts/gp.py projects                  # các bảng của bạn
-python3 scripts/gp.py use <owner> <number>      # chọn một bảng … hoặc tạo bảng mới:
+python3 scripts/gp.py init <URL bảng>           # bảng của dự án này (.gp.json) · mọi dự án: --global … hoặc tạo bảng mới:
 python3 scripts/gp.py project-create --title "Công việc của tôi" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### Chọn bảng — `/gp init`
+
+Mỗi dự án phát triển có thể có bảng GitHub Project riêng. Đưa địa chỉ bảng cho agent trong thư mục dự án, công việc của dự án đó sẽ được quản lý trên bảng đó.
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+Nếu cài dưới dạng plugin Claude Code: `/gp:gp init …`; Codex: `$gp init …`. Nói "dùng https://… làm bảng của dự án này" cũng được.
+
+- **Cục bộ (mặc định)** — bên trong một kho git, bảng được lưu vào `<thư mục gốc của kho>/.gp.json` và chỉ dùng trong dự án đó (kể cả các thư mục con). Tệp này không chứa bí mật: hãy commit để đồng đội dùng cùng một bảng, hoặc thêm vào `.gitignore` để giữ riêng cho bạn.
+- **Toàn cục** — `/gp init <URL> --global` (hoặc "đặt làm bảng mặc định cho mọi dự án") → `~/.config/gp/config.json`, dùng ở mọi thư mục không có `.gp.json`.
+- Trang nào của bảng cũng được (`/views/2`, bảng của người dùng `/users/…`, bảng của tổ chức `/orgs/…`). Trước khi lưu, bảng được kiểm tra xem có tồn tại và đọc được không.
+- Chỉ gõ `/gp init` sẽ hiển thị bảng đang dùng và tệp cài đặt của nó. Xóa: `gp.py init --unset` (toàn cục: `--unset --global`).
+- Thứ tự chọn bảng: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → `.gp.json` của dự án → cài đặt toàn cục.
 
 ### Cách dùng — cứ nói ra
 
 | Bạn nói | Agent chạy |
 |------|------|
 | "Tạo issue: nút đăng nhập không phản hồi trên iPhone. Các bước: tái hiện, sửa, kiểm thử. Đính kèm shot.png" | `create --repo app --title "…" --todo "tái hiện" --todo sửa --todo "kiểm thử" --image shot.png` → cột Todo |
+| "/gp init https://github.com/orgs/my-team/projects/3" | `init …` → lưu làm bảng của dự án này (`.gp.json`) |
 | "Chuyển sang đang làm" · "Chuyển #12 sang Review" | `move app#12 doing` · `move app#12 review` |
 | "Xong rồi!" | `close app#12` — đóng issue và chuyển nó sang Done |
 | "Thêm 'cập nhật tài liệu' vào TODO của nó" · "đánh dấu mục đầu tiên" | `todo app#12 add "cập nhật tài liệu"` · `todo app#12 done 1` |
@@ -109,7 +138,7 @@ Tất cả lệnh: [skills/gp/references/commands.md](skills/gp/references/comma
 - **Mọi thay đổi đều được đọc lại.** Sau mỗi thay đổi, script in ra một dòng `check:` với trạng thái thực trên GitHub (trạng thái, cột, người được giao, nhãn). Agent báo cáo dựa trên dòng đó.
 - **Hình ảnh** dùng `--attach` của gh (GitHub user-attachments). Với gh phiên bản cũ, hình ảnh được commit vào nhánh `gp-assets` của kho chứa issue rồi gắn liên kết.
 - **An toàn theo mặc định.** Mọi lệnh thay đổi dữ liệu đều có `--dry-run`. Xóa issue, bảng, trường hoặc cột còn thẻ cần `--yes`, và kỹ năng yêu cầu agent hỏi bạn trước. Lời mời (sẽ gửi e-mail đến một người thật) cũng được hỏi trước.
-- **Bảng mặc định** được lưu trong `~/.config/gp/config.json`; có thể ghi đè bằng `--owner/--number` hoặc `GP_OWNER`/`GP_PROJECT`.
+- **Cài đặt bảng** được lưu cho từng dự án trong `.gp.json` (cục bộ) và cho mọi dự án trong `~/.config/gp/config.json` (toàn cục). `--owner/--number` hoặc `GP_OWNER`/`GP_PROJECT` được ưu tiên hơn cả hai.
 
 Lưu ý: ngay sau khi tạo issue, danh sách project của GitHub có thể mất vài giây mới hiển thị nó. Dòng `check:` đọc trực tiếp issue nên luôn là trạng thái mới nhất.
 

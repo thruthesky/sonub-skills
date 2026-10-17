@@ -8,7 +8,10 @@
 |------|------|
 | Options | `gp.py --owner my-org --number 3 info` (`@me` = the logged-in user) |
 | Environment | `GP_OWNER=my-org GP_PROJECT=3 gp.py info` |
-| Saved default | `gp.py use my-org 3` → `~/.config/gp/config.json` (`GP_CONFIG` changes the file) |
+| This project | `gp.py init https://github.com/orgs/my-org/projects/3` → `<git root>/.gp.json` (nearest one from the current folder up is used) |
+| Every project | `gp.py init https://github.com/users/me/projects/1 --global` → `~/.config/gp/config.json` (`GP_CONFIG` changes the file) |
+
+The first one found wins: options → environment → the project's `.gp.json` → the global file. `gp.py init` (no URL) and `doctor` show which board is in effect and from which file.
 
 Other environment variables: `GP_STATUS_FIELD` (default `Status`) if the board's column field has another name; `GP_NO_ATTACH=1` forces the `gp-assets` branch upload for images.
 
@@ -18,8 +21,8 @@ Other environment variables: `GP_STATUS_FIELD` (default `Status`) if the board's
 |------|------|
 | `doctor` | gh version, login, `project`/`repo` scopes, `--attach` support, default board |
 | `projects [--closed] [--json]` | boards of `--owner` (default: me) |
-| `use OWNER NUMBER` | save the default board |
-| `project-create --title T [--desc D] [--readme R] [--public] [--columns "A,B,C"] [--repo R]… [--use]` | new board; sets columns, links repos |
+| `init [URL\|owner/number\|owner number] [--local\|--global] [--unset]` | choose the board: local (default inside git) `<git root>/.gp.json`, `--global` `~/.config/gp/config.json`; no URL = show the setting; `--unset` removes it. `use` is the same command |
+| `project-create --title T [--desc D] [--readme R] [--public] [--columns "A,B,C"] [--repo R]… [--use [--global]]` | new board; sets columns, links repos; `--use` makes it this project's board (`--global`: every project's) |
 | `project-edit [--title] [--desc] [--readme] [--public\|--private] [--close\|--reopen]` | change the board |
 | `project-link R [--unlink]` | link a repo (the board shows on the repo's Projects tab) |
 | `project-delete --yes` | delete the board (items' issues stay in their repos) |

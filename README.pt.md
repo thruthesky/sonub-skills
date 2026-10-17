@@ -44,8 +44,9 @@ Caminho da skill: https://github.com/thruthesky/sonub-skills/tree/main/skills/gp
    claude plugin marketplace add thruthesky/sonub-skills
    claude plugin marketplace update sonub-skills
    claude plugin install gp@sonub-skills
+   - Se eu pedi "só para este projeto", execute a última linha na pasta do projeto acrescentando --scope project.
    - Se já estiver instalada, execute em vez disso: claude plugin update gp@sonub-skills
-2. Qualquer outro agente: coloque-a na sua pasta de skills do usuário DIR (Codex, Gemini CLI, Copilot CLI: ~/.agents/skills).
+2. Qualquer outro agente: coloque-a na pasta de skills DIR — todos os projetos: ~/.agents/skills, só este projeto: <projeto>/.agents/skills.
    mkdir -p DIR && rm -rf DIR/gp && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C DIR --strip-components=2 sonub-skills-main/skills/gp
 3. Execute: python3 <pasta da skill>/scripts/gp.py doctor — e corrija o que ele apontar (instalar gh, gh auth login, gh auth refresh -s project,repo).
 4. Diga-me em poucas palavras o que foi instalado, o resultado do doctor e que agora posso dizer coisas como "mostre os meus projetos do GitHub".
@@ -72,6 +73,17 @@ DIR=~/.agents/skills
 mkdir -p "$DIR" && rm -rf "$DIR/gp" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 sonub-skills-main/skills/gp
 ```
 
+#### Instalação global e instalação local (do projeto)
+
+| | Global — todos os projetos | Local — só este projeto |
+|------|------|------|
+| Plugin do Claude Code | `claude plugin install gp@sonub-skills` | na pasta do projeto: `claude plugin install gp@sonub-skills --scope project` (gravado em `.claude/settings.json` e compartilhado com a equipe · só você: `--scope local`) |
+| Claude Code, cópia da pasta | `~/.claude/skills/gp` | `.claude/skills/gp` |
+| Codex · Gemini CLI · Copilot CLI | `~/.agents/skills/gp` | `.agents/skills/gp` |
+| Quadro usado | `/gp init <URL do quadro> --global` → `~/.config/gp/config.json` | `/gp init <URL do quadro>` → `<projeto>/.gp.json` |
+
+Onde a skill é instalada e qual quadro ela usa são escolhidos separadamente. Normalmente você instala a skill globalmente uma vez e define o quadro de cada projeto com `/gp init <URL do quadro>`.
+
 ### Primeira execução
 
 Peça ao seu agente *"configure o gp"* (Claude Code: `/gp:gp`, Codex: `$gp`). Ele executa:
@@ -81,16 +93,33 @@ python3 scripts/gp.py doctor                    # gh ✓ · login feito ✓ · e
 gh auth login                                   # só se não houver login — digite o código de uso único no navegador
 gh auth refresh -s project,repo                 # só se faltar um escopo
 python3 scripts/gp.py projects                  # os seus quadros
-python3 scripts/gp.py use <owner> <number>      # escolha um … ou crie um:
+python3 scripts/gp.py init <URL do quadro>      # o quadro deste projeto (.gp.json) · todos os projetos: --global … ou crie um:
 python3 scripts/gp.py project-create --title "Meu trabalho" --columns "Todo,In Progress,Review,Done" --repo you/your-repo --use
 python3 scripts/gp.py view-add Board --layout board
 ```
+
+### Escolha o quadro — `/gp init`
+
+Cada projeto de desenvolvimento pode ter o seu próprio quadro do GitHub Project. Passe ao seu agente o endereço do quadro na pasta do projeto, e o trabalho desse projeto vai para esse quadro.
+
+```text
+/gp init https://github.com/users/thruthesky/projects/17/views/1
+```
+
+Instalada como plugin do Claude Code: `/gp:gp init …`; Codex: `$gp init …`. Dizer "use https://… como o quadro deste projeto" também funciona.
+
+- **Local (padrão)** — dentro de um repositório git, fica salvo em `<raiz do repositório>/.gp.json` e é usado só nesse projeto (e nas suas subpastas). Não contém nenhum segredo: faça commit dele para que a equipe use o mesmo quadro, ou adicione-o ao `.gitignore` para mantê-lo só para você.
+- **Global** — `/gp init <URL> --global` (ou "torne-o o quadro padrão de todos os projetos") → `~/.config/gp/config.json`, usado em qualquer pasta sem `.gp.json`.
+- Qualquer página do quadro serve (`/views/2`, quadros de usuário `/users/…`, quadros de organização `/orgs/…`). Antes de salvar, verifica-se que o quadro existe e pode ser lido.
+- `/gp init` sozinho mostra o quadro em uso e o seu arquivo de configuração. Remover: `gp.py init --unset` (global: `--unset --global`).
+- Qual quadro é usado: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → o `.gp.json` do projeto → a configuração global.
 
 ### Como usar — é só dizer
 
 | Você diz | O agente executa |
 |------|------|
 | "Crie uma issue: o botão de login não faz nada no iPhone. Passos: reproduzir, corrigir, testar. Anexe shot.png" | `create --repo app --title "…" --todo reproduzir --todo corrigir --todo testar --image shot.png` → coluna Todo |
+| "/gp init https://github.com/orgs/my-team/projects/3" | `init …` → salvo como o quadro deste projeto (`.gp.json`) |
 | "Coloque em andamento" · "Mova a #12 para Review" | `move app#12 doing` · `move app#12 review` |
 | "Pronto!" | `close app#12` — fecha a issue e a move para Done |
 | "Adicione 'atualizar a documentação' ao TODO dela" · "marque o primeiro" | `todo app#12 add "atualizar a documentação"` · `todo app#12 done 1` |
@@ -109,7 +138,7 @@ Todos os comandos: [skills/gp/references/commands.md](skills/gp/references/comma
 - **Toda alteração é lida de volta.** Após uma alteração, o script imprime uma linha `check:` com o estado real no GitHub (estado, coluna, responsáveis, labels). O agente faz o relatório a partir dela.
 - **Imagens** usam o `--attach` do gh (GitHub user-attachments). Com um gh mais antigo, as imagens são enviadas por commit para uma branch `gp-assets` do repositório da issue e vinculadas.
 - **Seguro por padrão.** Todo comando que altera algo tem `--dry-run`. Excluir uma issue, um quadro, um campo ou uma coluna com cartões exige `--yes`, e a skill instrui o agente a perguntar a você antes. Convites (que enviam e-mail a uma pessoa real) também são perguntados antes.
-- **O quadro padrão** fica salvo em `~/.config/gp/config.json`; substitua com `--owner/--number` ou `GP_OWNER`/`GP_PROJECT`.
+- **A configuração do quadro** fica salva por projeto em `.gp.json` (local) e para todos os projetos em `~/.config/gp/config.json` (global). `--owner/--number` ou `GP_OWNER`/`GP_PROJECT` têm prioridade sobre ambos.
 
 Observação: logo depois de criar uma issue, a lista do projeto no GitHub pode levar alguns segundos para mostrá-la. A linha `check:` lê a issue diretamente e está sempre atualizada.
 

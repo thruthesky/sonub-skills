@@ -11,6 +11,8 @@ claude plugin marketplace add thruthesky/sonub-skills
 claude plugin install gp@sonub-skills
 ```
 
+Install for one project only: add `--scope project` (or copy into `.claude/skills` / `.agents/skills` of the project). Then give each project its own board: `/gp init https://github.com/users/<you>/projects/<n>` saves it in the project's `.gp.json`; add `--global` for every project.
+
 Other agents: copy [`skills/gp`](skills/gp) into your skill folder (`~/.agents/skills`). Details, examples and an install box you can paste into your agent:
 
 **[English](README.en.md)** · [한국어](README.ko.md) · [中文](README.zh.md) · [日本語](README.ja.md) · [Español](README.es.md) · [Português](README.pt.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Русский](README.ru.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md) · [ไทย](README.th.md) · [Türkçe](README.tr.md) · [हिन्दी](README.hi.md) · [বাংলা](README.bn.md) · [العربية](README.ar.md) · [اردو](README.ur.md)

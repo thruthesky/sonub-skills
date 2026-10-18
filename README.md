@@ -2,6 +2,8 @@
 
 **Agent Skills from [SONUB](https://sonub.com)** — a skill marketplace for Claude Code, and standard `SKILL.md` skills for Codex, Gemini CLI, GitHub Copilot CLI and any other agent.
 
+🌐 **Homepage — pick a skill and copy the install in your language: https://thruthesky.github.io/sonub-skills/**
+
 | Skill | Plugin | What it does |
 |------|------|------|
 | [`gp`](skills/gp) | `gp` | Manage all your work in **GitHub Projects** — boards, kanban columns, issues, images, TODO checklists, assignees — by talking to your agent. Uses git and the `gh` CLI. |

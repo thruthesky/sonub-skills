@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-i18n="meta.title">sonub-skills — Agent Skills from SONUB</title>
+<meta name="description" data-i18n-content="meta.desc" content="Free, open-source Agent Skills for Claude Code, Codex, Gemini CLI and GitHub Copilot CLI. Install in one minute, then just ask in plain words.">
+<meta property="og:title" content="sonub-skills — Agent Skills from SONUB">
+<meta property="og:description" content="Free, open-source Agent Skills for Claude Code, Codex, Gemini CLI and GitHub Copilot CLI.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://thruthesky.github.io/sonub-skills/">
+<meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14130f" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://thruthesky.github.io/sonub-skills/">
+<link rel="alternate" hreflang="x-default" href="https://thruthesky.github.io/sonub-skills/">
+<link rel="alternate" hreflang="en" href="https://thruthesky.github.io/sonub-skills/?lang=en">
+<link rel="alternate" hreflang="ko" href="https://thruthesky.github.io/sonub-skills/?lang=ko">
+<link rel="alternate" hreflang="zh" href="https://thruthesky.github.io/sonub-skills/?lang=zh">
+<link rel="alternate" hreflang="ja" href="https://thruthesky.github.io/sonub-skills/?lang=ja">
+<link rel="alternate" hreflang="es" href="https://thruthesky.github.io/sonub-skills/?lang=es">
+<link rel="alternate" hreflang="pt" href="https://thruthesky.github.io/sonub-skills/?lang=pt">
+<link rel="alternate" hreflang="fr" href="https://thruthesky.github.io/sonub-skills/?lang=fr">
+<link rel="alternate" hreflang="de" href="https://thruthesky.github.io/sonub-skills/?lang=de">
+<link rel="alternate" hreflang="ru" href="https://thruthesky.github.io/sonub-skills/?lang=ru">
+<link rel="alternate" hreflang="vi" href="https://thruthesky.github.io/sonub-skills/?lang=vi">
+<link rel="alternate" hreflang="id" href="https://thruthesky.github.io/sonub-skills/?lang=id">
+<link rel="alternate" hreflang="th" href="https://thruthesky.github.io/sonub-skills/?lang=th">
+<link rel="alternate" hreflang="tr" href="https://thruthesky.github.io/sonub-skills/?lang=tr">
+<link rel="alternate" hreflang="hi" href="https://thruthesky.github.io/sonub-skills/?lang=hi">
+<link rel="alternate" hreflang="bn" href="https://thruthesky.github.io/sonub-skills/?lang=bn">
+<link rel="alternate" hreflang="ar" href="https://thruthesky.github.io/sonub-skills/?lang=ar">
+<link rel="alternate" hreflang="ur" href="https://thruthesky.github.io/sonub-skills/?lang=ur">
+<link rel="stylesheet" href="style.css">
+<script>
+  // Pick the language before first paint so the page does not flash English.
+  (function () {
+    var L = ['en','ko','zh','ja','es','pt','fr','de','ru','vi','id','th','tr','hi','bn','ar','ur'];
+    var pick = null, q = new URLSearchParams(location.search).get('lang');
+    if (q && L.indexOf(q) >= 0) pick = q;
+    if (!pick) { try { var s = localStorage.getItem('sonub-skills.lang'); if (s && L.indexOf(s) >= 0) pick = s; } catch (e) {} }
+    if (!pick) {
+      var list = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
+      for (var i = 0; i < list.length && !pick; i++) {
+        var c = String(list[i]).toLowerCase(), p = c.split('-')[0];
+        if (p === 'in') p = 'id';
+        if (L.indexOf(p) >= 0) pick = p;
+      }
+    }
+    pick = pick || 'en';
+    window.__LANG = pick;
+    if (pick !== 'en') document.documentElement.classList.add('i18n-loading');
+    document.documentElement.lang = pick;
+    document.documentElement.dir = (pick === 'ar' || pick === 'ur') ? 'rtl' : 'ltr';
+  })();
+</script>
+<script src="app.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="brand" href="#top" aria-label="sonub-skills">
+      <span class="brand-mark" aria-hidden="true">S</span>
+      <span class="brand-name">sonub-skills</span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="#install" data-i18n="nav.install">Install</a>
+      <a href="#skills" data-i18n="nav.skills">Skills</a>
+      <a href="#team" data-i18n="nav.team">Teams</a>
+      <a href="#faq" data-i18n="nav.faq">FAQ</a>
+      <a href="https://github.com/thruthesky/sonub-skills" class="nav-gh">GitHub ↗</a>
+    </nav>
+    <label class="lang">
+      <span class="lang-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.8 3.9 5.8 3.9 9s-1.3 6.2-3.9 9c-2.6-2.8-3.9-5.8-3.9-9S9.4 5.8 12 3z"/></svg>
+      </span>
+      <span class="sr-only" data-i18n="lang.label">Language</span>
+      <select id="lang-select" aria-label="Language"></select>
+    </label>
+  </div>
+</header>
+
+<main id="top">
+
+<section class="hero">
+  <div class="wrap hero-in">
+    <div class="hero-text">
+      <p class="eyebrow" data-i18n="hero.eyebrow">Agent Skills from SONUB</p>
+      <h1 data-i18n="hero.title">Teach your AI agent new skills — in one minute.</h1>
+      <p class="lead" data-i18n="hero.lead">Free, open-source skills for Claude Code, Codex, Gemini CLI and GitHub Copilot CLI. Install once, then just ask in plain words.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="#install" data-i18n="hero.ctaInstall">Install now</a>
+        <a class="btn btn-ghost" href="#skills" data-i18n="hero.ctaSkills">See the skills</a>
+      </div>
+      <p class="works"><span data-i18n="hero.works">Works with</span>
+        <span class="chip">Claude Code</span><span class="chip">Codex</span><span class="chip">Gemini CLI</span><span class="chip">GitHub Copilot CLI</span>
+      </p>
+    </div>
+    <div class="demo" aria-hidden="true">
+      <div class="demo-bar"><i></i><i></i><i></i><span>~/my-app</span></div>
+      <div class="demo-body">
+        <p class="say you"><b>›</b> <span data-i18n="demo.you1">make an issue: the login button does nothing on iPhone, attach shot.png</span></p>
+        <p class="say ai"><b>✓</b> <span data-i18n="demo.ai1">Created issue #42 in the Todo column, with the screenshot attached.</span></p>
+        <p class="say you"><b>›</b> <span data-i18n="demo.you2">move it to Done</span></p>
+        <p class="say ai"><b>✓</b> <span data-i18n="demo.ai2">Closed #42 and moved it to Done.</span></p>
+        <p class="say you"><b>›</b> <span data-i18n="demo.you3">what's new in Claude Code?</span></p>
+        <p class="say ai"><b>✓</b> <span data-i18n="demo.ai3">Here are the five most useful new features, each with how to try it.</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install" class="section">
+  <div class="wrap">
+    <h2 data-i18n="install.title">Install in three choices</h2>
+    <p class="sub" data-i18n="install.sub">Pick a skill, your agent and where it should live. The commands below update as you choose.</p>
+
+    <div class="pickers">
+      <div class="picker">
+        <p class="picker-label"><span class="num">1</span> <span data-i18n="install.pickSkill">Skill</span></p>
+        <div class="seg" role="group" data-pick="skill">
+          <button type="button" data-val="gp"><code>gp</code> <small data-i18n="install.skillGp">GitHub Projects</small></button>
+          <button type="button" data-val="claude-skill"><code>claude-skill</code> <small data-i18n="install.skillCs">Learn Claude Code</small></button>
+        </div>
+      </div>
+      <div class="picker">
+        <p class="picker-label"><span class="num">2</span> <span data-i18n="install.pickAgent">Your agent</span></p>
+        <div class="seg" role="group" data-pick="agent">
+          <button type="button" data-val="claude">Claude Code</button>
+          <button type="button" data-val="codex">Codex</button>
+          <button type="button" data-val="gemini">Gemini CLI</button>
+          <button type="button" data-val="copilot">Copilot CLI</button>
+        </div>
+      </div>
+      <div class="picker">
+        <p class="picker-label"><span class="num">3</span> <span data-i18n="install.pickScope">Where</span></p>
+        <div class="seg" role="group" data-pick="scope">
+          <button type="button" data-val="global" data-i18n="install.scopeGlobal">Every project</button>
+          <button type="button" data-val="project" data-i18n="install.scopeProject">This project only</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="result">
+      <article class="card card-main">
+        <div class="card-head">
+          <span class="badge" data-i18n="install.easiest">Easiest</span>
+          <h3 data-i18n="install.pasteTitle">Paste this into your agent</h3>
+        </div>
+        <p class="muted" data-i18n="install.pasteDesc">Your agent runs the install, checks your setup and tells you what to say next.</p>
+        <div class="code"><button type="button" class="copy" data-copy="out-prompt" data-i18n="ui.copy">Copy</button><pre id="out-prompt"></pre></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><h3 data-i18n="install.termTitle">Or run it yourself in a terminal</h3></div>
+        <div class="code"><button type="button" class="copy" data-copy="out-term" data-i18n="ui.copy">Copy</button><pre id="out-term"></pre></div>
+        <ul class="notes" id="out-notes"></ul>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><h3 data-i18n="install.startTitle">Then start using it</h3></div>
+        <ol class="start" id="out-start"></ol>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="skills" class="section section-alt">
+  <div class="wrap">
+    <h2 data-i18n="skills.title">The skills</h2>
+    <p class="sub" data-i18n="skills.sub">Each skill is a standard folder with a <code>SKILL.md</code> — the instructions an agent reads — plus a small Python tool. Nothing to sign up for.</p>
+
+    <div class="skills">
+      <article class="skill" id="skill-gp">
+        <header>
+          <p class="skill-name"><code>gp</code></p>
+          <h3 data-i18n="gp.tagline">All your work on a GitHub Project board</h3>
+        </header>
+        <p data-i18n="gp.desc">Talk to your agent in plain words and it manages your GitHub Project board with the <code>gh</code> CLI — then reads the result back to confirm.</p>
+        <ul class="feat">
+          <li data-i18n="gp.f1">Issues: create, edit, move between columns, close, reopen, comment</li>
+          <li data-i18n="gp.f2">Kanban columns: add, rename (cards stay), reorder, colour</li>
+          <li data-i18n="gp.f3">Screenshots and videos attached to issues</li>
+          <li data-i18n="gp.f4">TODO checklists inside an issue, with progress</li>
+          <li data-i18n="gp.f5">Assign people and invite collaborators</li>
+          <li data-i18n="gp.f6">A board per project with <code>/gp init &lt;board URL&gt;</code></li>
+        </ul>
+        <p class="try-label" data-i18n="ui.trySaying">Try saying</p>
+        <ul class="try">
+          <li data-i18n="gp.t1">“What's on my plate?”</li>
+          <li data-i18n="gp.t2">“Move #12 to Review”</li>
+          <li data-i18n="gp.t3">“Add ‘update the docs’ to its TODO”</li>
+          <li data-i18n="gp.t4">“Add a column Urgent at the front”</li>
+        </ul>
+        <p class="req" data-i18n="gp.req">Needs a free GitHub account, the <code>gh</code> CLI and Python 3.8+.</p>
+        <div class="skill-actions">
+          <button type="button" class="btn btn-primary btn-sm" data-install="gp" data-i18n="ui.installThis">Install this skill</button>
+          <a class="btn btn-ghost btn-sm" href="https://github.com/thruthesky/sonub-skills/tree/main/skills/gp" data-i18n="ui.source">Source</a>
+        </div>
+      </article>
+
+      <article class="skill" id="skill-claude-skill">
+        <header>
+          <p class="skill-name"><code>claude-skill</code> <span class="tag" data-i18n="cs.plugin">plugin: cc-skill</span></p>
+          <h3 data-i18n="cs.tagline">Learn Claude Code and get better at it</h3>
+        </header>
+        <p data-i18n="cs.desc">Claude Code ships a new version almost every day. This skill teaches it in order, answers from the current official docs, checks your setup and summarizes every new feature.</p>
+        <ul class="feat">
+          <li data-i18n="cs.f1">14 lessons with an exercise in your own project and check questions</li>
+          <li data-i18n="cs.f2">Quizzes, with your progress saved</li>
+          <li data-i18n="cs.f3">Answers checked against the official docs, with the link</li>
+          <li data-i18n="cs.f4">Every new CHANGELOG feature, summarized by topic</li>
+          <li data-i18n="cs.f5">A setup doctor for settings, CLAUDE.md, skills, plugins and MCP</li>
+          <li data-i18n="cs.f6"><code>/claude-skill update</code> pulls newly released features into the skill</li>
+        </ul>
+        <p class="try-label" data-i18n="ui.trySaying">Try saying</p>
+        <ul class="try">
+          <li data-i18n="cs.t1">“Next lesson”</li>
+          <li data-i18n="cs.t2">“How do I run prettier after every edit with a hook?”</li>
+          <li data-i18n="cs.t3">“Check my setup”</li>
+          <li data-i18n="cs.t4">“Give me a quiz”</li>
+        </ul>
+        <p class="req" data-i18n="cs.req">Needs Python 3.8+ and internet access (it reads the official docs).</p>
+        <div class="skill-actions">
+          <button type="button" class="btn btn-primary btn-sm" data-install="claude-skill" data-i18n="ui.installThis">Install this skill</button>
+          <a class="btn btn-ghost btn-sm" href="https://github.com/thruthesky/sonub-skills/tree/main/skills/claude-skill" data-i18n="ui.source">Source</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="team" class="section">
+  <div class="wrap two">
+    <div>
+      <h2 data-i18n="team.title">Give the whole team the same skills</h2>
+      <p data-i18n="team.desc">Commit this to your repository's <code>.claude/settings.json</code>. When a teammate opens the project in Claude Code and trusts the folder, the marketplace is added and the plugins are installed for them.</p>
+    </div>
+    <div class="code"><button type="button" class="copy" data-copy="out-team" data-i18n="ui.copy">Copy</button><pre id="out-team">{
+  "extraKnownMarketplaces": {
+    "sonub-skills": {
+      "source": { "source": "github", "repo": "thruthesky/sonub-skills" }
+    }
+  },
+  "enabledPlugins": {
+    "gp@sonub-skills": true,
+    "cc-skill@sonub-skills": true
+  }
+}</pre></div>
+  </div>
+
+  <div class="wrap">
+    <h3 class="h3-sep" data-i18n="upd.title">Update and remove</h3>
+    <div class="table-scroll">
+      <table class="tbl">
+        <thead><tr><th></th><th data-i18n="upd.update">Update</th><th data-i18n="upd.remove">Remove</th></tr></thead>
+        <tbody>
+          <tr><th>Claude Code</th>
+            <td><code>claude plugin marketplace update sonub-skills &amp;&amp; claude plugin update &lt;plugin&gt;@sonub-skills</code></td>
+            <td><code>claude plugin uninstall &lt;plugin&gt;@sonub-skills</code></td></tr>
+          <tr><th>Codex · Gemini CLI · Copilot CLI</th>
+            <td data-i18n="upd.otherUpdate">Run the same <code>curl … | tar</code> line again.</td>
+            <td data-i18n="upd.otherRemove">Delete the skill folder.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted small" data-i18n="upd.note"><code>&lt;plugin&gt;</code> is <code>gp</code> or <code>cc-skill</code>. Check what is installed with <code>claude plugin list</code>.</p>
+  </div>
+</section>
+
+<section id="faq" class="section section-alt">
+  <div class="wrap narrow">
+    <h2 data-i18n="faq.title">Questions</h2>
+    <details>
+      <summary data-i18n="faq.q1">What is an Agent Skill?</summary>
+      <p data-i18n="faq.a1">A folder with a <code>SKILL.md</code> file that tells an AI agent when and how to do a task, plus the scripts and notes it needs. It is an open standard (<a href="https://agentskills.io">agentskills.io</a>), so the same folder works in many agents.</p>
+    </details>
+    <details>
+      <summary data-i18n="faq.q2">Every project or this project only?</summary>
+      <p data-i18n="faq.a2">“Every project” installs the skill once for all projects on your computer. “This project only” keeps it inside one repository; with the Claude Code plugin it is written to <code>.claude/settings.json</code>, so teammates get it too.</p>
+    </details>
+    <details>
+      <summary data-i18n="faq.q3">Why is the plugin called cc-skill and not claude-skill?</summary>
+      <p data-i18n="faq.a3">Claude Code reserves plugin names that start with <code>claude-</code> for Anthropic. The plugin is <code>cc-skill</code>; the skill inside keeps its name, so you still type <code>/claude-skill</code>.</p>
+    </details>
+    <details>
+      <summary data-i18n="faq.q4">Is it free? Where does my data go?</summary>
+      <p data-i18n="faq.a4">Free and MIT-licensed. The skills run on your computer with your own tools: <code>gp</code> talks only to GitHub through your <code>gh</code> login, and <code>claude-skill</code> reads the public Claude Code docs and CHANGELOG.</p>
+    </details>
+    <details>
+      <summary data-i18n="faq.q5">It doesn't show up after installing. What now?</summary>
+      <p data-i18n="faq.a5">In Claude Code, run <code>/reload-plugins</code> in the open chat or start a new one. In other agents, start a new session so the skill folder is read again. You can also just ask your agent: “is the gp skill installed?”</p>
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-in">
+    <p><a id="readme-link" href="https://github.com/thruthesky/sonub-skills/blob/main/README.en.md" data-i18n="foot.readme">Read the full guide in your language</a></p>
+    <p><a href="https://sonub.com/learn/ai#agent-skill" data-i18n="foot.course">How skills work — SONUB AI course</a></p>
+    <p class="muted"><span data-i18n="foot.made">Made by SONUB</span> · <a href="https://github.com/thruthesky/sonub-skills/blob/main/LICENSE">MIT License</a></p>
+  </div>
+</footer>
+
+<!-- Strings the script puts together (install prompt, commands, notes). Translated like the rest. -->
+<div id="strings" hidden>
+  <span data-i18n="ui.copied">Copied!</span>
+  <span data-i18n="prompt.intro">Install the {skill} skill from the thruthesky/sonub-skills repository, {scope}.</span>
+  <span data-i18n="prompt.scopeGlobal">for every project (global)</span>
+  <span data-i18n="prompt.scopeProject">for this project only</span>
+  <span data-i18n="prompt.what">It is a standard Agent Skill (a folder with SKILL.md): {url}</span>
+  <span data-i18n="prompt.plugin">Install it as a Claude Code plugin. Run these in order (ignore “already added” errors):</span>
+  <span data-i18n="prompt.already">If it is already installed, run this instead: {cmd}</span>
+  <span data-i18n="prompt.folder">Download the skill folder into {dir}:</span>
+  <span data-i18n="prompt.doctor">Run {cmd} and fix whatever it reports.</span>
+  <span data-i18n="prompt.doctorGp">Run {cmd} and fix whatever it reports (install gh, gh auth login, gh auth refresh -s project,repo).</span>
+  <span data-i18n="prompt.report">Tell me briefly what was installed, the doctor result, and what I can say to start using it.</span>
+  <span data-i18n="prompt.skillFolder">&lt;skill folder&gt;</span>
+  <span data-i18n="note.reload">Already in a Claude Code chat? Run <code>/reload-plugins</code> after installing from the terminal (or restart).</span>
+  <span data-i18n="note.inChat">Inside a chat you can also type <code>/plugin install {plugin}@sonub-skills</code> and pick the scope on screen.</span>
+  <span data-i18n="note.project">Run it inside your project folder.</span>
+  <span data-i18n="note.teamShared">With <code>--scope project</code> it is written to <code>.claude/settings.json</code> — commit it and teammates get the skill too.</span>
+  <span data-i18n="note.folderUpdate">Run the same line again to update. Delete <code>{path}</code> to remove.</span>
+  <span data-i18n="note.newSession">Start a new session of your agent so it reads the new skill.</span>
+  <span data-i18n="note.reqGp">Needs Python 3.8+ and the GitHub CLI <code>gh</code>.</span>
+  <span data-i18n="note.reqCs">Needs Python 3.8+ and internet access.</span>
+  <span data-i18n="start.gp1">Set it up: {cmd} — it checks <code>gh</code> and your GitHub login.</span>
+  <span data-i18n="start.gp2">Choose this project's board: {cmd}</span>
+  <span data-i18n="start.gp3">Then just talk: “make an issue: the login button does nothing on iPhone”, “move it to Done”.</span>
+  <span data-i18n="start.cs1">Start studying: {cmd}</span>
+  <span data-i18n="start.cs2">Check your setup: {cmd}</span>
+  <span data-i18n="start.cs3">See what's new: {cmd}</span>
+  <span data-i18n="say.gpSetup">“set up gp”</span>
+  <span data-i18n="say.gpInit">“use &lt;board URL&gt; as this project's board”</span>
+  <span data-i18n="say.csStart">“let's study Claude Code”</span>
+  <span data-i18n="say.csDoctor">“check my Claude Code setup”</span>
+  <span data-i18n="say.csNew">“what's new in Claude Code?”</span>
+  <span data-i18n="say.or">or say</span>
+</div>
+
+</body>
+</html>

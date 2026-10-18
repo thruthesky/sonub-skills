@@ -13,7 +13,7 @@
 
 The first one found wins: options → environment → the project's `.gp.json` → the global file. `gp.py init` (no URL) and `doctor` show which board is in effect and from which file.
 
-Other environment variables: `GP_STATUS_FIELD` (default `Status`) if the board's column field has another name; `GP_NO_ATTACH=1` forces the `gp-assets` branch upload for images.
+Other environment variables: `GP_MODE=rest` / `GP_MODE=gh` forces the cloud-session (REST only) or the full GitHub CLI mode (default: automatic), `GP_STATUS_FIELD` (default `Status`) if the board's column field has another name; `GP_NO_ATTACH=1` forces the `gp-assets` branch upload for images.
 
 ## Commands
 
@@ -53,8 +53,26 @@ Other environment variables: `GP_STATUS_FIELD` (default `Status`) if the board's
 | `delete ISSUE --yes` | delete the issue for good (needs repo admin) |
 | `people [--repo R]` | items per assignee and column; repo collaborators |
 | `invite LOGIN [--repo R --permission pull\|triage\|push\|maintain\|admin] [--board-role reader\|writer\|admin\|none]` | invite to a repo and/or give a board role |
+| `sync [ISSUE…] [--repo R]… [--add] [--limit N]` | apply queued `gp:<column>` / `gp:<Field>=<value>` labels to the board and remove them; closed issues go to the done column. No ISSUE = scan the board's repos (+ this one). The gp-sync Action runs `sync <issue>` on every issue event |
+| `cloud-setup [--repo R] [--no-secret]` | once per repo, on a computer: `.gp.json` with columns, `.claude/skills/gp/`, `.github/workflows/gp-sync.yml`, Actions secret `GP_TOKEN` |
 
 Column words accepted anywhere a column is expected (exact names always win): `todo`, `doing`/`wip`/`progress`, `review`, `done`/`complete`/`fixed`, `urgent`, `later`, `backlog`, and Korean `할 일`, `진행`, `검토`, `완료`, `끝`, `긴급`, `나중`. A unique part of a name also works (`prog` → In Progress).
+
+## Rest mode (Claude Code cloud sessions)
+
+Only `gh api repos/{owner}/{repo}/…` (and `gh api user`) reach GitHub; GraphQL, `gh issue`, `gh pr`, `gh project` and `users|orgs/…/projectsV2` get HTTP 403. gp.py uses these REST calls instead:
+
+| gp.py | REST call |
+|------|------|
+| `create` | `POST repos/{o}/{r}/issues` (+ `POST …/issues/{parent}/sub_issues` for `--parent`) |
+| `edit` / `close` / `reopen` / `todo` | `PATCH repos/{o}/{r}/issues/{n}` (`state`, `state_reason`, `title`, `body`, `milestone`) |
+| `comment` | `POST repos/{o}/{r}/issues/{n}/comments` |
+| `assign` / `set --assignee` | `POST` / `DELETE repos/{o}/{r}/issues/{n}/assignees` |
+| `move`, `--status`, `--field` | `POST repos/{o}/{r}/issues/{n}/labels` with `gp:<column>` / `gp:<Field>=<value>` |
+| `list` | `GET repos/{o}/{r}/issues?state=…&assignee=…&labels=…` (columns not readable; ⏳ marks a queued move) |
+| `attach`, `--image` | `PUT repos/{o}/{r}/contents/…` on the `gp-assets` branch, then a Markdown image link |
+
+The built-in gh fills `{owner}` and `{repo}` with the current repository: `gh api repos/{owner}/{repo}/issues -f title='…'`. Install `jq` in the image if you want `--jq`; gp.py parses JSON itself.
 
 ## Plain gh for things gp.py does not wrap
 

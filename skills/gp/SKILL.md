@@ -1,8 +1,8 @@
 ---
 name: gp
-description: 나의 모든 일감을 GitHub Project 로 관리하는 스킬. 이슈(일감) 생성/수정/삭제, 이미지 첨부, TODO 추가, 목록, 컬럼(칸반) 생성, 이름 변경 등 GitHub Project 관련 모든 이슈 관리를 할 때 사용한다. Manages all of your work in GitHub Projects (v2) with git and the gh CLI — explains GitHub Projects, sets up a GitHub account and gh login, chooses the board per project (`init <board URL>` → .gp.json) or for every project (`init … --global`), creates/edits/closes/deletes boards, adds/renames/reorders/deletes columns (kanban), custom fields and views, creates/edits/moves/closes/reopens/deletes issues, attaches images, keeps TODO checklists and drafts, assigns people and invites collaborators. Use it whenever the user talks about tasks, issues, a kanban board, columns, TODOs or assigning work, even without saying GitHub — e.g. "/gp init https://github.com/users/me/projects/1", "이 프로젝트 보드 설정", "이슈 만들어", "TODO 에 추가", "Done 으로 옮겨", "칸 만들어", "컬럼 이름 바꿔", "스크린샷 첨부", "내 일 보여 줘", "create an issue", "move it to done", "add a column", "assign it to", "show my tasks".
+description: 나의 모든 일감을 GitHub Project 로 관리하는 스킬. 이슈(일감) 생성/수정/삭제, 이미지 첨부, TODO 추가, 목록, 컬럼(칸반) 생성, 이름 변경 등 GitHub Project 관련 모든 이슈 관리를 할 때 사용한다. Manages all of your work in GitHub Projects (v2) with git and the gh CLI — explains GitHub Projects, sets up a GitHub account and gh login, chooses the board per project (`init <board URL>` → .gp.json) or for every project (`init … --global`), creates/edits/closes/deletes boards, adds/renames/reorders/deletes columns (kanban), custom fields and views, creates/edits/moves/closes/reopens/deletes issues, attaches images, keeps TODO checklists and drafts, assigns people and invites collaborators — also inside Claude Code cloud sessions (claude.ai/code, `claude --cloud`, routines), where it manages issues with REST `gh api` calls and queues board moves as gp:… labels that a gp-sync GitHub Action applies. Use it whenever the user talks about tasks, issues, a kanban board, columns, TODOs or assigning work, even without saying GitHub — e.g. "/gp init https://github.com/users/me/projects/1", "이 프로젝트 보드 설정", "이슈 만들어", "TODO 에 추가", "Done 으로 옮겨", "칸 만들어", "컬럼 이름 바꿔", "스크린샷 첨부", "내 일 보여 줘", "create an issue", "move it to done", "add a column", "assign it to", "show my tasks".
 license: MIT
-compatibility: Needs gh (GitHub CLI) logged in with the project and repo scopes, and Python 3.8+.
+compatibility: Needs Python 3.8+ and gh (GitHub CLI) logged in with the project and repo scopes. In a Claude Code cloud session the session's gh (or Claude Code's built-in `gh api`, v2.1.288+) is enough for issues; the board follows through the gp-sync Action set up once with `gp.py cloud-setup`.
 ---
 
 # gp — all your work on a GitHub Project board
@@ -48,6 +48,8 @@ python3 $GP column-order "Todo,In Progress,Done" | column-delete NAME [--move-to
 python3 $GP field-add Priority --type single_select --options "High,Medium,Low" | field-delete NAME --yes
 python3 $GP view-add "My board" --layout board [--filter "assignee:@me"]
 python3 $GP people [--repo R] | invite LOGIN --repo R [--permission push] [--board-role writer]
+python3 $GP sync [R#12 …] [--repo R]                # apply queued gp:… labels to the board; closed issues → Done
+python3 $GP cloud-setup [--repo R]                   # once, on a computer: make this repo ready for cloud sessions
 ```
 
 - `<issue>` is a URL, `owner/repo#12` or `repo#12` (owner = the board owner). `--repo` takes `repo` or `owner/repo`.
@@ -62,6 +64,18 @@ Each development project can have its own board. `/gp init https://github.com/us
 - Default: inside a git repository → **local**, saved in `<git root>/.gp.json` and used only in that project. Outside git, or when the user says global / 전역 / 모든 프로젝트 / "기본 보드" → `--global`. "이 프로젝트만" → `--local`.
 - `init` checks that the board exists and is readable before saving. Report the board title, URL, scope and file from its output. `.gp.json` holds no secret (owner, number, title, URL): tell the user once they can commit it so teammates get the same board, or add it to `.gitignore`; don't commit it for them unless asked.
 - `init` with no URL, or "어느 보드야?" → shows the board in effect and where it comes from. No board yet → run `projects` and ask which one (or create one).
+
+## Claude Code cloud sessions
+
+A cloud session (claude.ai/code, the Claude app, `claude --cloud`, routines) runs on Anthropic's VM and reaches GitHub only through a proxy that **blocks GraphQL and every path outside `repos/{owner}/{repo}/…`** for the session's repositories. Tested 2026-10-18: `gh issue`, `gh project`, `gh api graphql` and the Projects REST API (`users/…/projectsV2`) all get HTTP 403 there; `gh api repos/…` works. When the image has no GitHub CLI, Claude Code (v2.1.288+) adds a built-in `gh` that knows only `gh api` — same limits. This is Claude Code only; Codex and other agents keep using the normal gh CLI.
+
+gp.py sees this (`CLAUDE_CODE_REMOTE=true`, `GH_TOKEN=proxy-injected`, or a gh that only knows `gh api`) and switches to **rest mode** by itself (`GP_MODE=rest|gh` overrides it):
+
+- **Works directly** (REST): `create`, `list`, `show`, `edit`, `todo`, `comment`, `attach` (images go to the `gp-assets` branch), `assign`, `set`, `close`, `reopen`, `people`, `doctor`, `columns`/`info` (from `.gp.json`). `--repo` defaults to the session's repository.
+- **Queued for the board**: the column (`move`, `--status`) and custom fields (`--field`) become labels — `gp:In Progress`, `gp:Priority=High`. The **gp-sync Action** in the repository moves the item and removes the label within about a minute; a closed issue goes to Done. Without the Action, `gp.py sync` on a computer does the same. Say "queued; the Action moves it" — don't claim the board already changed.
+- **Not possible in the cloud**: board, column, field and view commands, `create --draft`, `convert`, `remove`, `delete`, `invite --board-role`. gp.py stops with the reason; do them on a computer, or use `close --reason "not planned"` instead of `delete`.
+
+**Setup once per repository, on a computer with gh** (the agent can do all of it): `python3 $GP init <board URL>` then `python3 $GP cloud-setup` in the repository. It writes `.gp.json` with the board's columns (a cloud session can't read them), copies this skill to `.claude/skills/gp/` (cloud sessions don't install plugins or read `~/.claude/skills`), writes `.github/workflows/gp-sync.yml`, and stores the gh login token as the Actions secret `GP_TOKEN` (`--no-secret` to set your own token with `project`+`repo` scopes). Then commit and push those three paths. Run `cloud-setup` again after updating the skill or changing the board's columns. In a cloud session start with `python3 .claude/skills/gp/scripts/gp.py doctor`.
 
 ## First time on a computer
 

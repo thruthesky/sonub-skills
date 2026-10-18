@@ -18,11 +18,20 @@ so renaming a column on GitHub never breaks this script.
     gp.py close <issue> | reopen <issue> | delete <issue> --yes
     gp.py todo <issue> [add "text" | done N | undo N | remove N]
     gp.py attach <issue> FILE... [--comment "text"]
+    gp.py sync [<issue>…]                         # apply queued gp:… labels to the board (local or GitHub Actions)
+    gp.py cloud-setup                             # let Claude Code cloud sessions use this board (run locally once)
 
 Run `gp.py <command> -h` for every option. The board comes from --owner/--number,
 then GP_OWNER/GP_PROJECT, then the project's .gp.json (nearest one from the current
 folder up to the git root), then the global file (~/.config/gp/config.json).
 Every command that changes something accepts --dry-run.
+
+Claude Code cloud sessions (CLAUDE_CODE_REMOTE=true) reach GitHub only through a proxy
+that blocks GraphQL and every path outside repos/{owner}/{repo}/…, so the board itself
+cannot be read or changed there. In that "rest" mode gp.py works on issues with plain
+`gh api` REST calls (the built-in gh works too) and queues board changes as gp:<column> /
+gp:<Field>=<value> labels; `gp.py sync` (the gp-sync GitHub Action from `cloud-setup`,
+or a local run) moves the items and removes the labels. GP_MODE=rest|gh overrides it.
 """
 import argparse
 import base64
@@ -33,6 +42,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.parse
 from collections import Counter, defaultdict
 
 CONFIG_PATH = os.environ.get("GP_CONFIG") or os.path.join(
@@ -40,6 +50,11 @@ CONFIG_PATH = os.environ.get("GP_CONFIG") or os.path.join(
 LOCAL_CONFIG = ".gp.json"  # one project's board, in the root of its git repository
 STATUS_FIELD = os.environ.get("GP_STATUS_FIELD", "Status")
 ASSETS_BRANCH = "gp-assets"
+LABEL_PREFIX = "gp:"  # gp:In Progress = move to that column · gp:Priority=High = set a field (applied by `sync`)
+LABEL_COLOR = "8250df"
+GRAPHQL_BLOCKED = "GraphQL is not available from Claude Code sessions"
+PATH_BLOCKED = "sessions are bound to their configured repositories"
+SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Words people use for a column -> candidate column names, tried in order.
 # An exact (case-insensitive) column name always wins over an alias.
@@ -98,6 +113,28 @@ def die(msg, code=1):
     sys.exit(code)
 
 
+_MODE = None
+
+
+def mode():
+    """'gh' = the full GitHub CLI (GraphQL, gh project, gh issue) · 'rest' = a Claude Code cloud session,
+    where only REST calls to repos/{owner}/{repo}/… get through (gh api, or Claude Code's built-in gh)."""
+    global _MODE
+    if _MODE is None:
+        forced = os.environ.get("GP_MODE", "").strip().lower()
+        if forced in ("rest", "api", "cloud"):
+            _MODE = "rest"
+        elif forced in ("gh", "full", "local"):
+            _MODE = "gh"
+        elif os.environ.get("CLAUDE_CODE_REMOTE") == "true" or os.environ.get("GH_TOKEN") == "proxy-injected":
+            _MODE = "rest"
+        else:
+            r = subprocess.run(["gh", "--version"], capture_output=True, text=True) if shutil.which("gh") else None
+            # Claude Code's built-in gh (no GitHub CLI in the image) only knows `gh api`.
+            _MODE = "gh" if r is None or (r.stdout or "").startswith("gh version") else "rest"
+    return _MODE
+
+
 def gh(args, input_text=None, check=True):
     """Run gh with a list of arguments. Returns stdout. Adds a hint for missing scopes."""
     if not shutil.which("gh"):
@@ -106,7 +143,10 @@ def gh(args, input_text=None, check=True):
     if r.returncode != 0 and check:
         err = (r.stderr or r.stdout or "").strip()
         low = err.lower()
-        if "scope" in low or "insufficient" in low or "resource not accessible" in low:
+        if GRAPHQL_BLOCKED.lower() in low or PATH_BLOCKED in low:
+            err += ("\n→ this is a Claude Code cloud session: only repos/{owner}/{repo}/… REST calls reach GitHub. "
+                    "Run gp.py without GP_MODE=gh (rest mode), and board changes are queued as gp:… labels")
+        elif "scope" in low or "insufficient" in low or "resource not accessible" in low:
             err += "\n→ add scopes: gh auth refresh -s project,repo"
         if "not logged" in low or "gh auth login" in low:
             err += "\n→ log in first: gh auth login"
@@ -114,7 +154,43 @@ def gh(args, input_text=None, check=True):
     return r.stdout if check else r
 
 
+def rest(method, path, body=None, check=True):
+    """One REST call through `gh api` (works with the GitHub CLI and Claude Code's built-in gh). JSON in, JSON out."""
+    args = ["api", "-X", method, path, "-H", "Accept: application/vnd.github+json"]
+    if body is not None:
+        args += ["--input", "-"]
+    r = gh(args, input_text=json.dumps(body) if body is not None else None, check=check)
+    if not check:
+        if r.returncode != 0:
+            return None
+        r = r.stdout
+    return json.loads(r) if (r or "").strip() else {}
+
+
+def rest_all(path, limit=1000):
+    """Every page of a REST list (100 per page), without needing jq or --paginate."""
+    out, page = [], 1
+    sep = "&" if "?" in path else "?"
+    while len(out) < limit:
+        rows = rest("GET", f"{path}{sep}per_page=100&page={page}")
+        out += rows
+        if len(rows) < 100:
+            break
+        page += 1
+    return out[:limit]
+
+
+def need_board_access(what="this"):
+    """Stop in a cloud session before a GraphQL call that the GitHub proxy would refuse anyway."""
+    if mode() == "rest":
+        die(f"{what} needs the board (GitHub Projects v2), which a Claude Code cloud session cannot reach: its GitHub "
+            "proxy blocks GraphQL and every path outside repos/{owner}/{repo}/…. Issue commands work here (create, "
+            "list, show, edit, move, set, close, reopen, todo, comment, attach, assign) and queue board changes as "
+            f"{LABEL_PREFIX}… labels; run board commands on a computer with the GitHub CLI (`gh auth login`).")
+
+
 def graphql(query, **variables):
+    need_board_access()
     args = ["api", "graphql", "-f", f"query={query}"]
     for k, v in variables.items():
         if v is None:
@@ -133,6 +209,7 @@ def graphql(query, **variables):
 
 def graphql_json(query, variables):
     """GraphQL with structured variables (lists of objects) sent as a JSON body."""
+    need_board_access()
     out = gh(["api", "graphql", "--input", "-"], input_text=json.dumps({"query": query, "variables": variables}))
     data = json.loads(out)
     if data.get("errors"):
@@ -146,7 +223,7 @@ _ME = None
 def me():
     global _ME
     if _ME is None:
-        _ME = gh(["api", "user", "-q", ".login"]).strip()
+        _ME = rest("GET", "user")["login"]
     return _ME
 
 
@@ -223,7 +300,29 @@ def save_config(cfg, scope="global"):
 
 
 def board_config(p):
-    return {"owner": p["owner"]["login"], "number": p["number"], "title": p["title"], "url": p["url"]}
+    """What .gp.json keeps: the board, plus its columns and fields so a cloud session (which cannot read the
+    board) can still name columns correctly. `init`, `sync`, `cloud-setup` and column/field commands refresh it."""
+    cfg = {"owner": p["owner"]["login"], "number": p["number"], "title": p["title"], "url": p["url"]}
+    fields = {}
+    for f in p["fields"]["nodes"]:
+        if f and f.get("name"):
+            fields[f["name"]] = [o["name"] for o in f["options"]] if "options" in f else f.get("dataType", "").lower()
+    if isinstance(fields.get(STATUS_FIELD), list):
+        cfg["columns"] = fields[STATUS_FIELD]
+    cfg["fields"] = {k: v for k, v in fields.items() if k != STATUS_FIELD and (isinstance(v, list) or v in ("text", "number", "date"))}
+    return cfg
+
+
+def refresh_cache(owner, number):
+    """Rewrite the saved board settings (local and global) that point at this board with its current columns."""
+    p = None
+    for path in (find_local_config(), CONFIG_PATH):
+        cfg = read_json(path) if path else {}
+        if cfg.get("number") == number and str(cfg.get("owner", "")).lower() == owner.lower():
+            p = p or load_project(owner, number, with_items=False)
+            new = board_config(p)
+            if {k: cfg.get(k) for k in new} != new:
+                write_json(path, dict(cfg, **new))
 
 
 def board(a):
@@ -637,6 +736,7 @@ def update_options(project, field, options, dry):
     graphql_json("""mutation($f: ID!, $o: [ProjectV2SingleSelectFieldOptionInput!]) {
       updateProjectV2Field(input: {fieldId: $f, singleSelectOptions: $o}) { projectV2Field { ... on ProjectV2SingleSelectField { name options { name } } } } }""",
                  {"f": field["id"], "o": payload})
+    refresh_cache(project["owner"]["login"], project["number"])
 
 
 def cmd_project_create(a):
@@ -815,6 +915,8 @@ def cmd_field_add(a):
             die("--options \"A,B,C\" is required for a single-select field")
         cmd += ["--single-select-options", a.options]
     run(cmd, a.dry_run)
+    if not a.dry_run:
+        refresh_cache(owner, number)
 
 
 def cmd_field_delete(a):
@@ -826,6 +928,8 @@ def cmd_field_delete(a):
     if not a.yes:
         die(f"deleting field '{f['name']}' removes its value from every item. Add --yes after the user agrees.")
     run(["gh", "project", "field-delete", "--id", f["id"]], a.dry_run)
+    if not a.dry_run:
+        refresh_cache(owner, number)
 
 
 def cmd_view_add(a):
@@ -1108,45 +1212,52 @@ def cmd_attach(a):
         print(f"  check: body now has {len(imgs)} image(s)  {issue['url']}")
 
 
+def print_todos(head, body):
+    items = checklist(body)
+    print(head)
+    if not items:
+        print("  (no checklist yet — gp.py todo <issue> add \"first step\")")
+    for k, (_, done, text) in enumerate(items, 1):
+        print(f"  {k}. [{'x' if done else ' '}] {text}")
+    if items:
+        print(f"  {sum(d for _, d, _ in items)}/{len(items)} done")
+
+
+def todo_change(body, action, values):
+    """The issue body after `todo add|done|undo|remove`."""
+    items = checklist(body)
+    lines = body.splitlines()
+    if action == "add":
+        if not values:
+            die('give the TODO text: gp.py todo <issue> add "write the test" "update docs"')
+        return with_todos(body, values)
+    if not values:
+        die(f"give the item number(s): gp.py todo <issue> {action} 2")
+    for v in values:
+        k = int(v)
+        if not 1 <= k <= len(items):
+            die(f"there is no TODO #{k} (1–{len(items)})")
+        idx, done, text = items[k - 1]
+        if action == "done":
+            lines[idx] = re.sub(r"\[( )\]", "[x]", lines[idx], count=1)
+        elif action == "undo":
+            lines[idx] = re.sub(r"\[(x|X)\]", "[ ]", lines[idx], count=1)
+        elif action == "remove":
+            lines[idx] = None
+    return "\n".join(x for x in lines if x is not None) + "\n"
+
+
 def cmd_todo(a):
     owner, number = board(a)
     o, r, n = parse_ref(a.ref, owner)
     issue, _ = find_issue(o, r, n)
     body = issue["body"] or ""
-    items = checklist(body)
     if a.action in (None, "list"):
-        print(f"{o}/{r}#{n} {issue['title']}")
-        if not items:
-            print("  (no checklist yet — gp.py todo <issue> add \"first step\")")
-        for k, (_, done, text) in enumerate(items, 1):
-            print(f"  {k}. [{'x' if done else ' '}] {text}")
-        if items:
-            print(f"  {sum(d for _, d, _ in items)}/{len(items)} done")
-        return
-    lines = body.splitlines()
-    if a.action == "add":
-        if not a.values:
-            die('give the TODO text: gp.py todo <issue> add "write the test" "update docs"')
-        new_body = with_todos(body, a.values)
-    else:
-        if not a.values:
-            die(f"give the item number(s): gp.py todo <issue> {a.action} 2")
-        for v in a.values:
-            k = int(v)
-            if not 1 <= k <= len(items):
-                die(f"there is no TODO #{k} (1–{len(items)})")
-            idx, done, text = items[k - 1]
-            if a.action == "done":
-                lines[idx] = re.sub(r"\[( )\]", "[x]", lines[idx], count=1)
-            elif a.action == "undo":
-                lines[idx] = re.sub(r"\[(x|X)\]", "[ ]", lines[idx], count=1)
-            elif a.action == "remove":
-                lines[idx] = None
-        new_body = "\n".join(x for x in lines if x is not None) + "\n"
+        return print_todos(f"{o}/{r}#{n} {issue['title']}", body)
+    new_body = todo_change(body, a.action, a.values)
     run(["gh", "issue", "edit", str(n), "-R", f"{o}/{r}", "--body-file", "-"], a.dry_run, input_text=new_body)
     if not a.dry_run:
-        a.action = "list"
-        cmd_todo(a)
+        print_todos(f"{o}/{r}#{n} {issue['title']}", new_body)
 
 
 def cmd_convert(a):
@@ -1183,12 +1294,15 @@ def cmd_people(a):
 
 def cmd_invite(a):
     """Give someone access: repository collaborator (to be assignable) and/or board collaborator."""
-    owner, number = board(a)
+    if a.board_role:
+        need_board_access("--board-role")
+    owner = ref_owner(a) if mode() == "rest" else board(a)[0]
     if a.repo:
         full = repo_full(a.repo, owner)
         run(["gh", "api", "-X", "PUT", f"repos/{full}/collaborators/{a.login}", "-f", f"permission={a.permission}"], a.dry_run)
         print(f"  {a.login} gets an e-mail invitation to {full} ({a.permission}); they can be assigned after accepting")
     if a.board_role:
+        owner, number = board(a)
         p = load_project(owner, number, with_items=False)
         uid = graphql("query($l: String!) { user(login: $l) { id } }", l=a.login)["user"]["id"]
         print(("[dry-run] " if a.dry_run else "$ ") + f"updateProjectV2Collaborators {a.login} {a.board_role.upper()}")
@@ -1207,6 +1321,577 @@ def cmd_assign(a):
         run(["gh", "issue", "edit", str(n), "-R", full, flag, who], a.dry_run)
     if not a.dry_run:
         verify(p, o, r, n)
+
+
+# ---------------------------------------------------------------- sync: queued gp:… labels → the board
+
+def queued_labels(labels):
+    return [lb for lb in labels if lb.lower().startswith(LABEL_PREFIX)]
+
+
+def item_status(item_id):
+    data = graphql("query($id: ID!) { node(id: $id) { ... on ProjectV2Item { %s } } }" % ITEM_FIELDS, id=item_id)
+    return flatten(data["node"])["status"]
+
+
+def sync_issue(p, o, r, n, add, dry):
+    """Apply one issue's gp:… labels to the board, then remove them. A closed issue goes to the done column."""
+    issue = rest("GET", f"repos/{o}/{r}/issues/{n}")
+    queued = queued_labels([lb["name"] for lb in issue.get("labels", [])])
+    _, item_id = find_issue(o, r, n, p["owner"]["login"], p["number"])
+    if not item_id:
+        if not queued and not add:
+            print(f"  {o}/{r}#{n}: not on the board and nothing queued — skipped")
+            return
+        item_id = add_to_board(p, issue["html_url"], dry)
+    f, explicit = status_field(p), False
+    for lb in queued:
+        value = lb[len(LABEL_PREFIX):].strip()
+        try:
+            if "=" in value:
+                k, _, v = value.partition("=")
+                set_field_value(p, item_id, k.strip(), v.strip(), dry)
+            else:
+                set_single(p, item_id, f, resolve_option(f, value, STATUS_ALIASES), dry)
+                explicit = True
+        except SystemExit:
+            print(f"  ✗ {o}/{r}#{n}: label '{lb}' kept — no such column/field value on '{p['title']}'")
+            continue
+        run(["gh", "api", "-X", "DELETE", f"repos/{o}/{r}/issues/{n}/labels/{urllib.parse.quote(lb, safe='')}"], dry)
+    done = done_option(p)
+    if issue["state"] == "closed" and not explicit and done and not dry and item_status(item_id) != done["name"]:
+        set_single(p, item_id, f, done, dry)
+    if not dry:
+        verify(p, o, r, n)
+
+
+def cmd_sync(a):
+    owner, number = board(a)
+    p = load_project(owner, number, with_items=not a.refs)
+    targets = []
+    if a.refs:
+        targets = [parse_ref(ref, owner) for ref in a.refs]
+    else:
+        repos = [repo_full(x, owner) for x in a.repo] if a.repo else \
+            sorted({i["repo"] for i in p["all_items"] if i["repo"]} | ({current_repo()} - {None}))
+        for full in repos:
+            o, r = full.split("/")
+            for it in rest_all(f"repos/{full}/issues?state=all&sort=updated&direction=desc", limit=a.limit):
+                if queued_labels([lb["name"] for lb in it.get("labels", [])]):
+                    targets.append((o, r, it["number"]))
+        done = done_option(p)
+        for i in p["all_items"]:  # closed in a cloud session (or anywhere) but still in another column
+            if i["number"] and i["state"] in ("CLOSED", "MERGED") and done and i["status"] != done["name"]:
+                o, r = i["repo"].split("/")
+                targets.append((o, r, i["number"]))
+    targets = list(dict.fromkeys(targets))
+    print(f"{p['title']}: {len(targets)} issue(s) to sync")
+    for o, r, n in targets:
+        sync_issue(p, o, r, n, a.add, a.dry_run)
+    if not a.dry_run:
+        refresh_cache(owner, number)
+
+
+SYNC_WORKFLOW = """\
+# gp sync — Claude Code cloud sessions cannot reach the GitHub Project board (their GitHub proxy
+# blocks GraphQL and /users|/orgs/…/projectsV2), so gp queues board changes as gp:… labels on the
+# issue. This workflow applies them to the board and removes the labels. Made by `gp.py cloud-setup`.
+name: gp sync
+on:
+  issues:
+    types: [opened, labeled, closed, reopened]
+  workflow_dispatch:
+concurrency:
+  group: gp-sync-${{ github.event.issue.number || 'all' }}
+  cancel-in-progress: false
+jobs:
+  sync:
+    if: github.event_name != 'issues' || github.event.action != 'labeled' || startsWith(github.event.label.name, 'gp:')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .gp.json
+            .claude/skills/gp/scripts
+          sparse-checkout-cone-mode: false
+      - name: Apply queued board changes
+        env:
+          GH_TOKEN: ${{ secrets.GP_TOKEN }}
+          GP_MODE: gh
+          ISSUE: ${{ github.event.issue.html_url }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "::error::secret GP_TOKEN is missing - run 'gp.py cloud-setup' on your computer"; exit 1; fi
+          python3 .claude/skills/gp/scripts/gp.py sync ${ISSUE:+"$ISSUE"} --repo "$GITHUB_REPOSITORY"
+"""
+
+
+def cmd_cloud_setup(a):
+    """Run once on a computer with the GitHub CLI: makes the repository ready for Claude Code cloud sessions."""
+    owner, number = board(a)
+    p = load_project(owner, number, with_items=False)
+    root = project_root() or die("run cloud-setup inside the git repository that cloud sessions will open")
+    full = repo_full(a.repo, owner) if a.repo else current_repo() or die("no GitHub remote 'origin' — pass --repo owner/repo")
+    tag = "[dry-run] " if a.dry_run else ""
+    local = os.path.join(root, LOCAL_CONFIG)
+    print(f"{tag}write {local}  (board + its columns — cloud sessions cannot read the board itself)")
+    print(f"{tag}copy the gp skill → {os.path.join(root, '.claude', 'skills', 'gp')}  (cloud sessions load "
+          "skills from the repository's .claude/skills, not from plugins or ~/.claude)")
+    wf = os.path.join(root, ".github", "workflows", "gp-sync.yml")
+    print(f"{tag}write {wf}  (applies queued gp:… labels to the board)")
+    if not a.dry_run:
+        write_json(local, dict(read_json(local), **board_config(p)))
+        dest = os.path.join(root, ".claude", "skills", "gp")
+        if os.path.realpath(dest) != os.path.realpath(SKILL_DIR):
+            shutil.copytree(SKILL_DIR, dest, dirs_exist_ok=True,
+                            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".claude-plugin"))
+        os.makedirs(os.path.dirname(wf), exist_ok=True)
+        with open(wf, "w", encoding="utf-8") as fh:
+            fh.write(SYNC_WORKFLOW)
+    if a.no_secret:
+        print(f"• secret skipped — the Action needs GP_TOKEN: gh secret set GP_TOKEN -R {full}  "
+              "(a token with the 'project' and 'repo' scopes)")
+    else:
+        print(f"{tag}gh secret set GP_TOKEN -R {full}  (value: the token of your gh login — it has the 'project' scope)")
+        if not a.dry_run:
+            gh(["secret", "set", "GP_TOKEN", "-R", full], input_text=gh(["auth", "token"]).strip())
+    perm = rest("GET", f"repos/{full}/actions/permissions", check=False)
+    if perm is not None and not perm.get("enabled", True):
+        print(f"✗ GitHub Actions is turned off for {full} — turn it on (Settings → Actions) or the board will not follow")
+    print(f"\nnext: commit and push these so cloud sessions get them:\n"
+          f"  git add {LOCAL_CONFIG} .claude/skills/gp .github/workflows/gp-sync.yml && "
+          f"git commit -m 'gp: cloud sessions can manage the board' && git push\n"
+          f"then in a cloud session: python3 .claude/skills/gp/scripts/gp.py doctor")
+
+
+# ---------------------------------------------------------------- Claude Code cloud sessions (rest mode)
+#
+# Only REST calls under repos/{owner}/{repo}/… for the session's repositories get through the proxy, so issues
+# are handled with REST and every board change becomes a gp:… label that `sync` applies later.
+
+def current_repo():
+    """owner/repo of the 'origin' remote (also the proxy remote of a cloud session), or None."""
+    try:
+        r = subprocess.run(["git", "remote", "get-url", "origin"], capture_output=True, text=True)
+    except OSError:
+        return None
+    m = re.search(r"([^/:]+)/([^/]+?)(?:\.git)?/?$", r.stdout.strip()) if r.returncode == 0 else None
+    return f"{m.group(1)}/{m.group(2)}" if m else None
+
+
+def ref_owner(a):
+    """Owner for repo#12 refs without a board lookup: the board owner, else the current repository's owner."""
+    owner = a.owner or os.environ.get("GP_OWNER") or load_config().get("owner")
+    if owner and owner not in ("@me", "me"):
+        return owner
+    cur = current_repo()
+    return cur.split("/")[0] if cur else me()
+
+
+def rest_repo(a, owner):
+    full = repo_full(a.repo, owner) if getattr(a, "repo", None) else current_repo()
+    return full or die("--repo is required (no GitHub remote 'origin' here)")
+
+
+def write(method, path, body, dry, note=""):
+    print(("[dry-run] " if dry else "$ ") + f"gh api -X {method} {path}" + (f"  {note}" if note else ""))
+    return {} if dry else rest(method, path, body)
+
+
+def logins(names):
+    return [me() if x in ("@me", "me") else x for x in names or []]
+
+
+def cached_columns():
+    return load_config().get("columns") or []
+
+
+def column_label(word):
+    """gp:<column> — the real column name when .gp.json knows the columns, else the word itself (sync resolves it)."""
+    cols = cached_columns()
+    if cols:
+        name = resolve_option({"name": STATUS_FIELD, "options": [{"name": c} for c in cols]}, word, STATUS_ALIASES)["name"]
+    else:
+        name = word.strip()
+    return LABEL_PREFIX + name
+
+
+def field_label(kv):
+    k, _, v = kv.partition("=")
+    cfg = load_config()
+    fields = cfg.get("fields") or {}
+    real = next((name for name in fields if name.lower() == k.strip().lower()), k.strip())
+    if "fields" in cfg and real not in fields:
+        print(f"• field '{real}' is not in {LOCAL_CONFIG} (known: {', '.join(fields) or 'none'}) — sync keeps the label if the board has no such field")
+    if isinstance(fields.get(real), list) and v.strip():
+        v = resolve_option({"name": real, "options": [{"name": o} for o in fields[real]]}, v)["name"]
+    return f"{LABEL_PREFIX}{real}={v.strip()}"
+
+
+def queue(full, n, labels, dry, status=None, fields=(), clear_status=False):
+    """Replace this issue's queued gp:… labels for the same column/fields with new ones."""
+    old = queued_labels(labels)
+    new = ([column_label(status)] if status else []) + [field_label(kv) for kv in fields or []]
+    keys = {lb.split("=", 1)[0].lower() if "=" in lb else "" for lb in new}
+    if clear_status:
+        keys.add("")
+    drop = [lb for lb in old if (lb.split("=", 1)[0].lower() if "=" in lb else "") in keys and lb not in new]
+    for lb in drop:
+        write("DELETE", f"repos/{full}/issues/{n}/labels/{urllib.parse.quote(lb, safe='')}", None, dry)
+    add = [lb for lb in new if lb not in old]
+    for lb in add:
+        if not dry:
+            what = f"set {lb[len(LABEL_PREFIX):]}" if "=" in lb else f"move to the '{lb[len(LABEL_PREFIX):]}' column"
+            rest("POST", f"repos/{full}/labels", {"name": lb[:50], "color": LABEL_COLOR,
+                                                  "description": f"gp sync: {what} on the board"[:100]}, check=False)
+    if add:
+        write("POST", f"repos/{full}/issues/{n}/labels", {"labels": add}, dry, "queued for the board: " + ", ".join(add))
+
+
+_SYNC = {}
+
+
+def has_sync(full):
+    if full not in _SYNC:
+        _SYNC[full] = rest("GET", f"repos/{full}/contents/.github/workflows/gp-sync.yml", check=False) is not None
+    return _SYNC[full]
+
+
+def verify_rest(full, n):
+    it = rest("GET", f"repos/{full}/issues/{n}")
+    labels = [lb["name"] for lb in it.get("labels", [])]
+    q = queued_labels(labels)
+    print(f"  check: {full}#{n} state={it['state'].upper()} assignees={','.join(x['login'] for x in it.get('assignees', [])) or '-'} "
+          f"labels={','.join(lb for lb in labels if lb not in q) or '-'} queued={','.join(q) or '-'}  {it['html_url']}")
+    if q:
+        print("  board: " + ("the gp-sync Action applies the queued labels in about a minute" if has_sync(full) else
+                             "queued — `gp.py sync` on a computer with the GitHub CLI applies it (`gp.py cloud-setup` "
+                             "adds an Action that does it automatically)"))
+    return it
+
+
+def milestone_number(full, m):
+    if str(m).isdigit():
+        return int(m)
+    for x in rest_all(f"repos/{full}/milestones?state=all"):
+        if x["title"].lower() == str(m).lower():
+            return x["number"]
+    die(f"milestone '{m}' not found in {full}")
+
+
+def rest_create(a):
+    if a.draft:
+        need_board_access("a draft item (it lives only on the board)")
+    full = rest_repo(a, ref_owner(a))
+    body = a.body or ""
+    if a.body_file:
+        with open(a.body_file, encoding="utf-8") as fh:
+            body = fh.read()
+    if a.todo:
+        body = with_todos(body, a.todo)
+    payload = {"title": a.title, "body": body, "labels": a.label or [], "assignees": logins(a.assignee)}
+    if a.milestone:
+        payload["milestone"] = milestone_number(full, a.milestone)
+    issue = write("POST", f"repos/{full}/issues", payload, a.dry_run, f"'{a.title}'")
+    if a.dry_run:
+        return
+    n = issue["number"]
+    print(f"  issue: {issue['html_url']}")
+    if a.image:
+        links = upload_to_branch(full, a.image, n, False)
+        rest("PATCH", f"repos/{full}/issues/{n}", {"body": (body.rstrip() + "\n\n" + "\n".join(links)).strip() + "\n"})
+    if a.parent:
+        pn = int(re.sub(r"\D", "", str(a.parent).rstrip("/").split("/")[-1].split("#")[-1]))
+        write("POST", f"repos/{full}/issues/{pn}/sub_issues", {"sub_issue_id": issue["id"]}, False, f"sub-issue of #{pn}")
+    queue(full, n, [], False, status=a.status or "todo", fields=a.field)
+    verify_rest(full, n)
+
+
+def rest_ref(a):
+    o, r, n = parse_ref(a.ref, ref_owner(a))
+    return f"{o}/{r}", n
+
+
+def rest_show(a):
+    full, n = rest_ref(a)
+    it = rest("GET", f"repos/{full}/issues/{n}")
+    if a.json:
+        print(json.dumps(it, ensure_ascii=False, indent=1))
+        return
+    labels = [lb["name"] for lb in it.get("labels", [])]
+    q = queued_labels(labels)
+    print(f"{full}#{n} {it['title']} ({it['state'].upper()})  {it['html_url']}")
+    print(f"  assignees: {','.join(x['login'] for x in it.get('assignees', [])) or '-'} · labels: "
+          f"{','.join(lb for lb in labels if lb not in q) or '-'} · milestone: {(it.get('milestone') or {}).get('title', '-')}")
+    print(f"  board: column not readable from a cloud session" + (f" · queued: {', '.join(q)}" if q else ""))
+    print("\n" + (it.get("body") or "(no body)"))
+    if a.comments and it.get("comments"):
+        for c in rest_all(f"repos/{full}/issues/{n}/comments")[-a.comments:]:
+            print(f"\n--- {c['user']['login']} {c['created_at'][:10]}\n{c['body']}")
+
+
+def rest_list(a):
+    owner = ref_owner(a)
+    full = rest_repo(a, owner)
+    q = f"repos/{full}/issues?state={a.state}&sort=updated&direction=desc"
+    if a.assignee:
+        q += "&assignee=" + urllib.parse.quote(logins([a.assignee])[0])
+    if a.label:
+        q += "&labels=" + urllib.parse.quote(a.label)
+    rows = [x for x in rest_all(q, limit=300) if "pull_request" not in x]
+    if a.search:
+        rows = [x for x in rows if a.search.lower() in (x["title"] + " " + (x.get("body") or "")).lower()]
+    items = []
+    for x in rows:
+        labels = [lb["name"] for lb in x.get("labels", [])]
+        qd = queued_labels(labels)
+        col = next((lb[len(LABEL_PREFIX):] for lb in qd if "=" not in lb), "")
+        items.append({"repo": full, "number": x["number"], "ref": f"{full.split('/')[1]}#{x['number']}", "title": x["title"],
+                      "state": x["state"].upper(), "url": x["html_url"], "body": x.get("body") or "",
+                      "assignees": [y["login"] for y in x.get("assignees", [])], "updated": x["updated_at"][:10],
+                      "labels": [lb for lb in labels if lb not in qd], "queued": qd, "queued_column": col})
+    if a.status:
+        wanted = {column_label(s)[len(LABEL_PREFIX):].lower() for s in a.status.split(",")}
+        items = [i for i in items if i["queued_column"].lower() in wanted]
+    if a.json:
+        print(json.dumps(items, ensure_ascii=False, indent=1))
+        return
+    print(f"{full}: {len(items)} issue(s) — a cloud session cannot read the board's columns; "
+          f"⏳ = a column change queued for gp sync")
+    for state in ("OPEN", "CLOSED"):
+        lst = [i for i in items if i["state"] == state]
+        if not lst:
+            continue
+        print(f"## {state.lower()} ({len(lst)})")
+        for i in lst:
+            todo = checklist(i["body"])
+            extra = [f"⏳ {i['queued_column']}"] if i["queued_column"] else []
+            if todo:
+                extra.append(f"todo {sum(d for _, d, _ in todo)}/{len(todo)}")
+            if i["labels"]:
+                extra.append("labels:" + ",".join(i["labels"]))
+            print(f"  {i['ref']} {i['title']} | {','.join(i['assignees']) or '-'} | {i['updated']}"
+                  + (f" | {' '.join(extra)}" if extra else "") + f" | {i['url']}")
+
+
+def labels_of(full, n):
+    return [lb["name"] for lb in rest("GET", f"repos/{full}/issues/{n}").get("labels", [])]
+
+
+def rest_move(a):
+    full, n = rest_ref(a)
+    queue(full, n, labels_of(full, n), a.dry_run, status=a.column)
+    if not a.dry_run:
+        verify_rest(full, n)
+
+
+def rest_edit(a):
+    full, n = rest_ref(a)
+    it = rest("GET", f"repos/{full}/issues/{n}")
+    patch = {}
+    if a.title:
+        patch["title"] = a.title
+    if a.body is not None:
+        patch["body"] = a.body
+    if a.body_file:
+        with open(a.body_file, encoding="utf-8") as fh:
+            patch["body"] = fh.read()
+    if a.append:
+        patch["body"] = (it.get("body") or "").rstrip() + "\n\n" + a.append + "\n"
+    if a.milestone:
+        patch["milestone"] = milestone_number(full, a.milestone)
+    if patch:
+        write("PATCH", f"repos/{full}/issues/{n}", patch, a.dry_run, ", ".join(patch))
+    if a.add_label:
+        write("POST", f"repos/{full}/issues/{n}/labels", {"labels": a.add_label}, a.dry_run, ", ".join(a.add_label))
+    for lb in a.remove_label or []:
+        write("DELETE", f"repos/{full}/issues/{n}/labels/{urllib.parse.quote(lb, safe='')}", None, a.dry_run)
+    if a.field:
+        queue(full, n, [lb["name"] for lb in it.get("labels", [])], a.dry_run, fields=a.field)
+    if not a.dry_run:
+        verify_rest(full, n)
+
+
+def rest_state(full, n, it, close, reason, dry):
+    if close and it["state"] == "open":
+        write("PATCH", f"repos/{full}/issues/{n}",
+              {"state": "closed", "state_reason": "not_planned" if reason == "not planned" else "completed"}, dry, "close")
+    elif not close and it["state"] != "open":
+        write("PATCH", f"repos/{full}/issues/{n}", {"state": "open"}, dry, "reopen")
+    elif close:
+        print("  already closed")
+
+
+def rest_comment_post(full, n, text, images, dry):
+    body = text
+    if images:
+        body = (body.rstrip() + "\n\n" + "\n".join(upload_to_branch(full, images, n, dry))).strip()
+    c = write("POST", f"repos/{full}/issues/{n}/comments", {"body": body}, dry, "comment")
+    if c.get("html_url"):
+        print(c["html_url"])
+
+
+def rest_set(a):
+    if a.close and a.reopen:
+        die("--close and --reopen cannot be used together")
+    full, n = rest_ref(a)
+    it = rest("GET", f"repos/{full}/issues/{n}")
+    if a.status or a.field:
+        queue(full, n, [lb["name"] for lb in it.get("labels", [])], a.dry_run, status=a.status, fields=a.field)
+    if a.assignee:
+        write("POST", f"repos/{full}/issues/{n}/assignees", {"assignees": logins(a.assignee)}, a.dry_run, "assign")
+    if a.unassign:
+        write("DELETE", f"repos/{full}/issues/{n}/assignees", {"assignees": logins(a.unassign)}, a.dry_run, "unassign")
+    if a.close or a.reopen:
+        rest_state(full, n, it, a.close, a.reason, a.dry_run)
+    if a.comment:
+        rest_comment_post(full, n, a.comment, None, a.dry_run)
+    if not a.dry_run:
+        verify_rest(full, n)
+
+
+def rest_close(a):
+    full, n = rest_ref(a)
+    it = rest("GET", f"repos/{full}/issues/{n}")
+    if a.comment:
+        rest_comment_post(full, n, a.comment, None, a.dry_run)
+    rest_state(full, n, it, True, a.reason, a.dry_run)
+    labels = [lb["name"] for lb in it.get("labels", [])]
+    if a.status:
+        queue(full, n, labels, a.dry_run, status=a.status)
+    elif not a.keep_column:  # sync moves a closed issue to the done column; drop a column change queued before
+        queue(full, n, labels, a.dry_run, clear_status=True)
+    if not a.dry_run:
+        verify_rest(full, n)
+
+
+def rest_reopen(a):
+    full, n = rest_ref(a)
+    it = rest("GET", f"repos/{full}/issues/{n}")
+    rest_state(full, n, it, False, None, a.dry_run)
+    if a.status:
+        queue(full, n, [lb["name"] for lb in it.get("labels", [])], a.dry_run, status=a.status)
+    if not a.dry_run:
+        verify_rest(full, n)
+
+
+def rest_todo(a):
+    full, n = rest_ref(a)
+    it = rest("GET", f"repos/{full}/issues/{n}")
+    if a.action in (None, "list"):
+        print_todos(f"{full}#{n} {it['title']}", it.get("body") or "")
+        return
+    new_body = todo_change(it.get("body") or "", a.action, a.values)
+    write("PATCH", f"repos/{full}/issues/{n}", {"body": new_body}, a.dry_run, f"checklist {a.action}")
+    if not a.dry_run:
+        print_todos(f"{full}#{n} {it['title']}", new_body)
+
+
+def rest_comment(a):
+    full, n = rest_ref(a)
+    rest_comment_post(full, n, a.text, a.image, a.dry_run)
+
+
+def rest_attach(a):
+    full, n = rest_ref(a)
+    if a.comment is not None:
+        return rest_comment_post(full, n, a.comment or "Attached:", a.files, a.dry_run)
+    it = rest("GET", f"repos/{full}/issues/{n}")
+    links = upload_to_branch(full, a.files, n, a.dry_run)
+    write("PATCH", f"repos/{full}/issues/{n}", {"body": ((it.get("body") or "").rstrip() + "\n\n" + "\n".join(links)).strip() + "\n"},
+          a.dry_run, f"{len(links)} image(s) into the body")
+    if not a.dry_run:
+        body = rest("GET", f"repos/{full}/issues/{n}").get("body") or ""
+        imgs = re.findall(r"!\[[^\]]*\]\([^)]+\)|<img [^>]+>", body)
+        print(f"  check: body now has {len(imgs)} image(s)  {it['html_url']}")
+
+
+def rest_assign(a):
+    full, n = rest_ref(a)
+    write("DELETE" if a.remove else "POST", f"repos/{full}/issues/{n}/assignees", {"assignees": logins(a.logins)},
+          a.dry_run, "unassign" if a.remove else "assign")
+    if not a.dry_run:
+        verify_rest(full, n)
+
+
+def rest_people(a):
+    full = rest_repo(a, ref_owner(a))
+    per = Counter()
+    for x in rest_all(f"repos/{full}/issues?state=open", limit=500):
+        if "pull_request" not in x:
+            for who in [y["login"] for y in x.get("assignees", [])] or ["(unassigned)"]:
+                per[who] += 1
+    print(f"{full} open issues per person: " + (", ".join(f"{k} {v}" for k, v in per.most_common()) or "none"))
+    rows = rest_all(f"repos/{full}/collaborators")
+    print(f"{full} collaborators (can be assigned): " + ", ".join(f"{c['login']}({c.get('role_name', '?')})" for c in rows))
+
+
+def rest_columns(a):
+    cfg = load_config()
+    cols = cfg.get("columns") or []
+    print(f"{cfg.get('title') or 'board'} {cfg.get('url') or ''} — saved in {cfg.get('_path') or LOCAL_CONFIG} "
+          "(a cloud session cannot read the board itself)")
+    if not cols:
+        print("  no columns saved — run `gp.py init <board URL>` or `gp.py cloud-setup` on a computer, commit .gp.json")
+    for i, c in enumerate(cols, 1):
+        print(f"  {i}. {c}")
+    for name, v in (cfg.get("fields") or {}).items():
+        print(f"  {name} ({'single select: ' + ', '.join(v) if isinstance(v, list) else v})")
+
+
+def rest_init(a):
+    if a.unset or not a.target:
+        return cmd_init(a)
+    owner, number = parse_board(a.target, a.number_arg)
+    owner = owner if owner not in ("@me", "me") else me()
+    scope = config_scope(a)
+    path = config_path(scope)
+    old = read_json(path)
+    same = old.get("number") == number and str(old.get("owner", "")).lower() == owner.lower()
+    cfg = dict(old if same else {}, owner=owner, number=number,
+               url=f"https://github.com/{'users' if owner.lower() == me().lower() else 'orgs'}/{owner}/projects/{number}")
+    if a.dry_run:
+        print(f"[dry-run] write {path}: {cfg}")
+        return
+    write_json(path, cfg)
+    print(f"{scope} board: {owner} #{number} — saved in {path} (not checked: a cloud session cannot read boards; "
+          "`gp.py init` on a computer also saves the columns)")
+
+
+def rest_doctor(a):
+    print("• Claude Code cloud session (rest mode): GitHub is reached through Anthropic's proxy — REST calls under "
+          "repos/{owner}/{repo}/… for this session's repositories only; GraphQL and the board (Projects v2) are blocked")
+    r = gh(["--version"], check=False)
+    first = ((r.stdout or "").splitlines() or [""])[0]
+    print(f"✓ {first}" if first.startswith("gh version") else "✓ Claude Code's built-in gh (gh api only)")
+    print(f"✓ GitHub account {me()}" + (" (credentials added by the proxy)" if os.environ.get("GH_TOKEN") == "proxy-injected" else ""))
+    full = current_repo()
+    repo = rest("GET", f"repos/{full}", check=False) if full else None
+    if repo:
+        print(f"✓ repository {full} — issues can be created, edited, moved (queued), closed")
+    else:
+        print(f"✗ repository {full or '(no origin remote)'} not reachable — add it to the session")
+    cfg = load_config()
+    if cfg.get("number"):
+        print(f"✓ board ({cfg['_scope']}): {cfg.get('title') or ''} {cfg.get('owner')} #{cfg.get('number')}  ← {cfg['_path']}")
+        print(f"✓ columns: {', '.join(cfg['columns'])}" if cfg.get("columns") else
+              "• no columns in .gp.json — `gp.py init <board URL>` on a computer saves them (column words are kept as typed)")
+    else:
+        print("• no board in .gp.json — run `gp.py cloud-setup` on a computer and commit .gp.json")
+    if full and repo:
+        print(f"✓ gp-sync Action in {full}: board changes are applied automatically" if has_sync(full) else
+              f"• no gp-sync Action in {full}: queued gp:… labels wait for `gp.py sync` on a computer "
+              "(`gp.py cloud-setup` installs the Action)")
+    print("ready (rest mode)")
+
+
+REST_COMMANDS = {
+    "doctor": rest_doctor, "init": rest_init, "use": rest_init, "info": rest_columns, "columns": rest_columns,
+    "list": rest_list, "create": rest_create, "show": rest_show, "edit": rest_edit, "move": rest_move,
+    "set": rest_set, "close": rest_close, "reopen": rest_reopen, "todo": rest_todo, "comment": rest_comment,
+    "attach": rest_attach, "assign": rest_assign, "people": rest_people,
+}
 
 
 # ---------------------------------------------------------------- main
@@ -1386,9 +2071,27 @@ def main():
     s.add_argument("logins", nargs="+", help="logins or @me")
     s.add_argument("--remove", action="store_true")
 
+    s = p("sync", cmd_sync, "apply queued gp:… labels (from cloud sessions) to the board; closed issues → done column", dry=True)
+    s.add_argument("refs", nargs="*", help="issues to sync (default: every issue with a gp:… label, and closed items not in done)")
+    s.add_argument("--repo", action="append", help="repositories to scan (default: the board's repositories + this one)")
+    s.add_argument("--add", action="store_true", help="also put issues that are not on the board yet onto it")
+    s.add_argument("--limit", type=int, default=300, help="recently updated issues to scan per repository")
+    s = p("cloud-setup", cmd_cloud_setup, "make this repository ready for Claude Code cloud sessions (.gp.json, "
+          ".claude/skills/gp, gp-sync Action, GP_TOKEN secret)", dry=True)
+    s.add_argument("--repo", help="owner/repo (default: the origin remote)")
+    s.add_argument("--no-secret", action="store_true", help="do not set the GP_TOKEN secret from your gh login")
+
     a = ap.parse_args()
     if not hasattr(a, "dry_run"):
         a.dry_run = False
+    if mode() == "rest":
+        if a.cmd in REST_COMMANDS:
+            return REST_COMMANDS[a.cmd](a)
+        if a.cmd == "delete":
+            die("deleting an issue needs GitHub's GraphQL API, which a Claude Code cloud session cannot reach. "
+                "Use `close <issue> --reason \"not planned\"` here, or `delete` on a computer with the GitHub CLI.")
+        if a.cmd != "invite":
+            need_board_access(f"`{a.cmd}`")
     a.fn(a)
 
 

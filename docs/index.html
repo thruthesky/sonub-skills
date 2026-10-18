@@ -122,6 +122,7 @@
         <div class="seg" role="group" data-pick="skill">
           <button type="button" data-val="gp"><code>gp</code> <small data-i18n="install.skillGp">GitHub Projects</small></button>
           <button type="button" data-val="claude-skill"><code>claude-skill</code> <small data-i18n="install.skillCs">Learn Claude Code</small></button>
+          <button type="button" data-val="popup"><code>popup</code> <small data-i18n="install.skillPp">Glossary popups</small></button>
         </div>
       </div>
       <div class="picker">
@@ -227,6 +228,33 @@
           <a class="btn btn-ghost btn-sm" href="https://github.com/thruthesky/sonub-skills/tree/main/skills/claude-skill" data-i18n="ui.source">Source</a>
         </div>
       </article>
+      <article class="skill" id="skill-popup">
+        <header>
+          <p class="skill-name"><code>popup</code></p>
+          <h3 data-i18n="pp.tagline">Explain every hard word where the reader meets it</h3>
+        </header>
+        <p data-i18n="pp.desc">Hover a technical word on any page or doc of your project — or tap it on a phone — and a small card explains it: meaning, plain words, examples, source code, related terms and a “learn more” link to another page of your own project.</p>
+        <ul class="feat">
+          <li data-i18n="pp.f1">One glossary JSON is the source of every explanation, in every language you ship</li>
+          <li data-i18n="pp.f2">A drop-in <code>popup.js</code> and <code>popup.css</code> — no framework, no build step</li>
+          <li data-i18n="pp.f3">Finds terms in plain text by itself; phrases, “?” buttons and link previews by hand</li>
+          <li data-i18n="pp.f4">Keyboard, phones (bottom sheet), right-to-left languages and dark mode</li>
+          <li data-i18n="pp.f5">An audit that finds jargon in your docs with no explanation yet</li>
+          <li data-i18n="pp.f6">For READMEs on GitHub: a <code>GLOSSARY.md</code> and links that show the meaning on hover</li>
+        </ul>
+        <p class="try-label" data-i18n="ui.trySaying">Try saying</p>
+        <ul class="try">
+          <li data-i18n="pp.t1">“Add glossary popups to the getting-started page”</li>
+          <li data-i18n="pp.t2">“Explain token, sampling and temperature on hover”</li>
+          <li data-i18n="pp.t3">“Make the README beginner-friendly”</li>
+          <li data-i18n="pp.t4">“Which words in the docs still need an explanation?”</li>
+        </ul>
+        <p class="req" data-i18n="pp.req">Needs Python 3.8+ for the tool. The popups run in any modern browser.</p>
+        <div class="skill-actions">
+          <button type="button" class="btn btn-primary btn-sm" data-install="popup" data-i18n="ui.installThis">Install this skill</button>
+          <a class="btn btn-ghost btn-sm" href="https://github.com/thruthesky/sonub-skills/tree/main/skills/popup" data-i18n="ui.source">Source</a>
+        </div>
+      </article>
     </div>
   </div>
 </section>
@@ -245,7 +273,8 @@
   },
   "enabledPlugins": {
     "gp@sonub-skills": true,
-    "cc-skill@sonub-skills": true
+    "cc-skill@sonub-skills": true,
+    "popup@sonub-skills": true
   }
 }</pre></div>
   </div>
@@ -265,7 +294,7 @@
         </tbody>
       </table>
     </div>
-    <p class="muted small" data-i18n="upd.note"><code>&lt;plugin&gt;</code> is <code>gp</code> or <code>cc-skill</code>. Check what is installed with <code>claude plugin list</code>.</p>
+    <p class="muted small" data-i18n="upd.note"><code>&lt;plugin&gt;</code> is <code>gp</code>, <code>cc-skill</code> or <code>popup</code>. Check what is installed with <code>claude plugin list</code>.</p>
   </div>
 </section>
 
@@ -286,7 +315,7 @@
     </details>
     <details>
       <summary data-i18n="faq.q4">Is it free? Where does my data go?</summary>
-      <p data-i18n="faq.a4">Free and MIT-licensed. The skills run on your computer with your own tools: <code>gp</code> talks only to GitHub through your <code>gh</code> login, and <code>claude-skill</code> reads the public Claude Code docs and CHANGELOG.</p>
+      <p data-i18n="faq.a4">Free and MIT-licensed. The skills run on your computer with your own tools: <code>gp</code> talks only to GitHub through your <code>gh</code> login, <code>claude-skill</code> reads the public Claude Code docs and CHANGELOG, and <code>popup</code> works only on your own files.</p>
     </details>
     <details>
       <summary data-i18n="faq.q5">It doesn't show up after installing. What now?</summary>
@@ -317,6 +346,7 @@
   <span data-i18n="prompt.folder">Download the skill folder into {dir}:</span>
   <span data-i18n="prompt.doctor">Run {cmd} and fix whatever it reports.</span>
   <span data-i18n="prompt.doctorGp">Run {cmd} and fix whatever it reports (install gh, gh auth login, gh auth refresh -s project,repo).</span>
+  <span data-i18n="prompt.doctorPp">Run {cmd} — it checks the bundled example glossary and should report 0 errors.</span>
   <span data-i18n="prompt.report">Tell me briefly what was installed, the doctor result, and what I can say to start using it.</span>
   <span data-i18n="prompt.skillFolder">&lt;skill folder&gt;</span>
   <span data-i18n="note.reload">Already in a Claude Code chat? Run <code>/reload-plugins</code> after installing from the terminal (or restart).</span>
@@ -327,17 +357,24 @@
   <span data-i18n="note.newSession">Start a new session of your agent so it reads the new skill.</span>
   <span data-i18n="note.reqGp">Needs Python 3.8+ and the GitHub CLI <code>gh</code>.</span>
   <span data-i18n="note.reqCs">Needs Python 3.8+ and internet access.</span>
+  <span data-i18n="note.reqPp">Needs Python 3.8+. The popups themselves are plain JavaScript and CSS.</span>
   <span data-i18n="start.gp1">Set it up: {cmd} — it checks <code>gh</code> and your GitHub login.</span>
   <span data-i18n="start.gp2">Choose this project's board: {cmd}</span>
   <span data-i18n="start.gp3">Then just talk: “make an issue: the login button does nothing on iPhone”, “move it to Done”.</span>
   <span data-i18n="start.cs1">Start studying: {cmd}</span>
   <span data-i18n="start.cs2">Check your setup: {cmd}</span>
   <span data-i18n="start.cs3">See what's new: {cmd}</span>
+  <span data-i18n="start.pp1">Explain the hard words on a page: {cmd}</span>
+  <span data-i18n="start.pp2">Write a few terms and attach them where they are used: {cmd}</span>
+  <span data-i18n="start.pp3">Make a README friendly to beginners: {cmd}</span>
   <span data-i18n="say.gpSetup">“set up gp”</span>
   <span data-i18n="say.gpInit">“use &lt;board URL&gt; as this project's board”</span>
   <span data-i18n="say.csStart">“let's study Claude Code”</span>
   <span data-i18n="say.csDoctor">“check my Claude Code setup”</span>
   <span data-i18n="say.csNew">“what's new in Claude Code?”</span>
+  <span data-i18n="say.ppPage">“add glossary popups to the getting-started page”</span>
+  <span data-i18n="say.ppTerms">“explain token, sampling and temperature on hover”</span>
+  <span data-i18n="say.ppReadme">“make the README beginner-friendly”</span>
   <span data-i18n="say.or">or say</span>
 </div>
 

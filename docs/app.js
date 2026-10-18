@@ -16,7 +16,8 @@
   var REPO = 'thruthesky/sonub-skills';
   var SKILLS = {
     'gp': { plugin: 'gp', script: 'gp.py' },
-    'claude-skill': { plugin: 'cc-skill', script: 'cc.py' }
+    'claude-skill': { plugin: 'cc-skill', script: 'cc.py' },
+    'popup': { plugin: 'popup', script: 'popup.py', check: 'check' }
   };
 
   var base = {};      // English, read from the page
@@ -91,7 +92,9 @@
     var s = SKILLS[p.skill];
     var scope = text(p.scope === 'global' ? 'prompt.scopeGlobal' : 'prompt.scopeProject');
     var install = 'claude plugin install ' + s.plugin + '@sonub-skills' + (p.scope === 'project' ? ' --scope project' : '');
-    var doctor = 'python3 ' + text('prompt.skillFolder') + '/scripts/' + s.script + ' doctor';
+    var folder = text('prompt.skillFolder');
+    // popup has no doctor: checking the bundled example glossary proves the tool runs
+    var doctor = 'python3 ' + folder + '/scripts/' + s.script + (s.check ? ' check ' + folder + '/assets/glossary.example.json' : ' doctor');
     var lines = [
       text('prompt.intro', { skill: p.skill, scope: scope }),
       text('prompt.what', { url: 'https://github.com/' + REPO + '/tree/main/skills/' + p.skill }),
@@ -107,7 +110,7 @@
       var dir = skillDir(p.agent, p.scope);
       lines.push('1. ' + text('prompt.folder', { dir: dir }), '   ' + curlLine(dir, p.skill));
     }
-    lines.push('2. ' + text(p.skill === 'gp' ? 'prompt.doctorGp' : 'prompt.doctor', { cmd: doctor }),
+    lines.push('2. ' + text(p.skill === 'gp' ? 'prompt.doctorGp' : p.skill === 'popup' ? 'prompt.doctorPp' : 'prompt.doctor', { cmd: doctor }),
       '3. ' + text('prompt.report'));
     return lines.join('\n');
   }
@@ -128,7 +131,7 @@
   }
 
   function buildNotes(p) {
-    var s = SKILLS[p.skill], n = [t(p.skill === 'gp' ? 'note.reqGp' : 'note.reqCs')];
+    var s = SKILLS[p.skill], n = [t(p.skill === 'gp' ? 'note.reqGp' : p.skill === 'popup' ? 'note.reqPp' : 'note.reqCs')];
     if (p.scope === 'project') n.push(t('note.project'));
     if (p.agent === 'claude') {
       if (p.scope === 'project') n.push(t('note.teamShared'));
@@ -153,6 +156,13 @@
         t('start.gp1', { cmd: invoke(a, 'gp', 'say.gpSetup') }),
         t('start.gp2', { cmd: invoke(a, 'gp init <board URL>', 'say.gpInit') }),
         t('start.gp3')
+      ];
+    }
+    if (p.skill === 'popup') {
+      return [
+        t('start.pp1', { cmd: invoke(a, 'popup docs/getting-started.md', 'say.ppPage') }),
+        t('start.pp2', { cmd: invoke(a, 'popup token, sampling, temperature', 'say.ppTerms') }),
+        t('start.pp3', { cmd: invoke(a, 'popup README.md', 'say.ppReadme') })
       ];
     }
     return [

@@ -27,7 +27,7 @@
       "name": "popup",
       "source": "./skills/popup",
       "description": "Explain jargon in any project with hover/tap popups — one glossary JSON (meaning, plain words, examples, code, related terms, learn-more links), a drop-in popup.js/css, a checker, a doc audit for undefined jargon, and Markdown hover links for READMEs.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "documentation"
     }
   ]

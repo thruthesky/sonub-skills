@@ -1,6 +1,6 @@
 {
   "name": "popup",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Explain jargon in any project with hover/tap popups — one glossary JSON as the single source (meaning, plain-words comparison, examples, source code, related terms, learn-more links to your own pages), a drop-in popup.js/css with no build step, a checker, a doc audit that finds undefined jargon, and Markdown links with hover titles for READMEs. Builds on SONUB's own glossary in SONUB.",
   "author": {
     "name": "JaeHo Song",

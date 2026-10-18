@@ -41,6 +41,7 @@ SKIP_DIRS = {'.git', 'node_modules', 'vendor', 'dist', 'build', '.next', '.nuxt'
 KO_PARTICLES = sorted(set("""이라고 라고 으로써 으로서 로써 로서 이라는 라는 에서는 에서도 에게서 한테서 으로는 으로도 까지도 부터는 이라도 라도 이라면 라면 이란 란
 조차 마저 밖에 처럼 보다 마다 부터 까지 에서 에게 한테 으로 이나 나마 이야 와의 과의 들을 들이 들은 들과 들 은 는 이 가 을 를 에 의 와 과 도 만
 로 나 야 라 고 며 서 인 임 일 다 입 하 한 할 함 합 해 했 되 된 될 됨 됩 돼 됐""".split()), key=len, reverse=True)
+ARABIC_PREFIXES = ['وال', 'بال', 'فال', 'كال', 'لل', 'ال', 'و', 'ب', 'ل', 'ك', 'ف']
 
 # popup labels in 17 languages — `init --locales` copies the ones you ask for into glossary.json
 LABELS = {
@@ -201,7 +202,11 @@ class Matcher:
                 return None
             if before == '.' and i > 1 and script(text[i - 2]) == 'LATIN':
                 return None
-        elif first and first in ('CYRILLIC', 'HANGUL', 'DEVANAGARI', 'BENGALI', 'ARABIC') and script(before) == first:
+        elif first == 'ARABIC' and script(before) == 'ARABIC':
+            # a clitic prefix (و، ب، ال …) glued to the word is fine, as long as the prefix starts a word
+            if not any(text.endswith(p, 0, i) and script(text[i - len(p) - 1] if i > len(p) else '') != 'ARABIC' for p in ARABIC_PREFIXES):
+                return None
+        elif first and first in ('CYRILLIC', 'HANGUL', 'DEVANAGARI', 'BENGALI') and script(before) == first:
             return None
         after = text[j] if j < len(text) else ''
         if last == 'LATIN':
@@ -515,13 +520,23 @@ def cmd_add(a):
     changes, refused = [], []
     for k in ('labels', 'categories'):
         for kk, v in (inp.get(k) or {}).items():
+            had = kk in new.get(k, {})
             cur = new.setdefault(k, {}).setdefault(kk, {} if isinstance(v, dict) else v)
+            changed = not had
             if isinstance(v, dict):
                 for f, val in v.items():
                     if f in cur and cur[f] != val and not a.overwrite:
                         refused.append(f'{k}.{kk}.{f}')
-                    else:
+                    elif cur.get(f) != val:
                         cur[f] = val
+                        changed = True
+            elif cur != v:
+                if a.overwrite:
+                    new[k][kk] = v
+                    changed = True
+                else:
+                    refused.append(f'{k}.{kk}')
+            if changed:
                 changes.append(f'{k}.{kk}')
     for tid, t in (inp.get('terms') or {}).items():
         cur = new['terms'].get(tid)
@@ -556,6 +571,9 @@ def cmd_add(a):
     if errors or refused:
         print('nothing written')
         return 1
+    if not changes:
+        print(f'nothing to change — {gp} already has all of it')
+        return 0
     if a.dry_run:
         print(f'dry run — {len(changes)} change(s) would be written to {gp}')
         return 0
@@ -688,7 +706,8 @@ def cmd_link(a):
                     if tid in seen or any(ps <= s < pe or ps < e <= pe for ps, pe in spans):
                         continue
                     seen.add(tid)
-                    short = text_of(data, tid, locale).get('short', '').replace('"', "'")
+                    # a title is one line in quotes; "|" would split a table cell, so it is escaped (GitHub shows "|")
+                    short = re.sub(r'\s+', ' ', text_of(data, tid, locale).get('short', '')).replace('"', "'").replace('|', '\\|')
                     pieces += [line[last:s], f'[{line[s:e]}]({target}#{tid} "{short}")']
                     last = e
                     n += 1

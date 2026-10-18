@@ -9,6 +9,54 @@
 | المهارة | ماذا تفعل |
 |------|------|
 | [`gp`](skills/gp) | تدير كل عملك في **GitHub Projects** باستخدام git وأداة `gh` CLI |
+| [`claude-skill`](skills/claude-skill) | **تعلّم Claude Code وأتقن استخدامه** — 14 درسًا مع اختبارات قصيرة، وإجابات يُتحقَّق منها في التوثيق الرسمي، وفاحص للإعدادات، وملخّص لكل ميزة جديدة في CHANGELOG، و`/claude-skill update` لجلب الجديد منها (اسم الإضافة `cc-skill`) |
+
+## التثبيت — عام (للمستخدم) أو لكل مشروع
+
+كل المهارات تُثبَّت بالطريقة نفسها. ضع اسم الإضافة من الجدول (`gp`، `cc-skill`) مكان `<plugin>`.
+
+**الخطوة 1 — أضف السوق (مرة واحدة لكل جهاز)**
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+```
+
+**الخطوة 2 — ثبّت حيث تريد**
+
+| النطاق | الأمر | من يحصل عليها، وأين | أين تُسجَّل |
+|------|------|------|------|
+| **عام (للمستخدم)** — الافتراضي | `claude plugin install <plugin>@sonub-skills` | أنت، في كل مشاريع هذا الجهاز | `~/.claude/settings.json` |
+| **المشروع (مشترك مع الفريق)** | في مجلد المشروع: `claude plugin install <plugin>@sonub-skills --scope project` | كل من يعمل في هذا المستودع | `.claude/settings.json` (اعمل له commit) |
+| **محلي (لك وحدك، لهذا المشروع فقط)** | في مجلد المشروع: `claude plugin install <plugin>@sonub-skills --scope local` | أنت، في هذا المستودع فقط | `.claude/settings.local.json` |
+
+- داخل الجلسة، يفتح `/plugin install <plugin>@sonub-skills` شاشة تختار فيها النطاق. إذا ثبّتَّ من الطرفية، فشغّل `/reload-plugins` في أي جلسة مفتوحة.
+- للتحقق: `claude plugin list` (يعرض النطاق). للتحديث: `claude plugin marketplace update sonub-skills && claude plugin update <plugin>@sonub-skills`. للإزالة: `claude plugin uninstall <plugin>@sonub-skills`.
+- إذا ضُبطت الإضافة نفسها في أكثر من نطاق، فالمحلي يتقدّم على المشروع، والمشروع يتقدّم على العام.
+
+**اجعل زملاءك يحصلون عليها تلقائيًا** — أضف هذا إلى ملف `.claude/settings.json` في المستودع واعمل له commit. بعد أن يثق زميلك بالمجلد (trust)، يضيف Claude Code السوق ويثبّت الإضافات من تلقاء نفسه.
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
+  },
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+}
+```
+
+**بدون إضافات — انسخ المجلد** إلى مجلد مهارات وكيلك (`<skill>` = `gp` أو `claude-skill`).
+
+| الأداة | عام (للمستخدم) | المشروع |
+|------|------|------|
+| Claude Code | `~/.claude/skills/<skill>` | `<project>/.claude/skills/<skill>` |
+| Codex · Gemini CLI · GitHub Copilot CLI | `~/.agents/skills/<skill>` | `<project>/.agents/skills/<skill>` |
+
+```bash
+S=claude-skill; DIR=~/.claude/skills      # لهذا المشروع فقط: DIR=.claude/skills
+mkdir -p "$DIR" && rm -rf "$DIR/$S" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 "sonub-skills-main/skills/$S"
+```
+
+**الأسهل** — قل لوكيلك *"ثبّت إضافة cc-skill من thruthesky/sonub-skills تثبيتًا عامًا"* (أو *"لهذا المشروع فقط"*) وسيشغّل الأوامر أعلاه نيابةً عنك.
 
 ---
 
@@ -153,7 +201,71 @@ claude plugin uninstall gp@sonub-skills
 
 الوكلاء الآخرون: شغّل سطر `curl … | tar` مرة أخرى للتحديث؛ واحذف مجلد `gp` للإزالة.
 
-### بنية المستودع
+## claude-skill — تعلّم Claude Code وأتقن استخدامه
+
+يصدر Claude Code إصدارًا جديدًا كل يوم تقريبًا (أكثر من 400 حتى الآن). هذه المهارة تعلّمك إياه خطوة بخطوة، وتجيب عن أسئلتك من **التوثيق الرسمي الحالي** لا من الذاكرة، وتفحص إعداداتك، وتحتفظ بملخّص لكل ميزة جديدة في CHANGELOG. ويكفي أمر `/claude-skill update` واحد لإدخال الميزات المنشورة حديثًا إلى المهارة.
+
+### ما الذي تغطيه
+
+- **مسار تعلّم من 14 درسًا** — من التثبيت وأول الطلبات (prompts) إلى الاستكشاف ← التخطيط ← كتابة الكود ← الـ commit، وإدارة السياق، وCLAUDE.md والذاكرة، وأوضاع الأذونات، ونقاط الاستعادة (checkpoints)، والمهارات، والوكلاء الفرعيين (subagents)، والخطافات (hooks)، وMCP، والإضافات والأسواق، والتشغيل بلا واجهة (headless) وGitHub Actions، وصولًا إلى العمل الطويل دون إشراف مع التحقق. لكل درس **تمرين في مشروعك أنت** وأسئلة للتحقق، ويُحفظ تقدّمك.
+- **تحليل Claude Academy** — دروس Claude الـ 64 على [Claude Academy](https://academy.claude.com/all?kind=tutorial&product=chat) إضافةً إلى دروس ودورات Claude Code ‏(Claude Code 101، Claude Code in action، Agent Skills، Subagents)، مع ربط ما تتعلّمه في المحادثة (Projects، الذاكرة، الموصلات، المهارات، Research، اختيار النموذج ومستوى الجهد…) بطريقة فعله في Claude Code.
+- **إجابات يُتحقَّق منها في التوثيق** — عند سؤال مثل "كيف تعمل الخطافات (hooks)؟" أو "ما نطاق الإضافة؟" تبحث في code.claude.com وتقرؤه، ثم تجيب بالأمر ومثال ورابط التوثيق.
+- **كل ميزة جديدة في CHANGELOG** — كل الإصدارات الـ 422 في [CHANGELOG.md](https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/CHANGELOG.md) ‏(v0.2.21 – v2.1.302)، دون إصلاحات الأخطاء، ملخّصةً في 14 موضوعًا، إضافةً إلى 30 ميزة تستحق أن تعرفها وآخر الإضافات.
+- **`/claude-skill update`** — يجلب أحدث CHANGELOG، ويجد الإصدارات التي لم تغطّها المهارة بعد، ويضيف ميزاتها إلى الملاحظات والورقة المختصرة والدروس، ويسجّل إلى أين وصلت التغطية.
+- **فاحص الإعدادات (doctor)** — ينظر في إصدارك، وملفات الإعدادات (المستخدم، المشروع، المحلي)، وطول CLAUDE.md، والقواعد، والذاكرة التلقائية، والمهارات، والوكلاء الفرعيين، والإضافات، وخوادم MCP، ثم يقترح إصلاحات.
+- **ورقة مختصرة ونصائح وأدلة بناء** — الأوامر والاختصارات وخيارات CLI ومواقع الملفات في صفحة واحدة؛ عادات مفيدة؛ وكيف تبني المهارات والوكلاء الفرعيين والخطافات وخوادم MCP والإضافات والأسواق.
+
+### التثبيت
+
+كما في قسم [التثبيت](#التثبيت--عام-للمستخدم-أو-لكل-مشروع) أعلاه. اسم الإضافة **`cc-skill`** (يحجز Claude Code أسماء الإضافات التي تبدأ بـ `claude-` لإضافات Anthropic نفسها). أما المهارة فتبقى باسم `claude-skill`، لذلك تستدعيها بـ `/claude-skill`.
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install cc-skill@sonub-skills                    # عام — كل المشاريع
+claude plugin install cc-skill@sonub-skills --scope project    # هذا المشروع، مشترك مع الفريق
+```
+
+تحتاج إلى Python 3.8+ واتصال بالإنترنت (فهي تقرأ التوثيق الرسمي وCHANGELOG).
+
+### الاستخدام
+
+| تقول أنت | ماذا تفعل |
+|------|------|
+| `/claude-skill` · "لنتعلّم Claude Code" | تعرض الدروس وتقدّمك، وتبدأ الدرس التالي |
+| `/claude-skill lesson 5` · "الدرس التالي" | تشرح الدرس، وتشغّل التمرين في مشروعك، وتطرح أسئلة التحقق، وتحفظ التقدّم |
+| `/claude-skill quiz` | خمسة أسئلة مما درسته، واحدًا تلو الآخر، مع النتيجة |
+| "كيف أشغّل prettier بعد كل تعديل باستخدام hook؟" | تقرأ التوثيق الرسمي وتجيب بمثال للإعدادات والرابط |
+| `/claude-skill new` · "ما الجديد؟" | أنفع الميزات الحديثة أولًا، مع طريقة تجربة كل منها |
+| `/claude-skill doctor` · "افحص إعداداتي" | تراجع إعداداتك وتقترح إصلاحات (تسأل قبل تغيير أي شيء) |
+| `/claude-skill tips` · `cheatsheet` · `academy` | عادات مفيدة · الأوامر والاختصارات · تحليل Academy |
+| `/claude-skill build skill` · "اصنع لي hook" | تختار الآلية المناسبة وتبنيها معك في مشروعك |
+| `/claude-skill update` | تحدّث ملاحظات الميزات في المهارة من أحدث CHANGELOG |
+
+عند تثبيتها كإضافة يعمل `/cc-skill:claude-skill …` أيضًا. وفي Codex: `$claude-skill …`.
+
+### كيف يعمل `/claude-skill update`
+
+1. يقارن `scripts/cc.py update-check` الإصدار الذي تغطيه الملاحظات (علامة `covered-through` في `references/changelog-features.md`) بأحدث إصدار في CHANGELOG.
+2. في نسخة الإضافة المثبّتة يشغّل أولًا `claude plugin update cc-skill@sonub-skills` لجلب الملاحظات المنشورة. لتعديل مصدر المهارة (نسخة git)، مرّر `--source <folder>`. ومن دون مصدر يكتب في `~/.config/claude-skill/changelog-local.md`، الذي يبقى بعد تحديثات الإضافة.
+3. يسرد `cc.py changelog --since <covered>` عناصر الإصدارات الجديدة (مع إخفاء الإصلاحات)؛ فيضيف الوكيل الميزات الجديدة إلى مواضيعها، ويعيد كتابة قسم "Latest additions"، ويضيف الأوامر والاختصارات الجديدة إلى الورقة المختصرة، ويصلح الدروس التي أصبحت خاطئة.
+4. ينقل `cc.py mark-covered <latest>` العلامة؛ وفي نسخة git يرفع رقم الإصدار ويعمل commit (ولا يعمل push إلا إذا طلبت ذلك).
+5. يُبلغك بالنطاق الذي غُطّي و3–7 ميزات جديدة تستحق التجربة، مع طريقة تجربة كل منها.
+
+### الأداة — `scripts/cc.py`
+
+تعتمد على مكتبة Python القياسية فقط.
+
+```bash
+python3 scripts/cc.py doctor                 # افحص إعداد Claude Code لديك + نصائح
+python3 scripts/cc.py docs hooks             # ابحث في التوثيق الرسمي (llms.txt)
+python3 scripts/cc.py read hooks --section "Hook events"   # اقرأ قسمًا واحدًا من صفحة
+python3 scripts/cc.py changelog --count 5    # آخر 5 إصدارات (مع إخفاء الإصلاحات)
+python3 scripts/cc.py changelog --grep worktree --count 400   # ابحث عن ميزة باسمها
+python3 scripts/cc.py update-check           # الإصدارات المغطّاة مقابل الأحدث
+python3 scripts/cc.py lessons                # الدروس والتقدّم
+```
+
+## بنية المستودع
 
 ```
 .claude-plugin/marketplace.json   ← السوق (Claude Code)
@@ -164,6 +276,14 @@ skills/gp/
 └─ references/                    ← تُقرأ عند الحاجة
    ├─ github-projects.md          ← المفاهيم، الحساب، تسجيل الدخول، أول لوحة
    └─ commands.md                 ← كل الأوامر + وصفات gh / GraphQL المباشرة
+skills/claude-skill/
+├─ SKILL.md                       ← المهارة: متى تُستخدم وكيف
+├─ .claude-plugin/plugin.json     ← معلومات الإضافة (اسم الإضافة cc-skill)
+├─ scripts/cc.py                  ← أداة التعلّم: doctor، docs، read، changelog، update-check، lessons
+└─ references/                    ← 14 درسًا · تحليل Academy · ميزات CHANGELOG · ورقة مختصرة · أدلة البناء · نصائح · اختبار
+   ├─ curriculum.md · quiz.md · tips.md
+   ├─ academy.md · changelog-features.md
+   └─ cheatsheet.md · extend.md
 ```
 
 تعلّم كيف تعمل المهارات في فصل **Agent Skills** من دورة SONUB للذكاء الاصطناعي: https://sonub.com/ar/learn/ai#agent-skill

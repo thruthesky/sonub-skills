@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Agent Skills from SONUB (sonub.com) — standard SKILL.md skills that work in Claude Code, Codex, Gemini CLI, GitHub Copilot CLI and other agents.",
-    "version": "1.1.0"
+    "version": "1.2.0"
   },
   "plugins": [
     {
@@ -15,6 +15,13 @@
       "description": "Manage all your work in GitHub Projects (v2) with the gh CLI — boards, kanban columns, fields, views, issues, images, TODO checklists, assignees.",
       "version": "1.1.0",
       "category": "productivity"
+    },
+    {
+      "name": "cc-skill",
+      "source": "./skills/claude-skill",
+      "description": "Learn and master Claude Code — a study track with exercises and quizzes, answers checked against the live docs, a setup doctor, every CHANGELOG feature summarized, and `/claude-skill update` to pull new features into the skill.",
+      "version": "1.0.0",
+      "category": "learning"
     }
   ]
 }

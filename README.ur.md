@@ -9,6 +9,54 @@
 | اسکل | کیا کرتی ہے |
 |------|------|
 | [`gp`](skills/gp) | git اور `gh` CLI کے ذریعے آپ کا سارا کام **GitHub Projects** میں سنبھالتی ہے |
+| [`claude-skill`](skills/claude-skill) | **Claude Code سیکھیں اور اسے بہتر طریقے سے استعمال کریں** — کوئز کے ساتھ 14 اسباق، آفیشل دستاویزات سے جانچے گئے جوابات، سیٹ اپ ڈاکٹر، CHANGELOG کے ہر نئے فیچر کا خلاصہ، اور نئے فیچرز لانے کے لیے `/claude-skill update` (پلگ ان کا نام `cc-skill`) |
+
+## انسٹال — گلوبل (یوزر) یا ہر پروجیکٹ کے لیے
+
+ہر اسکل ایک ہی طریقے سے انسٹال ہوتی ہے۔ `<plugin>` کی جگہ ٹیبل سے پلگ ان کا نام (`gp`، `cc-skill`) لکھیں۔
+
+**مرحلہ 1 — مارکیٹ پلیس شامل کریں (ہر کمپیوٹر پر ایک بار)**
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+```
+
+**مرحلہ 2 — جہاں چاہیں وہاں انسٹال کریں**
+
+| دائرہ | کمانڈ | کسے ملے گی، کہاں | کہاں درج ہوتی ہے |
+|------|------|------|------|
+| **گلوبل (یوزر)** — ڈیفالٹ | `claude plugin install <plugin>@sonub-skills` | آپ کو، اس کمپیوٹر کے تمام پروجیکٹس میں | `~/.claude/settings.json` |
+| **پروجیکٹ (ٹیم کے ساتھ شیئر)** | پروجیکٹ فولڈر میں: `claude plugin install <plugin>@sonub-skills --scope project` | اس ریپوزیٹری میں کام کرنے والے ہر شخص کو | `.claude/settings.json` (اسے کمٹ کریں) |
+| **لوکل (صرف آپ، صرف یہ پروجیکٹ)** | پروجیکٹ فولڈر میں: `claude plugin install <plugin>@sonub-skills --scope local` | آپ کو، صرف اس ریپوزیٹری میں | `.claude/settings.local.json` |
+
+- سیشن کے اندر `/plugin install <plugin>@sonub-skills` ایک اسکرین کھولتا ہے جہاں آپ دائرہ چنتے ہیں۔ اگر آپ نے ٹرمینل سے انسٹال کیا ہے تو کسی بھی کھلے سیشن میں `/reload-plugins` چلائیں۔
+- چیک کرنا: `claude plugin list` (دائرہ بھی دکھاتا ہے)۔ اپ ڈیٹ: `claude plugin marketplace update sonub-skills && claude plugin update <plugin>@sonub-skills`۔ ہٹانا: `claude plugin uninstall <plugin>@sonub-skills`۔
+- جب ایک ہی پلگ ان کئی دائروں میں سیٹ ہو تو لوکل کو پروجیکٹ پر، اور پروجیکٹ کو گلوبل پر ترجیح ملتی ہے۔
+
+**ٹیم کے ساتھیوں کو یہ خود بخود مل جائے** — یہ ریپوزیٹری کی `.claude/settings.json` میں کمٹ کر دیں۔ جب کوئی ساتھی فولڈر پر بھروسہ (trust) کر لے تو Claude Code خود مارکیٹ پلیس شامل کر کے پلگ انز انسٹال کر دیتا ہے۔
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
+  },
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+}
+```
+
+**پلگ ان کے بغیر — فولڈر کاپی کریں** اپنے ایجنٹ کے اسکل فولڈر میں (`<skill>` = `gp` یا `claude-skill`)۔
+
+| ٹول | گلوبل (یوزر) | پروجیکٹ |
+|------|------|------|
+| Claude Code | `~/.claude/skills/<skill>` | `<project>/.claude/skills/<skill>` |
+| Codex · Gemini CLI · GitHub Copilot CLI | `~/.agents/skills/<skill>` | `<project>/.agents/skills/<skill>` |
+
+```bash
+S=claude-skill; DIR=~/.claude/skills      # صرف اس پروجیکٹ کے لیے: DIR=.claude/skills
+mkdir -p "$DIR" && rm -rf "$DIR/$S" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 "sonub-skills-main/skills/$S"
+```
+
+**سب سے آسان** — اپنے ایجنٹ سے کہیں *"thruthesky/sonub-skills سے cc-skill پلگ ان گلوبل انسٹال کرو"* (یا *"صرف اس پروجیکٹ کے لیے"*) اور وہ اوپر والی کمانڈز آپ کے لیے چلا دے گا۔
 
 ---
 
@@ -153,7 +201,71 @@ claude plugin uninstall gp@sonub-skills
 
 دوسرے ایجنٹ: اپ ڈیٹ کے لیے `curl … | tar` والی لائن دوبارہ چلائیں؛ ہٹانے کے لیے `gp` فولڈر حذف کر دیں۔
 
-### ریپوزیٹری کی ساخت
+## claude-skill — Claude Code سیکھیں اور اسے بہتر طریقے سے استعمال کریں
+
+Claude Code تقریباً ہر روز نیا ورژن جاری کرتا ہے (اب تک 400 سے زیادہ)۔ یہ اسکل اسے ترتیب سے سکھاتی ہے، سوالوں کے جواب یادداشت کے بجائے **موجودہ آفیشل دستاویزات** سے دیتی ہے، آپ کا سیٹ اپ چیک کرتی ہے، اور CHANGELOG کے ہر نئے فیچر کا خلاصہ رکھتی ہے۔ بس ایک `/claude-skill update` نئے جاری ہونے والے فیچرز اسکل میں لے آتا ہے۔
+
+### اس میں کیا کیا شامل ہے
+
+- **14 اسباق کا تعلیمی سلسلہ** — انسٹال اور پہلے پرامپٹس سے لے کر کھوج ← منصوبہ ← کوڈ ← کمٹ، کانٹیکسٹ کا انتظام، CLAUDE.md اور میموری، پرمیشن موڈز، چیک پوائنٹس، اسکلز، سب ایجنٹس، ہُکس، MCP، پلگ انز اور مارکیٹ پلیسز، ہیڈلیس رن اور GitHub Actions، اور تصدیق کے ساتھ لمبے، بغیر نگرانی کے کام تک۔ ہر سبق میں **آپ کے اپنے پروجیکٹ میں ایک مشق** اور جانچ کے سوالات ہیں، اور آپ کی پیش رفت محفوظ رہتی ہے۔
+- **Claude Academy کا تجزیہ** — [Claude Academy](https://academy.claude.com/all?kind=tutorial&product=chat) کے 64 Claude ٹیوٹوریلز، ساتھ میں Claude Code کے ٹیوٹوریلز اور کورسز (Claude Code 101، Claude Code in action، Agent Skills، Subagents)؛ چیٹ میں جو کچھ آپ سیکھتے ہیں (Projects، میموری، کنیکٹرز، اسکلز، Research، ماڈل اور effort چننا…) اسے Claude Code میں کرنے کے طریقے سے جوڑ کر دکھایا گیا ہے۔
+- **دستاویزات سے جانچے گئے جوابات** — "ہُکس کیسے کام کرتے ہیں؟" یا "پلگ ان کا دائرہ (scope) کیا ہے؟" جیسے سوال پر یہ code.claude.com میں تلاش کر کے پڑھتی ہے، پھر کمانڈ، مثال اور دستاویز کے لنک کے ساتھ جواب دیتی ہے۔
+- **CHANGELOG کا ہر نیا فیچر** — [CHANGELOG.md](https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/CHANGELOG.md) کے تمام 422 ورژن (v0.2.21 – v2.1.302)، بگ فکسز کے بغیر، 14 موضوعات میں خلاصہ؛ ساتھ میں جاننے کے لائق 30 فیچرز اور تازہ ترین اضافے۔
+- **`/claude-skill update`** — تازہ ترین CHANGELOG لاتی ہے، وہ ورژن ڈھونڈتی ہے جو اسکل میں ابھی شامل نہیں، ان کے فیچرز نوٹس، چیٹ شیٹ اور اسباق میں شامل کرتی ہے، اور درج کرتی ہے کہ کہاں تک کور ہو چکا ہے۔
+- **سیٹ اپ ڈاکٹر** — آپ کا ورژن، سیٹنگز فائلیں (یوزر، پروجیکٹ، لوکل)، CLAUDE.md کی لمبائی، رولز، آٹو میموری، اسکلز، سب ایجنٹس، پلگ انز اور MCP سرورز دیکھ کر اصلاحات تجویز کرتی ہے۔
+- **چیٹ شیٹ، مشورے اور بنانے کی گائیڈز** — کمانڈز، شارٹ کٹس، CLI فلیگز اور فائلوں کی جگہیں ایک صفحے پر؛ کارآمد عادتیں؛ اسکلز، سب ایجنٹس، ہُکس، MCP سرورز، پلگ انز اور مارکیٹ پلیسز کیسے بنائیں۔
+
+### انسٹال
+
+اوپر والے [انسٹال](#انسٹال--گلوبل-یوزر-یا-ہر-پروجیکٹ-کے-لیے) حصے کی طرح۔ پلگ ان کا نام **`cc-skill`** ہے (Claude Code ان پلگ ان ناموں کو جو `claude-` سے شروع ہوں، Anthropic کے اپنے پلگ انز کے لیے مخصوص رکھتا ہے)۔ اسکل کا نام `claude-skill` ہی رہتا ہے، اس لیے آپ اسے `/claude-skill` سے بلاتے ہیں۔
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install cc-skill@sonub-skills                    # گلوبل — تمام پروجیکٹس
+claude plugin install cc-skill@sonub-skills --scope project    # یہ پروجیکٹ، ٹیم کے ساتھ شیئر
+```
+
+Python 3.8+ اور انٹرنیٹ کنکشن درکار ہے (یہ آفیشل دستاویزات اور CHANGELOG پڑھتی ہے)۔
+
+### استعمال
+
+| آپ کہتے ہیں | یہ کرتی ہے |
+|------|------|
+| `/claude-skill` · "چلو Claude Code سیکھتے ہیں" | اسباق اور آپ کی پیش رفت دکھاتی ہے، اگلا سبق شروع کرتی ہے |
+| `/claude-skill lesson 5` · "اگلا سبق" | سبق سکھاتی ہے، آپ کے پروجیکٹ میں مشق کرواتی ہے، جانچ کے سوال پوچھتی ہے، پیش رفت محفوظ کرتی ہے |
+| `/claude-skill quiz` | جو آپ نے پڑھا اس سے پانچ سوال، ایک ایک کر کے، نمبروں کے ساتھ |
+| "ہر ایڈٹ کے بعد hook سے prettier کیسے چلاؤں؟" | آفیشل دستاویزات پڑھ کر کنفیگ کی مثال اور لنک کے ساتھ جواب دیتی ہے |
+| `/claude-skill new` · "نیا کیا ہے؟" | سب سے کارآمد حالیہ فیچرز پہلے، ہر ایک کو آزمانے کے طریقے کے ساتھ |
+| `/claude-skill doctor` · "میرا سیٹ اپ چیک کرو" | آپ کے سیٹ اپ کا جائزہ لے کر اصلاحات تجویز کرتی ہے (کچھ بھی بدلنے سے پہلے پوچھتی ہے) |
+| `/claude-skill tips` · `cheatsheet` · `academy` | کارآمد عادتیں · کمانڈز اور شارٹ کٹس · Academy کا تجزیہ |
+| `/claude-skill build skill` · "میرے لیے ایک hook بنا دو" | صحیح طریقہ چن کر آپ کے پروجیکٹ میں آپ کے ساتھ مل کر بناتی ہے |
+| `/claude-skill update` | تازہ ترین CHANGELOG سے اسکل کے فیچر نوٹس اپ ڈیٹ کرتی ہے |
+
+پلگ ان کے طور پر انسٹال ہو تو `/cc-skill:claude-skill …` بھی کام کرتا ہے۔ Codex میں: `$claude-skill …`۔
+
+### `/claude-skill update` کیسے کام کرتا ہے
+
+1. `scripts/cc.py update-check` اس ورژن کا، جس تک نوٹس کور کرتے ہیں (`references/changelog-features.md` میں `covered-through` نشان)، CHANGELOG کے تازہ ترین ورژن سے موازنہ کرتا ہے۔
+2. انسٹال شدہ پلگ ان کاپی پر یہ پہلے `claude plugin update cc-skill@sonub-skills` چلا کر شائع شدہ نوٹس لیتا ہے۔ اسکل کا سورس (git checkout) ایڈٹ کرنا ہو تو `--source <folder>` دیں۔ سورس نہ ہو تو یہ `~/.config/claude-skill/changelog-local.md` میں لکھتا ہے، جو پلگ ان اپ ڈیٹس کے بعد بھی باقی رہتی ہے۔
+3. `cc.py changelog --since <covered>` نئے ورژنز کے آئٹمز کی فہرست دیتا ہے (فکسز چھپے رہتے ہیں)؛ ایجنٹ نئے فیچرز ان کے موضوعات میں شامل کرتا ہے، "Latest additions" والا حصہ نئے سرے سے لکھتا ہے، نئی کمانڈز اور شارٹ کٹس چیٹ شیٹ میں ڈالتا ہے، اور جو اسباق غلط ہو گئے ہوں انہیں ٹھیک کرتا ہے۔
+4. `cc.py mark-covered <latest>` نشان آگے بڑھاتا ہے؛ git checkout میں یہ ورژن بڑھا کر کمٹ کرتا ہے (push صرف آپ کے کہنے پر)۔
+5. یہ بتاتا ہے کہ کون سی رینج کور ہوئی، اور آزمانے کے لائق 3–7 نئے فیچرز، ہر ایک کو آزمانے کے طریقے کے ساتھ۔
+
+### ٹول — `scripts/cc.py`
+
+صرف Python کی اسٹینڈرڈ لائبریری۔
+
+```bash
+python3 scripts/cc.py doctor                 # اپنا Claude Code سیٹ اپ چیک کریں + مشورے
+python3 scripts/cc.py docs hooks             # آفیشل دستاویزات میں تلاش (llms.txt)
+python3 scripts/cc.py read hooks --section "Hook events"   # کسی صفحے کا ایک حصہ پڑھیں
+python3 scripts/cc.py changelog --count 5    # تازہ ترین 5 ورژن (فکسز چھپے ہوئے)
+python3 scripts/cc.py changelog --grep worktree --count 400   # نام سے کوئی فیچر ڈھونڈیں
+python3 scripts/cc.py update-check           # کور شدہ ورژن بمقابلہ تازہ ترین
+python3 scripts/cc.py lessons                # اسباق اور پیش رفت
+```
+
+## ریپوزیٹری کی ساخت
 
 ```
 .claude-plugin/marketplace.json   ← مارکیٹ پلیس (Claude Code)
@@ -164,6 +276,14 @@ skills/gp/
 └─ references/                    ← ضرورت پڑنے پر پڑھیں
    ├─ github-projects.md          ← تصورات، اکاؤنٹ، لاگ اِن، پہلا بورڈ
    └─ commands.md                 ← تمام کمانڈز + سادہ gh / GraphQL نسخے
+skills/claude-skill/
+├─ SKILL.md                       ← اسکل: کب اور کیسے استعمال کرنی ہے
+├─ .claude-plugin/plugin.json     ← پلگ ان کی معلومات (پلگ ان کا نام cc-skill)
+├─ scripts/cc.py                  ← سیکھنے کا ٹول: doctor، docs، read، changelog، update-check، lessons
+└─ references/                    ← 14 اسباق · Academy کا تجزیہ · CHANGELOG فیچرز · چیٹ شیٹ · بنانے کی گائیڈز · مشورے · کوئز
+   ├─ curriculum.md · quiz.md · tips.md
+   ├─ academy.md · changelog-features.md
+   └─ cheatsheet.md · extend.md
 ```
 
 اسکلز کیسے کام کرتی ہیں، یہ SONUB AI کورس کے **Agent Skills** باب میں سیکھیں: https://sonub.com/ur/learn/ai#agent-skill

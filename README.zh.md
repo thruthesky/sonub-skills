@@ -7,6 +7,54 @@
 | 技能 | 作用 |
 |------|------|
 | [`gp`](skills/gp) | 用 git 和 `gh` CLI 在 **GitHub Projects** 中管理你的所有工作 |
+| [`claude-skill`](skills/claude-skill) | **学习 Claude Code，把它用得更好** —— 14 节课程和小测验、对照官方文档核实的回答、环境检查、CHANGELOG 中所有新功能的总结，以及用 `/claude-skill update` 引入新功能（插件名 `cc-skill`） |
+
+## 安装 —— 全局（用户）或按项目
+
+所有技能的安装方法都一样。把表格中的插件名（`gp`、`cc-skill`）填到 `<插件>` 处。
+
+**第 1 步 —— 添加技能市场（每台电脑只需一次）**
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+```
+
+**第 2 步 —— 安装到你想用的范围**
+
+| 范围 | 命令 | 谁能用、在哪里用 | 记录在 |
+|------|------|------|------|
+| **全局（用户）** —— 默认 | `claude plugin install <插件>@sonub-skills` | 你自己，在这台电脑的所有项目中 | `~/.claude/settings.json` |
+| **项目（与团队共享）** | 在项目文件夹中：`claude plugin install <插件>@sonub-skills --scope project` | 在这个仓库中工作的所有人 | `.claude/settings.json`（请提交它） |
+| **本地（只有自己、只在此项目）** | 在项目文件夹中：`claude plugin install <插件>@sonub-skills --scope local` | 你自己，只在这个仓库中 | `.claude/settings.local.json` |
+
+- 在对话中输入 `/plugin install <插件>@sonub-skills`，会打开一个选择安装范围的界面。如果是在终端中安装的，请在已打开的对话中运行 `/reload-plugins`。
+- 查看：`claude plugin list`（会显示范围）。更新：`claude plugin marketplace update sonub-skills && claude plugin update <插件>@sonub-skills`。卸载：`claude plugin uninstall <插件>@sonub-skills`。
+- 同一个插件在多个范围中都有设置时，本地优先于项目，项目优先于全局。
+
+**让团队成员自动获得** —— 把下面的内容提交到仓库的 `.claude/settings.json`。团队成员信任（trust）这个文件夹后，Claude Code 会自动添加技能市场并安装插件。
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
+  },
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+}
+```
+
+**不用插件 —— 复制文件夹** 到智能体的技能文件夹中（`<技能>` = `gp` 或 `claude-skill`）。
+
+| 工具 | 全局（用户） | 项目 |
+|------|------|------|
+| Claude Code | `~/.claude/skills/<技能>` | `<项目>/.claude/skills/<技能>` |
+| Codex · Gemini CLI · GitHub Copilot CLI | `~/.agents/skills/<技能>` | `<项目>/.agents/skills/<技能>` |
+
+```bash
+S=claude-skill; DIR=~/.claude/skills      # 仅此项目：DIR=.claude/skills
+mkdir -p "$DIR" && rm -rf "$DIR/$S" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 "sonub-skills-main/skills/$S"
+```
+
+**最简单** —— 对智能体说 *"从 thruthesky/sonub-skills 全局安装 cc-skill 插件"*（或 *"只装在这个项目"*），它就会替你运行上面的命令。
 
 ---
 
@@ -151,7 +199,71 @@ claude plugin uninstall gp@sonub-skills
 
 其他智能体：再次运行 `curl … | tar` 那一行即可更新；删除 `gp` 文件夹即可卸载。
 
-### 仓库结构
+## claude-skill —— 学习 Claude Code，把它用得更好
+
+Claude Code 几乎每天都会发布新版本（至今已超过 400 个）。这个技能会按顺序教你使用它，回答问题时查阅**当前的官方文档**而不是凭记忆，检查你的环境配置，并把 CHANGELOG 中的每个新功能整理成摘要。只需一条 `/claude-skill update`，新发布的功能就会加入技能。
+
+### 涵盖的内容
+
+- **14 节学习课程** —— 从安装和第一次提问，到 探索 → 计划 → 编码 → 提交、上下文管理、CLAUDE.md 与记忆、权限模式、检查点（checkpoint）、技能、子智能体（subagent）、钩子（hook）、MCP、插件与技能市场、无界面运行（headless）与 GitHub Actions，以及带验证的长时间无人值守工作。每节课都有**在你自己的项目中做的练习**和检查题，学习进度会被保存。
+- **Claude Academy 分析** —— [Claude Academy](https://academy.claude.com/all?kind=tutorial&product=chat) 上的 64 个 Claude 教程，以及 Claude Code 的教程和课程（Claude Code 101、Claude Code in action、Agent Skills、Subagents）。把在聊天中学到的内容（Projects、记忆、连接器、技能、Research、选择模型和 effort……）对应到在 Claude Code 中的做法。
+- **对照文档核实的回答** —— 对于"钩子怎么用？"或"插件范围是什么？"这样的问题，它会搜索并阅读 code.claude.com，然后用命令、示例和文档链接来回答。
+- **CHANGELOG 中的每个新功能** —— [CHANGELOG.md](https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/CHANGELOG.md) 的全部 422 个版本（v0.2.21 – v2.1.302），去掉 bug 修复后整理成 14 个主题，另外还挑出了值得了解的 30 个功能和最新新增的功能。
+- **`/claude-skill update`** —— 获取最新的 CHANGELOG，找出技能还没涵盖的版本，把其中的功能加入笔记、速查表和课程，并记录已经涵盖到哪个版本。
+- **环境检查（doctor）** —— 查看你的版本、设置文件（用户、项目、本地）、CLAUDE.md 的长度、规则、自动记忆、技能、子智能体、插件和 MCP 服务器，并给出修复建议。
+- **速查表、技巧和构建指南** —— 命令、快捷键、CLI 选项和文件位置汇总在一页；好用的习惯；如何构建技能、子智能体、钩子、MCP 服务器、插件和技能市场。
+
+### 安装
+
+与上面的 [安装](#安装--全局用户或按项目) 相同。插件名是 **`cc-skill`**（Claude Code 把以 `claude-` 开头的插件名保留给 Anthropic 官方使用）。技能名仍然是 `claude-skill`，所以用 `/claude-skill` 来调用。
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install cc-skill@sonub-skills                    # 全局 —— 所有项目
+claude plugin install cc-skill@sonub-skills --scope project    # 此项目，与团队共享
+```
+
+需要 Python 3.8 或更高版本，以及网络连接（它会读取官方文档和 CHANGELOG）。
+
+### 使用方法
+
+| 你说 | 它会 |
+|------|------|
+| `/claude-skill` · "我们来学 Claude Code 吧" | 显示课程和你的进度，开始下一节 |
+| `/claude-skill lesson 5` · "下一节课" | 讲解这节课，在你的项目中做练习，提出检查题，保存进度 |
+| `/claude-skill quiz` | 从学过的内容中出 5 道题，一次一道，并打分 |
+| "怎么用钩子在每次编辑后运行 prettier？" | 阅读官方文档，用配置示例和链接来回答 |
+| `/claude-skill new` · "有什么新功能？" | 先介绍最近最有用的功能，并说明每个怎么试用 |
+| `/claude-skill doctor` · "检查一下我的配置" | 检查你的环境并提出修复建议（修改前会先询问） |
+| `/claude-skill tips` · `cheatsheet` · `academy` | 好用的习惯 · 命令和快捷键 · Academy 分析 |
+| `/claude-skill build skill` · "帮我做一个钩子" | 选出合适的机制，在你的项目中和你一起构建 |
+| `/claude-skill update` | 根据最新的 CHANGELOG 更新技能的功能笔记 |
+
+作为插件安装时，也可以用 `/cc-skill:claude-skill …`。Codex：`$claude-skill …`。
+
+### `/claude-skill update` 的工作原理
+
+1. `scripts/cc.py update-check` 比较笔记已涵盖的版本（`references/changelog-features.md` 中的 `covered-through` 标记）和 CHANGELOG 的最新版本。
+2. 如果是已安装的插件副本，它会先运行 `claude plugin update cc-skill@sonub-skills` 获取已发布的笔记。要修改技能的源码（git 检出的仓库），请传入 `--source <文件夹>`。没有源码时，它会写入 `~/.config/claude-skill/changelog-local.md`，插件更新后也会保留。
+3. `cc.py changelog --since <已涵盖版本>` 列出新版本的条目（隐藏修复）；智能体把新功能加入对应的主题，重写"最新新增"，把新命令和快捷键加入速查表，并修正已经不对的课程内容。
+4. `cc.py mark-covered <最新版本>` 移动标记；在 git 检出的仓库中，它会提升版本号并提交（只有在你要求时才推送）。
+5. 它会汇报涵盖的版本范围，以及 3–7 个值得一试的新功能和各自的试用方法。
+
+### 工具 —— `scripts/cc.py`
+
+只用 Python 标准库。
+
+```bash
+python3 scripts/cc.py doctor                 # 检查你的 Claude Code 配置 + 建议
+python3 scripts/cc.py docs hooks             # 搜索官方文档（llms.txt）
+python3 scripts/cc.py read hooks --section "Hook events"   # 阅读页面中的一节
+python3 scripts/cc.py changelog --count 5    # 最近 5 个版本（隐藏修复）
+python3 scripts/cc.py changelog --grep worktree --count 400   # 按名称查找功能
+python3 scripts/cc.py update-check           # 已涵盖的版本 vs 最新版本
+python3 scripts/cc.py lessons                # 课程和进度
+```
+
+## 仓库结构
 
 ```
 .claude-plugin/marketplace.json   ← 技能市场（Claude Code）
@@ -162,6 +274,14 @@ skills/gp/
 └─ references/                    ← 需要时阅读
    ├─ github-projects.md          ← 概念、账号、登录、第一个看板
    └─ commands.md                 ← 所有命令 + 直接使用 gh / GraphQL 的示例
+skills/claude-skill/
+├─ SKILL.md                       ← 技能本身：何时使用、如何使用
+├─ .claude-plugin/plugin.json     ← 插件信息（插件名 cc-skill）
+├─ scripts/cc.py                  ← 学习工具：doctor、docs、read、changelog、update-check、lessons
+└─ references/                    ← 14 节课程 · Academy 分析 · CHANGELOG 功能 · 速查表 · 构建指南 · 技巧 · 测验
+   ├─ curriculum.md · quiz.md · tips.md
+   ├─ academy.md · changelog-features.md
+   └─ cheatsheet.md · extend.md
 ```
 
 在 SONUB AI 课程的 **Agent Skills** 章节中了解技能是如何工作的：https://sonub.com/zh/learn/ai#agent-skill

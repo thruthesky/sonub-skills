@@ -7,6 +7,54 @@ Bu depo bir **beceri pazaryeridir (skill marketplace)**. Her beceri standart bir
 | Beceri | Ne yapar |
 |------|------|
 | [`gp`](skills/gp) | Tüm işlerinizi git ve `gh` CLI ile **GitHub Projects** üzerinde yönetir |
+| [`claude-skill`](skills/claude-skill) | **Claude Code'u öğrenin ve daha iyi kullanın** — testli 14 ders, resmî belgelerle doğrulanan yanıtlar, kurulum denetleyicisi (doctor), CHANGELOG'daki her yeni özelliğin özeti ve yenilerini eklemek için `/claude-skill update` (eklenti adı `cc-skill`) |
+
+## Kurulum — global (kullanıcı) veya proje başına
+
+Her beceri aynı şekilde kurulur. `<eklenti>` yerine tablodaki eklenti adını (`gp`, `cc-skill`) yazın.
+
+**1. adım — pazaryerini ekleyin (her bilgisayarda bir kez)**
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+```
+
+**2. adım — istediğiniz yere kurun**
+
+| Kapsam | Komut | Kim, nerede kullanır | Nereye yazılır |
+|------|------|------|------|
+| **Global (kullanıcı)** — varsayılan | `claude plugin install <eklenti>@sonub-skills` | siz, bu bilgisayardaki tüm projelerde | `~/.claude/settings.json` |
+| **Proje (ekiple paylaşılır)** | proje klasöründe: `claude plugin install <eklenti>@sonub-skills --scope project` | bu depoda çalışan herkes | `.claude/settings.json` (commit edin) |
+| **Yerel (yalnızca siz, yalnızca bu proje)** | proje klasöründe: `claude plugin install <eklenti>@sonub-skills --scope local` | siz, yalnızca bu depoda | `.claude/settings.local.json` |
+
+- Sohbette `/plugin install <eklenti>@sonub-skills` kapsamı seçeceğiniz bir ekran açar. Terminalden kurduysanız açık sohbetlerde `/reload-plugins` çalıştırın.
+- Kontrol: `claude plugin list` (kapsamı da gösterir). Güncelleme: `claude plugin marketplace update sonub-skills && claude plugin update <eklenti>@sonub-skills`. Kaldırma: `claude plugin uninstall <eklenti>@sonub-skills`.
+- Aynı eklenti birden fazla kapsamda ayarlıysa yerel projeden, proje de globalden önce gelir.
+
+**Ekip arkadaşlarınız otomatik alsın** — bunu deponun `.claude/settings.json` dosyasına ekleyip commit edin. Bir ekip arkadaşınız klasöre güvendikten (trust) sonra Claude Code pazaryerini ekler ve eklentileri kurar.
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
+  },
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+}
+```
+
+**Eklentisiz — klasörü kopyalayın**, ajanınızın beceri klasörüne (`<beceri>` = `gp` veya `claude-skill`).
+
+| Araç | Global (kullanıcı) | Proje |
+|------|------|------|
+| Claude Code | `~/.claude/skills/<beceri>` | `<proje>/.claude/skills/<beceri>` |
+| Codex · Gemini CLI · GitHub Copilot CLI | `~/.agents/skills/<beceri>` | `<proje>/.agents/skills/<beceri>` |
+
+```bash
+S=claude-skill; DIR=~/.claude/skills      # yalnızca bu proje: DIR=.claude/skills
+mkdir -p "$DIR" && rm -rf "$DIR/$S" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 "sonub-skills-main/skills/$S"
+```
+
+**En kolayı** — ajanınıza *"thruthesky/sonub-skills'teki cc-skill eklentisini global olarak kur"* (ya da *"yalnızca bu proje için"*) deyin; yukarıdaki komutları sizin yerinize çalıştırır.
 
 ---
 
@@ -151,7 +199,71 @@ claude plugin uninstall gp@sonub-skills
 
 Diğer ajanlar: güncellemek için `curl … | tar` satırını yeniden çalıştırın; kaldırmak için `gp` klasörünü silin.
 
-### Depo yapısı
+## claude-skill — Claude Code'u öğrenin ve daha iyi kullanın
+
+Claude Code neredeyse her gün yeni bir sürüm çıkarıyor (şu ana kadar 400'den fazla). Bu beceri onu sırayla öğretir, soruları hafızadan değil **güncel resmî belgelerden** yanıtlar, kurulumunuzu denetler ve CHANGELOG'daki her yeni özelliğin özetini tutar. Tek bir `/claude-skill update` yeni çıkan özellikleri beceriye ekler.
+
+### Neleri kapsar
+
+- **14 derslik bir çalışma yolu** — kurulum ve ilk istemlerden keşfet → planla → kodla → commit akışına, bağlam (context) yönetimine, CLAUDE.md ve belleğe (memory), izin modlarına, kontrol noktalarına (checkpoint), becerilere, alt ajanlara (subagent), hook'lara, MCP'ye, eklentilere ve pazaryerlerine, headless çalıştırmaya ve GitHub Actions'a, doğrulamayla yürüyen uzun ve gözetimsiz işlere kadar. Her derste **kendi projenizde bir alıştırma** ve kontrol soruları vardır; ilerlemeniz kaydedilir.
+- **Claude Academy analizi** — [Claude Academy](https://academy.claude.com/all?kind=tutorial&product=chat)'deki 64 Claude eğitimi ile Claude Code eğitimleri ve kursları (Claude Code 101, Claude Code in action, Agent Skills, Subagents); sohbette öğrendikleriniz (Projects, bellek, bağlayıcılar, beceriler, Research, model ve effort seçimi…) Claude Code'da nasıl yapıldığıyla eşleştirilir.
+- **Belgelerle doğrulanan yanıtlar** — "hook'lar nasıl çalışır?" ya da "eklenti kapsamı nedir?" gibi sorularda code.claude.com'da arar, okur ve komut, örnek ve belge bağlantısıyla yanıtlar.
+- **CHANGELOG'daki her yeni özellik** — [CHANGELOG.md](https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/CHANGELOG.md)'nin 422 sürümünün tamamı (v0.2.21 – v2.1.302), hata düzeltmeleri hariç, 14 konuda özetlenmiş; ayrıca bilmeye değer 30 özellik ve en son eklenenler.
+- **`/claude-skill update`** — en son CHANGELOG'u indirir, becerinin henüz kapsamadığı sürümleri bulur, bu sürümlerin özelliklerini notlara, kopya kâğıdına ve derslere ekler ve nereye kadar kapsadığını kaydeder.
+- **Kurulum denetleyicisi (doctor)** — sürümünüze, ayar dosyalarınıza (kullanıcı, proje, yerel), CLAUDE.md uzunluğuna, kurallara (rules), otomatik belleğe (auto memory), becerilere, alt ajanlara, eklentilere ve MCP sunucularına bakar ve düzeltmeler önerir.
+- **Kopya kâğıdı, ipuçları ve yapım kılavuzları** — komutlar, kısayollar, CLI bayrakları ve dosya konumları tek sayfada; işe yarayan alışkanlıklar; beceri, alt ajan, hook, MCP sunucusu, eklenti ve pazaryeri nasıl yapılır.
+
+### Kurulum
+
+Yukarıdaki [Kurulum](#kurulum--global-kullanıcı-veya-proje-başına) bölümündeki gibi. Eklentinin adı **`cc-skill`**'dir (Claude Code, `claude-` ile başlayan eklenti adlarını Anthropic'in kendi eklentilerine ayırır). Becerinin adı `claude-skill` olarak kalır, bu yüzden onu `/claude-skill` ile çağırırsınız.
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install cc-skill@sonub-skills                    # global — tüm projeler
+claude plugin install cc-skill@sonub-skills --scope project    # bu proje, ekiple paylaşılır
+```
+
+Python 3.8+ ve internet erişimi gerekir (resmî belgeleri ve CHANGELOG'u okur).
+
+### Kullanım
+
+| Siz dersiniz | O yapar |
+|------|------|
+| `/claude-skill` · "Claude Code çalışalım" | Dersleri ve ilerlemenizi gösterir, sıradakini başlatır |
+| `/claude-skill lesson 5` · "sonraki ders" | Dersi anlatır, alıştırmayı projenizde yaptırır, kontrol soruları sorar, ilerlemeyi kaydeder |
+| `/claude-skill quiz` | Çalıştıklarınızdan beş soru, birer birer, puanlı |
+| "Her düzenlemeden sonra prettier'ı bir hook ile nasıl çalıştırırım?" | Resmî belgeleri okur, ayar örneği ve bağlantıyla yanıtlar |
+| `/claude-skill new` · "neler yeni?" | Önce en işe yarar son özellikler, her biri nasıl deneneceğiyle |
+| `/claude-skill doctor` · "kurulumumu kontrol et" | Kurulumunuzu inceler ve düzeltmeler önerir (bir şey değiştirmeden önce sorar) |
+| `/claude-skill tips` · `cheatsheet` · `academy` | İşe yarayan alışkanlıklar · komutlar ve kısayollar · Academy analizi |
+| `/claude-skill build skill` · "bana bir hook yap" | Doğru mekanizmayı seçer ve projenizde sizinle birlikte kurar |
+| `/claude-skill update` | Becerinin özellik notlarını en son CHANGELOG'dan yeniler |
+
+Eklenti olarak kurulduysa `/cc-skill:claude-skill …` da çalışır. Codex: `$claude-skill …`.
+
+### `/claude-skill update` nasıl çalışır
+
+1. `scripts/cc.py update-check`, notların kapsadığı sürümü (`references/changelog-features.md` içindeki `covered-through` işareti) en son CHANGELOG sürümüyle karşılaştırır.
+2. Kurulu bir eklenti kopyasında önce yayımlanmış notları almak için `claude plugin update cc-skill@sonub-skills` çalıştırır. Becerinin kaynağını (bir git checkout) düzenlemek için `--source <klasör>` verin. Kaynak yoksa, eklenti güncellemelerinden etkilenmeyen `~/.config/claude-skill/changelog-local.md` dosyasına yazar.
+3. `cc.py changelog --since <kapsanan>` yeni sürümlerin maddelerini listeler (düzeltmeler gizli); ajan yeni özellikleri konularına ekler, "En son eklenenler" bölümünü yeniden yazar, yeni komut ve kısayolları kopya kâğıdına ekler ve artık yanlış olan dersleri düzeltir.
+4. `cc.py mark-covered <en-son>` işareti ilerletir; bir git checkout'ta sürümü yükseltir ve commit eder (yalnızca siz isterseniz push eder).
+5. Kapsanan aralığı ve denemeye değer 3–7 yeni özelliği, her birinin nasıl deneneceğiyle birlikte bildirir.
+
+### Araç — `scripts/cc.py`
+
+Yalnızca Python standart kütüphanesi.
+
+```bash
+python3 scripts/cc.py doctor                 # Claude Code kurulumunuzu denetler + öneriler
+python3 scripts/cc.py docs hooks             # resmî belgelerde arar (llms.txt)
+python3 scripts/cc.py read hooks --section "Hook events"   # bir sayfanın tek bölümünü okur
+python3 scripts/cc.py changelog --count 5    # en son 5 sürüm (düzeltmeler gizli)
+python3 scripts/cc.py changelog --grep worktree --count 400   # bir özelliği adıyla bulur
+python3 scripts/cc.py update-check           # kapsanan sürümler ve en son sürüm
+python3 scripts/cc.py lessons                # dersler ve ilerleme
+```
+
+## Depo yapısı
 
 ```
 .claude-plugin/marketplace.json   ← pazaryeri (Claude Code)
@@ -162,6 +274,14 @@ skills/gp/
 └─ references/                    ← gerektiğinde okunur
    ├─ github-projects.md          ← kavramlar, hesap, giriş, ilk pano
    └─ commands.md                 ← tüm komutlar + düz gh / GraphQL tarifleri
+skills/claude-skill/
+├─ SKILL.md                       ← beceri: ne zaman ve nasıl kullanılacağı
+├─ .claude-plugin/plugin.json     ← eklenti bilgisi (eklenti adı cc-skill)
+├─ scripts/cc.py                  ← çalışma aracı: doctor, docs, read, changelog, update-check, lessons
+└─ references/                    ← 14 ders · Academy analizi · CHANGELOG özellikleri · kopya kâğıdı · yapım kılavuzları · ipuçları · test
+   ├─ curriculum.md · quiz.md · tips.md
+   ├─ academy.md · changelog-features.md
+   └─ cheatsheet.md · extend.md
 ```
 
 Becerilerin nasıl çalıştığını SONUB yapay zekâ kursunun **Agent Skills** bölümünde öğrenin: https://sonub.com/tr/learn/ai#agent-skill

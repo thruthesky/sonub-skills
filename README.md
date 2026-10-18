@@ -2,18 +2,24 @@
 
 **Agent Skills from [SONUB](https://sonub.com)** — a skill marketplace for Claude Code, and standard `SKILL.md` skills for Codex, Gemini CLI, GitHub Copilot CLI and any other agent.
 
-| Skill | What it does |
-|------|------|
-| [`gp`](skills/gp) | Manage all your work in **GitHub Projects** — boards, kanban columns, issues, images, TODO checklists, assignees — by talking to your agent. Uses git and the `gh` CLI. |
+| Skill | Plugin | What it does |
+|------|------|------|
+| [`gp`](skills/gp) | `gp` | Manage all your work in **GitHub Projects** — boards, kanban columns, issues, images, TODO checklists, assignees — by talking to your agent. Uses git and the `gh` CLI. |
+| [`claude-skill`](skills/claude-skill) | `cc-skill` | **Learn Claude Code and get better at it** — a 14-lesson study track with exercises and quizzes (built from Claude Academy and the official docs), answers checked against the live docs, a setup doctor, every new CHANGELOG feature summarized, and `/claude-skill update` to pull new features into the skill. |
+
+## Install
 
 ```bash
-claude plugin marketplace add thruthesky/sonub-skills
-claude plugin install gp@sonub-skills
+claude plugin marketplace add thruthesky/sonub-skills          # once per computer
+
+claude plugin install cc-skill@sonub-skills                    # global (user): every project
+claude plugin install cc-skill@sonub-skills --scope project    # project: this repo, shared with the team (.claude/settings.json)
+claude plugin install cc-skill@sonub-skills --scope local      # local: this repo, just you
 ```
 
-Install for one project only: add `--scope project` (or copy into `.claude/skills` / `.agents/skills` of the project). Then give each project its own board: `/gp init https://github.com/users/<you>/projects/<n>` saves it in the project's `.gp.json`; add `--global` for every project.
+Swap `cc-skill` for `gp` (or install both). Then type `/claude-skill` or `/gp init <board URL>`. Update: `claude plugin marketplace update sonub-skills && claude plugin update cc-skill@sonub-skills`.
 
-Other agents: copy [`skills/gp`](skills/gp) into your skill folder (`~/.agents/skills`). Details, examples and an install box you can paste into your agent:
+Without plugins, copy the skill folder into `~/.claude/skills/` (global) or `<project>/.claude/skills/` (project) — for Codex, Gemini CLI and Copilot CLI use `~/.agents/skills/` or `<project>/.agents/skills/`. Team auto-install, folder-copy one-liners, examples and an install box you can paste into your agent:
 
 **[English](README.en.md)** · [한국어](README.ko.md) · [中文](README.zh.md) · [日本語](README.ja.md) · [Español](README.es.md) · [Português](README.pt.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Русский](README.ru.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md) · [ไทย](README.th.md) · [Türkçe](README.tr.md) · [हिन्दी](README.hi.md) · [বাংলা](README.bn.md) · [العربية](README.ar.md) · [اردو](README.ur.md)
 

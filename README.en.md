@@ -7,6 +7,54 @@ This repository is a **skill marketplace**. Every skill is a standard [Agent Ski
 | Skill | What it does |
 |------|------|
 | [`gp`](skills/gp) | Manage all your work in **GitHub Projects** with git and the `gh` CLI |
+| [`claude-skill`](skills/claude-skill) | **Learn Claude Code and get better at it** — 14 lessons with quizzes, answers checked against the official docs, a setup doctor, every new CHANGELOG feature summarized, and `/claude-skill update` to pull in new ones (plugin name `cc-skill`) |
+
+## Install — globally (user) or per project
+
+Every skill installs the same way. Put the plugin name from the table (`gp`, `cc-skill`) in place of `<plugin>`.
+
+**Step 1 — add the marketplace (once per computer)**
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+```
+
+**Step 2 — install where you want it**
+
+| Scope | Command | Who gets it, where | Recorded in |
+|------|------|------|------|
+| **Global (user)** — the default | `claude plugin install <plugin>@sonub-skills` | you, in every project on this computer | `~/.claude/settings.json` |
+| **Project (shared with the team)** | in the project folder: `claude plugin install <plugin>@sonub-skills --scope project` | everyone working in this repository | `.claude/settings.json` (commit it) |
+| **Local (just you, just this project)** | in the project folder: `claude plugin install <plugin>@sonub-skills --scope local` | you, in this repository only | `.claude/settings.local.json` |
+
+- In a session, `/plugin install <plugin>@sonub-skills` opens a screen where you pick the scope. If you installed from the terminal, run `/reload-plugins` in any open session.
+- Check: `claude plugin list` (shows the scope). Update: `claude plugin marketplace update sonub-skills && claude plugin update <plugin>@sonub-skills`. Remove: `claude plugin uninstall <plugin>@sonub-skills`.
+- When the same plugin is set at several scopes, local beats project and project beats global.
+
+**Let teammates get it automatically** — commit this to the repository's `.claude/settings.json`. After a teammate trusts the folder, Claude Code adds the marketplace and installs the plugins.
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
+  },
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+}
+```
+
+**Without plugins — copy the folder** into your agent's skill folder (`<skill>` = `gp` or `claude-skill`).
+
+| Tool | Global (user) | Project |
+|------|------|------|
+| Claude Code | `~/.claude/skills/<skill>` | `<project>/.claude/skills/<skill>` |
+| Codex · Gemini CLI · GitHub Copilot CLI | `~/.agents/skills/<skill>` | `<project>/.agents/skills/<skill>` |
+
+```bash
+S=claude-skill; DIR=~/.claude/skills      # this project only: DIR=.claude/skills
+mkdir -p "$DIR" && rm -rf "$DIR/$S" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 "sonub-skills-main/skills/$S"
+```
+
+**Easiest** — tell your agent *"install the cc-skill plugin from thruthesky/sonub-skills globally"* (or *"for this project only"*) and it runs the commands above for you.
 
 ---
 
@@ -151,7 +199,71 @@ claude plugin uninstall gp@sonub-skills
 
 Other agents: run the `curl … | tar` line again to update; delete the `gp` folder to remove.
 
-### Repository layout
+## claude-skill — learn Claude Code and get better at it
+
+Claude Code ships a new version almost every day (400+ so far). This skill teaches it in order, answers questions from the **current official docs** instead of memory, checks your setup, and keeps a summary of every new feature in the CHANGELOG. One `/claude-skill update` pulls newly released features into the skill.
+
+### What it covers
+
+- **A 14-lesson study track** — from install and first prompts to explore → plan → code → commit, context management, CLAUDE.md and memory, permission modes, checkpoints, skills, subagents, hooks, MCP, plugins and marketplaces, headless runs and GitHub Actions, and long unattended work with verification. Every lesson has an **exercise in your own project** and check questions, and your progress is saved.
+- **Claude Academy, analyzed** — the 64 Claude tutorials on [Claude Academy](https://academy.claude.com/all?kind=tutorial&product=chat) plus the Claude Code tutorials and courses (Claude Code 101, Claude Code in action, Agent Skills, Subagents), with what you learn in chat (Projects, memory, connectors, skills, Research, choosing model and effort…) mapped to how you do it in Claude Code.
+- **Answers checked against the docs** — for "how do hooks work?" or "what is a plugin scope?", it searches and reads code.claude.com and answers with the command, an example and the doc link.
+- **Every new feature in the CHANGELOG** — all 422 versions of [CHANGELOG.md](https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/CHANGELOG.md) (v0.2.21 – v2.1.302), bug fixes left out, summarized into 14 topics, plus the 30 features worth knowing and the latest additions.
+- **`/claude-skill update`** — fetches the latest CHANGELOG, finds the versions the skill doesn't cover yet, adds their features to the notes, cheatsheet and lessons, and records how far it has covered.
+- **Setup doctor** — looks at your version, settings files (user, project, local), CLAUDE.md length, rules, auto memory, skills, subagents, plugins and MCP servers, and suggests fixes.
+- **Cheatsheet, tips and build guides** — commands, shortcuts, CLI flags and file locations on one page; habits that work; how to build skills, subagents, hooks, MCP servers, plugins and marketplaces.
+
+### Install
+
+As in [Install](#install--globally-user-or-per-project) above. The plugin is named **`cc-skill`** (Claude Code reserves plugin names starting with `claude-` for Anthropic's own). The skill keeps the name `claude-skill`, so you call it with `/claude-skill`.
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install cc-skill@sonub-skills                    # global — every project
+claude plugin install cc-skill@sonub-skills --scope project    # this project, shared with the team
+```
+
+Needs Python 3.8+ and internet access (it reads the official docs and the CHANGELOG).
+
+### Using it
+
+| You say | It does |
+|------|------|
+| `/claude-skill` · "let's study Claude Code" | Shows the lessons and your progress, starts the next one |
+| `/claude-skill lesson 5` · "next lesson" | Teaches it, runs the exercise in your project, asks check questions, saves progress |
+| `/claude-skill quiz` | Five questions from what you studied, one at a time, scored |
+| "How do I run prettier after every edit with a hook?" | Reads the official docs and answers with a config example and the link |
+| `/claude-skill new` · "what's new?" | The most useful recent features first, each with how to try it |
+| `/claude-skill doctor` · "check my setup" | Reviews your setup and proposes fixes (asks before changing anything) |
+| `/claude-skill tips` · `cheatsheet` · `academy` | Habits that work · commands and shortcuts · the Academy analysis |
+| `/claude-skill build skill` · "make me a hook" | Picks the right mechanism and builds it with you in your project |
+| `/claude-skill update` | Refreshes the skill's feature notes from the latest CHANGELOG |
+
+Installed as a plugin, `/cc-skill:claude-skill …` works too. Codex: `$claude-skill …`.
+
+### How `/claude-skill update` works
+
+1. `scripts/cc.py update-check` compares the version the notes cover (the `covered-through` mark in `references/changelog-features.md`) with the latest CHANGELOG version.
+2. On an installed plugin copy it first runs `claude plugin update cc-skill@sonub-skills` to get the published notes. To edit the skill's source (a git checkout), pass `--source <folder>`. Without a source it writes to `~/.config/claude-skill/changelog-local.md`, which survives plugin updates.
+3. `cc.py changelog --since <covered>` lists the new versions' items (fixes hidden); the agent adds new features to their topics, rewrites "Latest additions", adds new commands and shortcuts to the cheatsheet and fixes lessons that became wrong.
+4. `cc.py mark-covered <latest>` moves the mark; in a git checkout it bumps the version and commits (pushes only when you ask).
+5. It reports the range covered and 3–7 new features worth trying, with how to try each.
+
+### The tool — `scripts/cc.py`
+
+Python standard library only.
+
+```bash
+python3 scripts/cc.py doctor                 # check your Claude Code setup + advice
+python3 scripts/cc.py docs hooks             # search the official docs (llms.txt)
+python3 scripts/cc.py read hooks --section "Hook events"   # read one section of a page
+python3 scripts/cc.py changelog --count 5    # the latest 5 versions (fixes hidden)
+python3 scripts/cc.py changelog --grep worktree --count 400   # find a feature by name
+python3 scripts/cc.py update-check           # versions covered vs latest
+python3 scripts/cc.py lessons                # lessons and progress
+```
+
+## Repository layout
 
 ```
 .claude-plugin/marketplace.json   ← the marketplace (Claude Code)
@@ -162,6 +274,14 @@ skills/gp/
 └─ references/                    ← read when needed
    ├─ github-projects.md          ← concepts, account, login, first board
    └─ commands.md                 ← every command + plain gh / GraphQL recipes
+skills/claude-skill/
+├─ SKILL.md                       ← the skill: when to use it and how
+├─ .claude-plugin/plugin.json     ← plugin info (plugin name cc-skill)
+├─ scripts/cc.py                  ← study tool: doctor, docs, read, changelog, update-check, lessons
+└─ references/                    ← 14 lessons · Academy analysis · CHANGELOG features · cheatsheet · build guides · tips · quiz
+   ├─ curriculum.md · quiz.md · tips.md
+   ├─ academy.md · changelog-features.md
+   └─ cheatsheet.md · extend.md
 ```
 
 Learn how skills work in the **Agent Skills** chapter of the SONUB AI course: https://sonub.com/learn/ai#agent-skill

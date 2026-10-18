@@ -7,6 +7,54 @@
 | स्किल | यह क्या करती है |
 |------|------|
 | [`gp`](skills/gp) | git और `gh` CLI से अपना सारा काम **GitHub Projects** में संभालें |
+| [`claude-skill`](skills/claude-skill) | **Claude Code सीखें और उसे बेहतर ढंग से इस्तेमाल करें** — क्विज़ वाले 14 पाठ, आधिकारिक दस्तावेज़ों से जाँचे गए जवाब, सेटअप डॉक्टर, CHANGELOG की हर नई सुविधा का सार, और नई सुविधाएँ जोड़ने के लिए `/claude-skill update` (प्लगइन का नाम `cc-skill`) |
+
+## इंस्टॉल — ग्लोबल (यूज़र) या प्रोजेक्ट के हिसाब से
+
+हर स्किल एक ही तरीके से इंस्टॉल होती है। `<प्लगइन>` की जगह टेबल से प्लगइन का नाम (`gp`, `cc-skill`) लिखें।
+
+**चरण 1 — मार्केटप्लेस जोड़ें (हर कंप्यूटर पर एक बार)**
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+```
+
+**चरण 2 — जहाँ चाहिए वहाँ इंस्टॉल करें**
+
+| दायरा (scope) | कमांड | कौन, कहाँ इस्तेमाल करेगा | कहाँ लिखा जाता है |
+|------|------|------|------|
+| **ग्लोबल (यूज़र)** — डिफ़ॉल्ट | `claude plugin install <प्लगइन>@sonub-skills` | आप, इस कंप्यूटर के हर प्रोजेक्ट में | `~/.claude/settings.json` |
+| **प्रोजेक्ट (टीम के साथ साझा)** | प्रोजेक्ट फ़ोल्डर में: `claude plugin install <प्लगइन>@sonub-skills --scope project` | इस रिपॉज़िटरी में काम करने वाले सभी लोग | `.claude/settings.json` (इसे commit करें) |
+| **लोकल (सिर्फ़ आप, सिर्फ़ यह प्रोजेक्ट)** | प्रोजेक्ट फ़ोल्डर में: `claude plugin install <प्लगइन>@sonub-skills --scope local` | आप, सिर्फ़ इस रिपॉज़िटरी में | `.claude/settings.local.json` |
+
+- चैट में `/plugin install <प्लगइन>@sonub-skills` चलाने पर एक स्क्रीन खुलती है जिसमें आप दायरा चुनते हैं। अगर टर्मिनल से इंस्टॉल किया है, तो किसी खुली चैट में `/reload-plugins` चलाएँ।
+- जाँचें: `claude plugin list` (दायरा भी दिखाता है)। अपडेट: `claude plugin marketplace update sonub-skills && claude plugin update <प्लगइन>@sonub-skills`। हटाएँ: `claude plugin uninstall <प्लगइन>@sonub-skills`।
+- अगर एक ही प्लगइन कई दायरों में सेट है, तो लोकल प्रोजेक्ट से ऊपर और प्रोजेक्ट ग्लोबल से ऊपर रहता है।
+
+**टीम के साथियों को अपने-आप मिल जाए** — इसे रिपॉज़िटरी की `.claude/settings.json` में डालकर commit करें। जब कोई साथी फ़ोल्डर पर भरोसा (trust) कर देता है, तो Claude Code मार्केटप्लेस जोड़कर प्लगइन इंस्टॉल कर देता है।
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
+  },
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+}
+```
+
+**प्लगइन के बिना — फ़ोल्डर कॉपी करें**, अपने एजेंट के स्किल फ़ोल्डर में (`<स्किल>` = `gp` या `claude-skill`)।
+
+| टूल | ग्लोबल (यूज़र) | प्रोजेक्ट |
+|------|------|------|
+| Claude Code | `~/.claude/skills/<स्किल>` | `<प्रोजेक्ट>/.claude/skills/<स्किल>` |
+| Codex · Gemini CLI · GitHub Copilot CLI | `~/.agents/skills/<स्किल>` | `<प्रोजेक्ट>/.agents/skills/<स्किल>` |
+
+```bash
+S=claude-skill; DIR=~/.claude/skills      # सिर्फ़ इस प्रोजेक्ट के लिए: DIR=.claude/skills
+mkdir -p "$DIR" && rm -rf "$DIR/$S" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 "sonub-skills-main/skills/$S"
+```
+
+**सबसे आसान** — अपने एजेंट से कहें *"thruthesky/sonub-skills से cc-skill प्लगइन ग्लोबल इंस्टॉल करो"* (या *"सिर्फ़ इस प्रोजेक्ट के लिए"*), और वह ऊपर वाले कमांड आपके लिए चला देगा।
 
 ---
 
@@ -151,7 +199,71 @@ claude plugin uninstall gp@sonub-skills
 
 दूसरे एजेंट: अपडेट करने के लिए `curl … | tar` वाली लाइन फिर से चलाएँ; हटाने के लिए `gp` फ़ोल्डर मिटा दें।
 
-### रिपॉज़िटरी की बनावट
+## claude-skill — Claude Code सीखें और उसे बेहतर ढंग से इस्तेमाल करें
+
+Claude Code लगभग हर दिन नया वर्ज़न जारी करता है (अब तक 400 से ज़्यादा)। यह स्किल इसे क्रम से सिखाती है, सवालों के जवाब याद्दाश्त से नहीं बल्कि **मौजूदा आधिकारिक दस्तावेज़ों** से देती है, आपका सेटअप जाँचती है, और CHANGELOG की हर नई सुविधा का सार रखती है। बस एक `/claude-skill update` से नई जारी हुई सुविधाएँ स्किल में आ जाती हैं।
+
+### इसमें क्या-क्या शामिल है
+
+- **14 पाठों का अध्ययन क्रम** — इंस्टॉल और पहले प्रॉम्प्ट से लेकर खोजें → योजना बनाएँ → कोड लिखें → commit, context संभालना, CLAUDE.md और memory, अनुमति मोड (permission mode), checkpoint, स्किल, subagent, hook, MCP, प्लगइन और मार्केटप्लेस, headless रन और GitHub Actions, और जाँच के साथ बिना निगरानी चलने वाले लंबे काम तक। हर पाठ में **आपके अपने प्रोजेक्ट में एक अभ्यास** और जाँच के सवाल हैं, और आपकी प्रगति सहेजी जाती है।
+- **Claude Academy का विश्लेषण** — [Claude Academy](https://academy.claude.com/all?kind=tutorial&product=chat) के 64 Claude ट्यूटोरियल, साथ में Claude Code के ट्यूटोरियल और कोर्स (Claude Code 101, Claude Code in action, Agent Skills, Subagents); चैट में जो सीखते हैं (Projects, memory, connector, स्किल, Research, मॉडल और effort चुनना…) उसे Claude Code में करने के तरीके से जोड़ा गया है।
+- **दस्तावेज़ों से जाँचे गए जवाब** — "hook कैसे काम करते हैं?" या "प्लगइन का दायरा (scope) क्या है?" जैसे सवालों पर यह code.claude.com में खोजकर पढ़ती है और कमांड, उदाहरण और दस्तावेज़ के लिंक के साथ जवाब देती है।
+- **CHANGELOG की हर नई सुविधा** — [CHANGELOG.md](https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/CHANGELOG.md) के सभी 422 वर्ज़न (v0.2.21 – v2.1.302), बग फ़िक्स छोड़कर, 14 विषयों में सार के रूप में, साथ में जानने लायक 30 सुविधाएँ और सबसे नई जोड़ी गई सुविधाएँ।
+- **`/claude-skill update`** — नया CHANGELOG लाती है, वे वर्ज़न ढूँढती है जो स्किल में अभी नहीं हैं, उनकी सुविधाएँ नोट्स, चीटशीट और पाठों में जोड़ती है, और दर्ज करती है कि कहाँ तक कवर हो चुका है।
+- **सेटअप डॉक्टर** — आपका वर्ज़न, सेटिंग फ़ाइलें (यूज़र, प्रोजेक्ट, लोकल), CLAUDE.md की लंबाई, rules, auto memory, स्किल, subagent, प्लगइन और MCP सर्वर देखती है और सुधार सुझाती है।
+- **चीटशीट, टिप्स और बनाने की गाइड** — कमांड, शॉर्टकट, CLI फ़्लैग और फ़ाइलों की जगहें एक ही पेज पर; काम आने वाली आदतें; स्किल, subagent, hook, MCP सर्वर, प्लगइन और मार्केटप्लेस कैसे बनाएँ।
+
+### इंस्टॉल करना
+
+ऊपर दिए [इंस्टॉल](#इंस्टॉल--ग्लोबल-यूज़र-या-प्रोजेक्ट-के-हिसाब-से) वाले हिस्से की तरह। प्लगइन का नाम **`cc-skill`** है (Claude Code ने `claude-` से शुरू होने वाले प्लगइन नाम Anthropic के अपने प्लगइन के लिए आरक्षित रखे हैं)। स्किल का नाम `claude-skill` ही रहता है, इसलिए आप इसे `/claude-skill` से बुलाते हैं।
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install cc-skill@sonub-skills                    # ग्लोबल — हर प्रोजेक्ट
+claude plugin install cc-skill@sonub-skills --scope project    # यह प्रोजेक्ट, टीम के साथ साझा
+```
+
+Python 3.8+ और इंटरनेट चाहिए (यह आधिकारिक दस्तावेज़ और CHANGELOG पढ़ती है)।
+
+### इस्तेमाल
+
+| आप कहते हैं | यह करती है |
+|------|------|
+| `/claude-skill` · "चलो Claude Code पढ़ते हैं" | पाठ और आपकी प्रगति दिखाती है, अगला पाठ शुरू करती है |
+| `/claude-skill lesson 5` · "अगला पाठ" | पाठ सिखाती है, आपके प्रोजेक्ट में अभ्यास करवाती है, जाँच के सवाल पूछती है, प्रगति सहेजती है |
+| `/claude-skill quiz` | जो पढ़ा है उसमें से पाँच सवाल, एक-एक करके, अंकों के साथ |
+| "हर बदलाव के बाद hook से prettier कैसे चलाऊँ?" | आधिकारिक दस्तावेज़ पढ़कर सेटिंग के उदाहरण और लिंक के साथ जवाब देती है |
+| `/claude-skill new` · "नया क्या है?" | सबसे काम की हाल की सुविधाएँ पहले, हर एक को आज़माने के तरीके के साथ |
+| `/claude-skill doctor` · "मेरा सेटअप जाँचो" | आपका सेटअप देखती है और सुधार सुझाती है (कुछ भी बदलने से पहले पूछती है) |
+| `/claude-skill tips` · `cheatsheet` · `academy` | काम आने वाली आदतें · कमांड और शॉर्टकट · Academy का विश्लेषण |
+| `/claude-skill build skill` · "मेरे लिए एक hook बनाओ" | सही तरीका चुनती है और आपके प्रोजेक्ट में आपके साथ मिलकर बनाती है |
+| `/claude-skill update` | नए CHANGELOG से स्किल के सुविधा नोट्स ताज़ा करती है |
+
+प्लगइन के रूप में इंस्टॉल हो तो `/cc-skill:claude-skill …` भी चलता है। Codex: `$claude-skill …`।
+
+### `/claude-skill update` कैसे काम करता है
+
+1. `scripts/cc.py update-check` नोट्स जिस वर्ज़न तक कवर करते हैं (`references/changelog-features.md` में `covered-through` का निशान) उसकी तुलना CHANGELOG के सबसे नए वर्ज़न से करता है।
+2. इंस्टॉल की गई प्लगइन कॉपी पर यह पहले `claude plugin update cc-skill@sonub-skills` चलाकर प्रकाशित नोट्स लाता है। स्किल का सोर्स (git checkout) बदलना हो तो `--source <फ़ोल्डर>` दें। सोर्स न हो तो यह `~/.config/claude-skill/changelog-local.md` में लिखता है, जो प्लगइन अपडेट के बाद भी बचा रहता है।
+3. `cc.py changelog --since <कवर-हुआ-वर्ज़न>` नए वर्ज़न की चीज़ें दिखाता है (फ़िक्स छिपे रहते हैं); एजेंट नई सुविधाओं को उनके विषयों में जोड़ता है, "सबसे नई जोड़ी गई सुविधाएँ" दोबारा लिखता है, नए कमांड और शॉर्टकट चीटशीट में डालता है और जो पाठ अब गलत हो गए हैं उन्हें ठीक करता है।
+4. `cc.py mark-covered <सबसे-नया-वर्ज़न>` निशान आगे बढ़ाता है; git checkout में यह वर्ज़न बढ़ाकर commit करता है (push सिर्फ़ तब, जब आप कहें)।
+5. यह बताता है कि कौन-सा दायरा कवर हुआ और आज़माने लायक 3–7 नई सुविधाएँ, हर एक को आज़माने के तरीके के साथ।
+
+### टूल — `scripts/cc.py`
+
+सिर्फ़ Python की स्टैंडर्ड लाइब्रेरी।
+
+```bash
+python3 scripts/cc.py doctor                 # आपका Claude Code सेटअप जाँचे + सलाह
+python3 scripts/cc.py docs hooks             # आधिकारिक दस्तावेज़ों में खोजे (llms.txt)
+python3 scripts/cc.py read hooks --section "Hook events"   # किसी पेज का एक हिस्सा पढ़े
+python3 scripts/cc.py changelog --count 5    # सबसे नए 5 वर्ज़न (फ़िक्स छिपे)
+python3 scripts/cc.py changelog --grep worktree --count 400   # किसी सुविधा को नाम से ढूँढे
+python3 scripts/cc.py update-check           # कवर हुए वर्ज़न बनाम सबसे नया वर्ज़न
+python3 scripts/cc.py lessons                # पाठ और प्रगति
+```
+
+## रिपॉज़िटरी की बनावट
 
 ```
 .claude-plugin/marketplace.json   ← मार्केटप्लेस (Claude Code)
@@ -162,6 +274,14 @@ skills/gp/
 └─ references/                    ← ज़रूरत पड़ने पर पढ़ें
    ├─ github-projects.md          ← अवधारणाएँ, खाता, लॉगिन, पहला बोर्ड
    └─ commands.md                 ← हर कमांड + सीधे gh / GraphQL के नुस्ख़े
+skills/claude-skill/
+├─ SKILL.md                       ← स्किल: कब और कैसे इस्तेमाल करें
+├─ .claude-plugin/plugin.json     ← प्लगइन की जानकारी (प्लगइन का नाम cc-skill)
+├─ scripts/cc.py                  ← सीखने का टूल: doctor, docs, read, changelog, update-check, lessons
+└─ references/                    ← 14 पाठ · Academy का विश्लेषण · CHANGELOG की सुविधाएँ · चीटशीट · बनाने की गाइड · टिप्स · क्विज़
+   ├─ curriculum.md · quiz.md · tips.md
+   ├─ academy.md · changelog-features.md
+   └─ cheatsheet.md · extend.md
 ```
 
 स्किल कैसे काम करती हैं, यह SONUB AI कोर्स के **Agent Skills** अध्याय में सीखें: https://sonub.com/hi/learn/ai#agent-skill

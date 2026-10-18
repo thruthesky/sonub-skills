@@ -7,6 +7,54 @@ Kho lưu trữ này là một **chợ kỹ năng (skill marketplace)**. Mỗi k�
 | Kỹ năng | Chức năng |
 |------|------|
 | [`gp`](skills/gp) | Quản lý mọi công việc của bạn trong **GitHub Projects** bằng git và `gh` CLI |
+| [`claude-skill`](skills/claude-skill) | **Học Claude Code và dùng nó giỏi hơn** — 14 bài học kèm câu đố, câu trả lời được đối chiếu với tài liệu chính thức, công cụ kiểm tra cài đặt (doctor), tóm tắt mọi tính năng mới trong CHANGELOG, và `/claude-skill update` để cập nhật tính năng mới (tên plugin `cc-skill`) |
+
+## Cài đặt — toàn cục (người dùng) hoặc theo dự án
+
+Mọi kỹ năng đều được cài theo cùng một cách. Thay `<plugin>` bằng tên plugin trong bảng (`gp`, `cc-skill`).
+
+**Bước 1 — thêm marketplace (mỗi máy tính một lần)**
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+```
+
+**Bước 2 — cài ở nơi bạn muốn**
+
+| Phạm vi | Lệnh | Ai dùng được, ở đâu | Ghi vào |
+|------|------|------|------|
+| **Toàn cục (người dùng)** — mặc định | `claude plugin install <plugin>@sonub-skills` | bạn, trong mọi dự án trên máy tính này | `~/.claude/settings.json` |
+| **Dự án (dùng chung với nhóm)** | trong thư mục dự án: `claude plugin install <plugin>@sonub-skills --scope project` | mọi người làm việc trong kho này | `.claude/settings.json` (hãy commit tệp này) |
+| **Cục bộ (chỉ bạn, chỉ dự án này)** | trong thư mục dự án: `claude plugin install <plugin>@sonub-skills --scope local` | bạn, chỉ trong kho này | `.claude/settings.local.json` |
+
+- Trong khung chat, `/plugin install <plugin>@sonub-skills` mở một màn hình để bạn chọn phạm vi. Nếu bạn cài từ terminal, hãy chạy `/reload-plugins` trong khung chat đang mở.
+- Kiểm tra: `claude plugin list` (hiển thị cả phạm vi). Cập nhật: `claude plugin marketplace update sonub-skills && claude plugin update <plugin>@sonub-skills`. Gỡ bỏ: `claude plugin uninstall <plugin>@sonub-skills`.
+- Khi cùng một plugin được đặt ở nhiều phạm vi, cục bộ được ưu tiên hơn dự án, và dự án được ưu tiên hơn toàn cục.
+
+**Để đồng đội tự động có nó** — hãy commit đoạn sau vào `.claude/settings.json` của kho. Sau khi đồng đội tin cậy (trust) thư mục, Claude Code sẽ tự thêm marketplace và cài các plugin.
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
+  },
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+}
+```
+
+**Không dùng plugin — sao chép thư mục** vào thư mục kỹ năng của agent (`<kỹ năng>` = `gp` hoặc `claude-skill`).
+
+| Công cụ | Toàn cục (người dùng) | Dự án |
+|------|------|------|
+| Claude Code | `~/.claude/skills/<kỹ năng>` | `<dự án>/.claude/skills/<kỹ năng>` |
+| Codex · Gemini CLI · GitHub Copilot CLI | `~/.agents/skills/<kỹ năng>` | `<dự án>/.agents/skills/<kỹ năng>` |
+
+```bash
+S=claude-skill; DIR=~/.claude/skills      # chỉ dự án này: DIR=.claude/skills
+mkdir -p "$DIR" && rm -rf "$DIR/$S" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 "sonub-skills-main/skills/$S"
+```
+
+**Dễ nhất** — hãy nói với agent *"cài plugin cc-skill từ thruthesky/sonub-skills ở phạm vi toàn cục"* (hoặc *"chỉ cho dự án này"*), agent sẽ chạy các lệnh trên giúp bạn.
 
 ---
 
@@ -151,7 +199,71 @@ claude plugin uninstall gp@sonub-skills
 
 Agent khác: chạy lại dòng `curl … | tar` để cập nhật; xóa thư mục `gp` để gỡ bỏ.
 
-### Cấu trúc kho
+## claude-skill — học Claude Code và dùng nó giỏi hơn
+
+Claude Code ra phiên bản mới gần như mỗi ngày (đến nay đã hơn 400 phiên bản). Kỹ năng này dạy Claude Code theo thứ tự, trả lời câu hỏi dựa trên **tài liệu chính thức hiện hành** thay vì trí nhớ, kiểm tra cài đặt của bạn và lưu bản tóm tắt mọi tính năng mới trong CHANGELOG. Chỉ một lệnh `/claude-skill update` là đưa các tính năng vừa phát hành vào kỹ năng.
+
+### Nội dung bao gồm
+
+- **Lộ trình học 14 bài** — từ cài đặt và những câu lệnh đầu tiên đến quy trình khám phá → lập kế hoạch → viết code → commit, quản lý ngữ cảnh, CLAUDE.md và bộ nhớ, các chế độ quyền, điểm khôi phục (checkpoint), kỹ năng, subagent, hook, MCP, plugin và marketplace, chạy không giao diện (headless) và GitHub Actions, cùng những việc dài chạy không cần trông kèm bước kiểm chứng. Bài nào cũng có **bài tập ngay trong dự án của bạn** và câu hỏi kiểm tra, tiến độ của bạn được lưu lại.
+- **Phân tích Claude Academy** — 64 bài hướng dẫn về Claude trên [Claude Academy](https://academy.claude.com/all?kind=tutorial&product=chat) cùng các bài hướng dẫn và khóa học Claude Code (Claude Code 101, Claude Code in action, Agent Skills, Subagents); những gì bạn học trong chat (Projects, bộ nhớ, connector, kỹ năng, Research, chọn mô hình và mức nỗ lực (effort)…) được đối chiếu với cách làm tương ứng trong Claude Code.
+- **Câu trả lời được đối chiếu với tài liệu** — với những câu như "hook hoạt động thế nào?" hay "phạm vi (scope) của plugin là gì?", kỹ năng tìm và đọc code.claude.com rồi trả lời kèm lệnh, ví dụ và liên kết tài liệu.
+- **Mọi tính năng mới trong CHANGELOG** — toàn bộ 422 phiên bản của [CHANGELOG.md](https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/CHANGELOG.md) (v0.2.21 – v2.1.302), bỏ qua các bản sửa lỗi, tóm tắt thành 14 chủ đề, kèm 30 tính năng nên biết và những bổ sung mới nhất.
+- **`/claude-skill update`** — tải CHANGELOG mới nhất, tìm các phiên bản kỹ năng chưa bao quát, thêm tính năng của chúng vào ghi chú, bảng tra cứu nhanh và bài học, rồi ghi lại đã bao quát đến đâu.
+- **Kiểm tra cài đặt (doctor)** — xem phiên bản, các tệp cài đặt (người dùng, dự án, cục bộ), độ dài CLAUDE.md, quy tắc (rules), bộ nhớ tự động, kỹ năng, subagent, plugin và máy chủ MCP của bạn, rồi gợi ý cách sửa.
+- **Bảng tra cứu nhanh, mẹo và hướng dẫn tự xây dựng** — lệnh, phím tắt, cờ CLI và vị trí tệp trên một trang; những thói quen hiệu quả; cách tạo kỹ năng, subagent, hook, máy chủ MCP, plugin và marketplace.
+
+### Cài đặt
+
+Như phần [Cài đặt](#cài-đặt--toàn-cục-người-dùng-hoặc-theo-dự-án) ở trên. Plugin có tên **`cc-skill`** (Claude Code dành riêng các tên plugin bắt đầu bằng `claude-` cho plugin của chính Anthropic). Kỹ năng vẫn giữ tên `claude-skill`, nên bạn gọi nó bằng `/claude-skill`.
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install cc-skill@sonub-skills                    # toàn cục — mọi dự án
+claude plugin install cc-skill@sonub-skills --scope project    # dự án này, dùng chung với nhóm
+```
+
+Cần Python 3.8 trở lên và kết nối internet (kỹ năng đọc tài liệu chính thức và CHANGELOG).
+
+### Cách dùng
+
+| Bạn nói | Kỹ năng làm |
+|------|------|
+| `/claude-skill` · "học Claude Code nào" | Hiển thị các bài học và tiến độ của bạn, bắt đầu bài tiếp theo |
+| `/claude-skill lesson 5` · "bài tiếp theo" | Dạy bài đó, làm bài tập trong dự án của bạn, hỏi câu kiểm tra, lưu tiến độ |
+| `/claude-skill quiz` | Năm câu hỏi từ những gì bạn đã học, lần lượt từng câu, có chấm điểm |
+| "Làm sao dùng hook để chạy prettier sau mỗi lần sửa?" | Đọc tài liệu chính thức và trả lời kèm ví dụ cấu hình và liên kết |
+| `/claude-skill new` · "có gì mới?" | Những tính năng mới hữu ích nhất trước, mỗi cái kèm cách dùng thử |
+| `/claude-skill doctor` · "kiểm tra cài đặt của tôi" | Rà soát cài đặt và đề xuất cách sửa (hỏi trước khi thay đổi bất cứ điều gì) |
+| `/claude-skill tips` · `cheatsheet` · `academy` | Thói quen hiệu quả · lệnh và phím tắt · bài phân tích Academy |
+| `/claude-skill build skill` · "tạo cho tôi một hook" | Chọn cơ chế phù hợp và cùng bạn xây dựng nó trong dự án |
+| `/claude-skill update` | Làm mới ghi chú tính năng của kỹ năng từ CHANGELOG mới nhất |
+
+Nếu cài dưới dạng plugin, `/cc-skill:claude-skill …` cũng dùng được. Codex: `$claude-skill …`.
+
+### Cách `/claude-skill update` hoạt động
+
+1. `scripts/cc.py update-check` so sánh phiên bản mà ghi chú đã bao quát (dấu `covered-through` trong `references/changelog-features.md`) với phiên bản mới nhất trong CHANGELOG.
+2. Với bản sao plugin đã cài, trước tiên nó chạy `claude plugin update cc-skill@sonub-skills` để lấy ghi chú đã phát hành. Để sửa mã nguồn của kỹ năng (một bản git checkout), hãy truyền `--source <thư mục>`. Không có mã nguồn thì nó ghi vào `~/.config/claude-skill/changelog-local.md`, tệp này vẫn còn sau khi cập nhật plugin.
+3. `cc.py changelog --since <phiên bản đã bao quát>` liệt kê các mục của phiên bản mới (ẩn bản sửa lỗi); agent thêm tính năng mới vào đúng chủ đề, viết lại phần "Bổ sung mới nhất", thêm lệnh và phím tắt mới vào bảng tra cứu nhanh và sửa những bài học đã trở nên sai.
+4. `cc.py mark-covered <phiên bản mới nhất>` dời dấu bao quát; trong bản git checkout, nó tăng số phiên bản và commit (chỉ push khi bạn yêu cầu).
+5. Cuối cùng, nó báo khoảng phiên bản đã bao quát và 3–7 tính năng mới đáng thử, kèm cách thử từng cái.
+
+### Công cụ — `scripts/cc.py`
+
+Chỉ dùng thư viện chuẩn của Python.
+
+```bash
+python3 scripts/cc.py doctor                 # kiểm tra cài đặt Claude Code + lời khuyên
+python3 scripts/cc.py docs hooks             # tìm trong tài liệu chính thức (llms.txt)
+python3 scripts/cc.py read hooks --section "Hook events"   # đọc một mục của trang
+python3 scripts/cc.py changelog --count 5    # 5 phiên bản mới nhất (ẩn bản sửa lỗi)
+python3 scripts/cc.py changelog --grep worktree --count 400   # tìm tính năng theo tên
+python3 scripts/cc.py update-check           # phiên bản đã bao quát so với mới nhất
+python3 scripts/cc.py lessons                # bài học và tiến độ
+```
+
+## Cấu trúc kho
 
 ```
 .claude-plugin/marketplace.json   ← marketplace (Claude Code)
@@ -162,6 +274,14 @@ skills/gp/
 └─ references/                    ← đọc khi cần
    ├─ github-projects.md          ← khái niệm, tài khoản, đăng nhập, bảng đầu tiên
    └─ commands.md                 ← mọi lệnh + công thức dùng gh / GraphQL thuần
+skills/claude-skill/
+├─ SKILL.md                       ← kỹ năng: khi nào dùng và dùng thế nào
+├─ .claude-plugin/plugin.json     ← thông tin plugin (tên plugin cc-skill)
+├─ scripts/cc.py                  ← công cụ học: doctor, docs, read, changelog, update-check, lessons
+└─ references/                    ← 14 bài học · phân tích Academy · tính năng trong CHANGELOG · bảng tra cứu nhanh · hướng dẫn xây dựng · mẹo · câu đố
+   ├─ curriculum.md · quiz.md · tips.md
+   ├─ academy.md · changelog-features.md
+   └─ cheatsheet.md · extend.md
 ```
 
 Tìm hiểu cách kỹ năng hoạt động trong chương **Agent Skills** của khóa học AI SONUB: https://sonub.com/vi/learn/ai#agent-skill

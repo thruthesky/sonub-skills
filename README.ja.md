@@ -7,6 +7,54 @@
 | スキル | できること |
 |------|------|
 | [`gp`](skills/gp) | git と `gh` CLI で、あなたのすべての作業を **GitHub Projects** で管理 |
+| [`claude-skill`](skills/claude-skill) | **Claude Code を学んで、もっと上手に使う** — 14 のレッスンとクイズ、公式ドキュメントで確かめた答え、設定チェック、CHANGELOG のすべての新機能のまとめ、`/claude-skill update` で新機能を取り込み（プラグイン名 `cc-skill`） |
+
+## インストール — グローバル（ユーザー）またはプロジェクトごと
+
+どのスキルも同じ方法でインストールします。`<プラグイン>` のところに表のプラグイン名（`gp`、`cc-skill`）を入れてください。
+
+**ステップ 1 — マーケットプレイスを追加（コンピューターごとに一度だけ）**
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+```
+
+**ステップ 2 — 使いたい範囲にインストール**
+
+| 範囲 | コマンド | 誰が・どこで使えるか | 記録される場所 |
+|------|------|------|------|
+| **グローバル（ユーザー）** — デフォルト | `claude plugin install <プラグイン>@sonub-skills` | 自分、このコンピューターのすべてのプロジェクト | `~/.claude/settings.json` |
+| **プロジェクト（チームで共有）** | プロジェクトフォルダで：`claude plugin install <プラグイン>@sonub-skills --scope project` | このリポジトリで作業する全員 | `.claude/settings.json`（コミットする） |
+| **ローカル（自分だけ、このプロジェクトだけ）** | プロジェクトフォルダで：`claude plugin install <プラグイン>@sonub-skills --scope local` | 自分、このリポジトリだけ | `.claude/settings.local.json` |
+
+- チャットで `/plugin install <プラグイン>@sonub-skills` と入力すると、範囲を選ぶ画面が開きます。ターミナルからインストールした場合は、開いているチャットで `/reload-plugins` を実行してください。
+- 確認：`claude plugin list`（範囲も表示されます）。アップデート：`claude plugin marketplace update sonub-skills && claude plugin update <プラグイン>@sonub-skills`。削除：`claude plugin uninstall <プラグイン>@sonub-skills`。
+- 同じプラグインが複数の範囲に設定されているときは、ローカルがプロジェクトより、プロジェクトがグローバルより優先されます。
+
+**チームメンバーに自動で入るようにする** — 次の内容をリポジトリの `.claude/settings.json` に書いてコミットします。チームメンバーがフォルダを信頼（trust）すると、Claude Code がマーケットプレイスを追加してプラグインをインストールします。
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
+  },
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+}
+```
+
+**プラグインを使わずに — フォルダをコピー** して、エージェントのスキルフォルダに入れます（`<スキル>` = `gp` または `claude-skill`）。
+
+| ツール | グローバル（ユーザー） | プロジェクト |
+|------|------|------|
+| Claude Code | `~/.claude/skills/<スキル>` | `<プロジェクト>/.claude/skills/<スキル>` |
+| Codex · Gemini CLI · GitHub Copilot CLI | `~/.agents/skills/<スキル>` | `<プロジェクト>/.agents/skills/<スキル>` |
+
+```bash
+S=claude-skill; DIR=~/.claude/skills      # このプロジェクトだけ：DIR=.claude/skills
+mkdir -p "$DIR" && rm -rf "$DIR/$S" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 "sonub-skills-main/skills/$S"
+```
+
+**いちばん簡単** — エージェントに *「thruthesky/sonub-skills の cc-skill プラグインをグローバルにインストールして」*（または *「このプロジェクトだけに」*）と頼めば、上のコマンドを代わりに実行してくれます。
 
 ---
 
@@ -151,7 +199,71 @@ claude plugin uninstall gp@sonub-skills
 
 その他のエージェント：`curl … | tar` の行をもう一度実行するとアップデート、`gp` フォルダを削除するとアンインストールです。
 
-### リポジトリの構成
+## claude-skill — Claude Code を学んで、もっと上手に使う
+
+Claude Code はほぼ毎日新しいバージョンが出ます（これまでに 400 以上）。このスキルは Claude Code を順番に教え、質問には記憶ではなく**いまの公式ドキュメント**を調べて答え、あなたの設定をチェックし、CHANGELOG のすべての新機能をまとめておきます。`/claude-skill update` を一度実行すれば、新しく出た機能がスキルに取り込まれます。
+
+### できること
+
+- **14 レッスンの学習コース** — インストールと最初のプロンプトから、探索 → 計画 → コード → コミット、コンテキスト管理、CLAUDE.md とメモリ、権限モード、チェックポイント、スキル、サブエージェント、フック、MCP、プラグインとマーケットプレイス、ヘッドレス実行と GitHub Actions、検証つきで長く任せる作業まで。どのレッスンにも**自分のプロジェクトでやる実習**と確認問題があり、進み具合は保存されます。
+- **Claude Academy の分析** — [Claude Academy](https://academy.claude.com/all?kind=tutorial&product=chat) の 64 本の Claude チュートリアルと、Claude Code のチュートリアル・講座（Claude Code 101、Claude Code in action、Agent Skills、Subagents）。チャットで学ぶこと（Projects、メモリ、コネクター、スキル、Research、モデルと effort の選び方…）を、Claude Code でのやり方に対応させています。
+- **ドキュメントで確かめた答え** — 「フックはどう使うの？」「プラグインの範囲って何？」といった質問に、code.claude.com を検索して読み、コマンド・例・ドキュメントのリンクで答えます。
+- **CHANGELOG のすべての新機能** — [CHANGELOG.md](https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/CHANGELOG.md) の全 422 バージョン（v0.2.21 – v2.1.302）から、バグ修正を除いて 14 のテーマにまとめ、知っておきたい 30 の機能と最近追加された機能も選んであります。
+- **`/claude-skill update`** — 最新の CHANGELOG を取得し、スキルがまだ扱っていないバージョンを見つけて、その機能をノート・チートシート・レッスンに加え、どのバージョンまで扱ったかを記録します。
+- **設定チェック（doctor）** — バージョン、設定ファイル（ユーザー、プロジェクト、ローカル）、CLAUDE.md の長さ、ルール、自動メモリ、スキル、サブエージェント、プラグイン、MCP サーバーを見て、直すとよい点を提案します。
+- **チートシート・コツ・作り方ガイド** — コマンド、ショートカット、CLI オプション、ファイルの場所を 1 ページに。うまくいく使い方。スキル、サブエージェント、フック、MCP サーバー、プラグイン、マーケットプレイスの作り方。
+
+### インストール
+
+上の [インストール](#インストール--グローバルユーザーまたはプロジェクトごと) と同じです。プラグイン名は **`cc-skill`** です（Claude Code は `claude-` で始まるプラグイン名を Anthropic 公式用に予約しています）。スキル名は `claude-skill` のままなので、`/claude-skill` で呼び出します。
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install cc-skill@sonub-skills                    # グローバル — すべてのプロジェクト
+claude plugin install cc-skill@sonub-skills --scope project    # このプロジェクト、チームで共有
+```
+
+Python 3.8 以上とインターネット接続が必要です（公式ドキュメントと CHANGELOG を読むため）。
+
+### 使い方
+
+| こう言うと | こうします |
+|------|------|
+| `/claude-skill` · 「Claude Code を勉強しよう」 | レッスン一覧と進み具合を表示し、次のレッスンを始める |
+| `/claude-skill lesson 5` · 「次のレッスン」 | レッスンを教え、自分のプロジェクトで実習し、確認問題を出し、進み具合を保存 |
+| `/claude-skill quiz` | 学んだ範囲から 5 問を 1 問ずつ出して採点 |
+| 「フックで編集のたびに prettier を実行するには？」 | 公式ドキュメントを読み、設定例とリンクで答える |
+| `/claude-skill new` · 「新機能は？」 | 最近の役に立つ機能から順に、試し方と一緒に紹介 |
+| `/claude-skill doctor` · 「自分の設定をチェックして」 | 設定を見て修正を提案（変更する前に確認します） |
+| `/claude-skill tips` · `cheatsheet` · `academy` | うまくいく使い方 · コマンドとショートカット · Academy の分析 |
+| `/claude-skill build skill` · 「フックを作って」 | 合うしくみを選び、自分のプロジェクトで一緒に作る |
+| `/claude-skill update` | 最新の CHANGELOG からスキルの機能ノートを更新 |
+
+プラグインとしてインストールした場合は `/cc-skill:claude-skill …` でも使えます。Codex：`$claude-skill …`。
+
+### `/claude-skill update` のしくみ
+
+1. `scripts/cc.py update-check` が、ノートが扱っているバージョン（`references/changelog-features.md` の `covered-through` マーク）と CHANGELOG の最新バージョンを比べます。
+2. インストール済みのプラグインのコピーでは、まず `claude plugin update cc-skill@sonub-skills` を実行して公開済みのノートを取得します。スキルのソース（git のチェックアウト）を編集するには `--source <フォルダ>` を渡します。ソースがない場合は `~/.config/claude-skill/changelog-local.md` に書き込み、プラグインをアップデートしても残ります。
+3. `cc.py changelog --since <扱ったバージョン>` が新しいバージョンの項目を一覧にし（修正は非表示）、エージェントが新機能をテーマごとに追加し、「最近の追加」を書き直し、新しいコマンドとショートカットをチートシートに加え、内容が古くなったレッスンを直します。
+4. `cc.py mark-covered <最新バージョン>` がマークを進めます。git のチェックアウトではバージョンを上げてコミットします（プッシュは頼まれたときだけ）。
+5. 扱ったバージョンの範囲と、試す価値のある新機能 3〜7 個をそれぞれの試し方と一緒に報告します。
+
+### ツール — `scripts/cc.py`
+
+Python 標準ライブラリだけを使います。
+
+```bash
+python3 scripts/cc.py doctor                 # Claude Code の設定をチェック + アドバイス
+python3 scripts/cc.py docs hooks             # 公式ドキュメントを検索（llms.txt）
+python3 scripts/cc.py read hooks --section "Hook events"   # ページの 1 節を読む
+python3 scripts/cc.py changelog --count 5    # 最新 5 バージョン（修正は非表示）
+python3 scripts/cc.py changelog --grep worktree --count 400   # 名前で機能を探す
+python3 scripts/cc.py update-check           # 扱ったバージョン vs 最新
+python3 scripts/cc.py lessons                # レッスンと進み具合
+```
+
+## リポジトリの構成
 
 ```
 .claude-plugin/marketplace.json   ← マーケットプレイス（Claude Code）
@@ -162,6 +274,14 @@ skills/gp/
 └─ references/                    ← 必要なときに読む資料
    ├─ github-projects.md          ← 概念、アカウント、ログイン、最初のボード
    └─ commands.md                 ← すべてのコマンド + gh / GraphQL をそのまま使う例
+skills/claude-skill/
+├─ SKILL.md                       ← スキル本体：いつ・どう使うか
+├─ .claude-plugin/plugin.json     ← プラグイン情報（プラグイン名 cc-skill）
+├─ scripts/cc.py                  ← 学習ツール：doctor、docs、read、changelog、update-check、lessons
+└─ references/                    ← 14 レッスン · Academy の分析 · CHANGELOG の機能 · チートシート · 作り方ガイド · コツ · クイズ
+   ├─ curriculum.md · quiz.md · tips.md
+   ├─ academy.md · changelog-features.md
+   └─ cheatsheet.md · extend.md
 ```
 
 スキルのしくみは、SONUB AI コースの **Agent Skills** の章で学べます：https://sonub.com/ja/learn/ai#agent-skill

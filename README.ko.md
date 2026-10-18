@@ -7,6 +7,54 @@
 | 스킬 | 하는 일 |
 |------|------|
 | [`gp`](skills/gp) | git 과 `gh` CLI 로 나의 모든 일감을 **GitHub Project** 에서 관리 |
+| [`claude-skill`](skills/claude-skill) | **Claude Code 를 공부하고 더 잘 쓰기** — 14개 레슨·퀴즈, 공식 문서로 확인한 답, 설정 점검, CHANGELOG 의 모든 새 기능 요약, `/claude-skill update` 로 새 기능 반영(플러그인 이름 `cc-skill`) |
+
+## 설치 — 전역(사용자) 또는 프로젝트
+
+모든 스킬은 같은 방법으로 설치합니다. 아래 `<플러그인>` 자리에 표의 플러그인 이름(`gp`, `cc-skill`)을 넣습니다.
+
+**1단계 — 마켓플레이스 추가(컴퓨터마다 한 번)**
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+```
+
+**2단계 — 어디에 쓸지 골라 설치**
+
+| 범위 | 명령 | 누가·어디서 쓰나 | 기록되는 곳 |
+|------|------|------|------|
+| **전역(사용자)** — 기본값 | `claude plugin install <플러그인>@sonub-skills` | 나, 이 컴퓨터의 모든 프로젝트 | `~/.claude/settings.json` |
+| **프로젝트(팀 공유)** | 프로젝트 폴더에서 `claude plugin install <플러그인>@sonub-skills --scope project` | 이 저장소에서 일하는 모든 사람 | `.claude/settings.json`(커밋) |
+| **로컬(나만, 이 프로젝트만)** | 프로젝트 폴더에서 `claude plugin install <플러그인>@sonub-skills --scope local` | 나, 이 저장소에서만 | `.claude/settings.local.json` |
+
+- 대화창에서는 `/plugin install <플러그인>@sonub-skills` 를 입력하면 설치 범위를 고르는 화면이 나옵니다. 터미널에서 설치했다면 열려 있는 대화창에서 `/reload-plugins` 를 실행합니다.
+- 확인: `claude plugin list`(범위가 함께 보입니다). 업데이트: `claude plugin marketplace update sonub-skills && claude plugin update <플러그인>@sonub-skills`. 삭제: `claude plugin uninstall <플러그인>@sonub-skills`.
+- 같은 플러그인이 여러 범위에 있으면 로컬 > 프로젝트 > 전역 순으로 앞선 것이 적용됩니다.
+
+**팀원이 자동으로 받게 하기** — 저장소의 `.claude/settings.json` 에 아래를 넣어 커밋하면, 팀원이 폴더를 신뢰(trust)한 뒤 Claude Code 가 마켓플레이스를 더하고 플러그인을 설치합니다.
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
+  },
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+}
+```
+
+**플러그인 없이 폴더 복사** — 스킬 폴더를 에이전트의 스킬 폴더에 넣어도 됩니다(`<스킬>` = `gp`, `claude-skill`).
+
+| 도구 | 전역(사용자) | 프로젝트 |
+|------|------|------|
+| Claude Code | `~/.claude/skills/<스킬>` | `<프로젝트>/.claude/skills/<스킬>` |
+| Codex · Gemini CLI · GitHub Copilot CLI | `~/.agents/skills/<스킬>` | `<프로젝트>/.agents/skills/<스킬>` |
+
+```bash
+S=claude-skill; DIR=~/.claude/skills      # 프로젝트에만: DIR=.claude/skills
+mkdir -p "$DIR" && rm -rf "$DIR/$S" && curl -fsSL https://codeload.github.com/thruthesky/sonub-skills/tar.gz/refs/heads/main | tar -xz -C "$DIR" --strip-components=2 "sonub-skills-main/skills/$S"
+```
+
+**가장 쉬운 방법** — 에이전트에게 *"thruthesky/sonub-skills 의 cc-skill 플러그인을 전역으로 설치해 줘"*(또는 *"이 프로젝트에만"*)라고 말하면 위 명령을 대신 실행합니다.
 
 ---
 
@@ -151,7 +199,71 @@ claude plugin uninstall gp@sonub-skills
 
 그 밖의 에이전트: `curl … | tar` 줄을 다시 실행하면 업데이트, `gp` 폴더를 지우면 삭제입니다.
 
-### 저장소 구조
+## claude-skill — Claude Code 를 공부하고 더 잘 쓰기
+
+Claude Code 는 거의 매일 새 판이 나옵니다(지금까지 400개가 넘는 판). 이 스킬은 Claude Code 를 순서대로 가르치고, 질문에는 기억이 아니라 **지금의 공식 문서**를 찾아 답하고, 내 설정을 점검하고, CHANGELOG 의 모든 새 기능을 정리해 둡니다. `/claude-skill update` 한 번이면 새로 나온 기능이 스킬에 반영됩니다.
+
+### 다루는 것
+
+- **학습 과정 14개 레슨** — 설치·첫 프롬프트부터 탐색→계획→코드→커밋, 컨텍스트 관리, CLAUDE.md·메모리, 권한 모드, 체크포인트, 스킬, 서브에이전트, 훅, MCP, 플러그인·마켓플레이스, 헤드리스·GitHub Actions, 오래 맡겨 두는 작업과 검증까지. 레슨마다 **내 프로젝트에서 하는 실습**과 확인 질문이 있고 진도가 저장됩니다.
+- **Claude Academy 분석** — [Claude Academy](https://academy.claude.com/all?kind=tutorial&product=chat) 의 Claude 튜토리얼 64개와 Claude Code 튜토리얼·강좌(Claude Code 101, Claude Code in action, Agent Skills, Subagents)를 분석해, 채팅에서 배우는 것(Projects, 메모리, 커넥터, 스킬, 리서치, 모델·effort 고르기…)을 Claude Code 에서 하는 법으로 옮겨 정리했습니다.
+- **공식 문서로 확인한 답** — "훅은 어떻게 써?", "플러그인 범위가 뭐야?" 같은 질문에 code.claude.com 문서를 찾아 읽고, 명령·예시·문서 링크로 답합니다.
+- **CHANGELOG 의 모든 새 기능** — [CHANGELOG.md](https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/CHANGELOG.md) 422개 판(v0.2.21 ~ v2.1.302)에서 버그 수정을 뺀 새 기능·변경·삭제를 14개 주제로 요약하고, 꼭 알아야 할 30가지와 최근 추가 기능을 따로 뽑았습니다.
+- **`/claude-skill update`** — 최신 CHANGELOG 를 받아 스킬이 아직 다루지 않은 판의 새 기능을 찾아 요약 문서·치트시트·레슨에 반영하고, 어느 판까지 반영했는지 기록합니다.
+- **내 설정 점검(doctor)** — 버전, 설정 파일(전역·프로젝트·로컬), CLAUDE.md 길이, 규칙, 자동 메모리, 스킬·서브에이전트·플러그인·MCP 를 훑어보고 고칠 점을 알려 줍니다.
+- **치트시트·팁·만들기 안내** — 명령·단축키·CLI 옵션·파일 위치 한 장 정리, 잘 쓰는 법, 스킬·서브에이전트·훅·MCP·플러그인·마켓플레이스 만드는 법.
+
+### 설치
+
+위 [설치](#설치--전역사용자-또는-프로젝트) 절과 같습니다. 플러그인 이름은 **`cc-skill`** 입니다(Claude Code 는 `claude-` 로 시작하는 플러그인 이름을 Anthropic 공식용으로 막아 두었습니다). 스킬 이름은 그대로 `claude-skill` 이라 `/claude-skill` 로 부릅니다.
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install cc-skill@sonub-skills                    # 전역 — 모든 프로젝트
+claude plugin install cc-skill@sonub-skills --scope project    # 이 프로젝트(팀 공유)
+```
+
+준비물: Python 3.8 이상, 인터넷(공식 문서와 CHANGELOG 를 읽음).
+
+### 쓰는 법
+
+| 이렇게 말하면 | 하는 일 |
+|------|------|
+| `/claude-skill` · "클로드 코드 공부하자" | 레슨 목록과 진도를 보여 주고 다음 레슨을 시작 |
+| `/claude-skill lesson 5` · "다음 레슨" | 그 레슨을 가르치고 내 프로젝트에서 실습, 확인 질문, 진도 저장 |
+| `/claude-skill quiz` · "퀴즈 내 줘" | 배운 범위에서 5문제를 하나씩 내고 채점 |
+| "훅으로 저장할 때마다 prettier 돌리려면?" | 공식 문서를 찾아 읽고 설정 예시와 링크로 답 |
+| `/claude-skill new` · "새 기능 뭐 있어?" | 최근 추가된 기능 중 쓸모 있는 것부터, 써 보는 방법과 함께 |
+| `/claude-skill doctor` · "내 설정 점검해 줘" | 설정을 훑어보고 고칠 점 제안(바꾸기 전에 먼저 물어봄) |
+| `/claude-skill tips` · `cheatsheet` · `academy` | 잘 쓰는 법 · 명령·단축키 정리 · Academy 튜토리얼 분석 |
+| `/claude-skill build skill` · "훅 만들어 줘" | 알맞은 방법을 고르고 내 프로젝트에 함께 만들어 시험 |
+| `/claude-skill update` | 최신 CHANGELOG 로 스킬의 새 기능 문서를 갱신 |
+
+플러그인으로 설치했으면 `/cc-skill:claude-skill …` 도 됩니다. Codex 는 `$claude-skill …`.
+
+### `/claude-skill update` 는 이렇게 동작합니다
+
+1. `scripts/cc.py update-check` 가 스킬 문서(`references/changelog-features.md` 의 `covered-through` 표시)가 어느 판까지 다루는지와 최신 CHANGELOG 판을 비교합니다.
+2. 플러그인으로 설치된 사본이면 먼저 `claude plugin update cc-skill@sonub-skills` 로 배포된 최신판을 받습니다. 스킬 원본(git 저장소)을 고치려면 `--source <원본 폴더>` 를 줍니다. 원본이 없으면 개인 메모 `~/.config/claude-skill/changelog-local.md` 에 적어 플러그인 업데이트에도 남게 합니다.
+3. `cc.py changelog --since <다룬 판>` 으로 새 판의 항목(버그 수정 제외)을 읽고, 새 기능을 주제별로 문서에 넣고, "최근 추가 기능"을 다시 쓰고, 새 명령·단축키는 치트시트에, 틀려진 레슨은 고칩니다.
+4. `cc.py mark-covered <최신 판>` 으로 표시를 바꾸고, 원본이 git 저장소면 판 번호를 올려 커밋합니다(푸시는 요청할 때만).
+5. 반영한 판 범위와 쓸 만한 새 기능 3~7개를 써 보는 방법과 함께 알려 줍니다.
+
+### 도구 — `scripts/cc.py`
+
+Python 표준 라이브러리만 씁니다.
+
+```bash
+python3 scripts/cc.py doctor                 # 내 Claude Code 설정 점검 + 조언
+python3 scripts/cc.py docs hooks             # 공식 문서 찾기(llms.txt)
+python3 scripts/cc.py read hooks --section "Hook events"   # 문서 한 절 읽기
+python3 scripts/cc.py changelog --count 5    # 최근 5개 판(버그 수정 제외)
+python3 scripts/cc.py changelog --grep worktree --count 400   # 기능 이름으로 찾기
+python3 scripts/cc.py update-check           # 스킬이 다루는 판 vs 최신 판
+python3 scripts/cc.py lessons                # 레슨과 진도
+```
+
+## 저장소 구조
 
 ```
 .claude-plugin/marketplace.json   ← 마켓플레이스(Claude Code)
@@ -162,6 +274,14 @@ skills/gp/
 └─ references/                    ← 필요할 때 읽는 문서
    ├─ github-projects.md          ← 개념, 계정, 로그인, 첫 보드
    └─ commands.md                 ← 모든 명령 + gh·GraphQL 예시
+skills/claude-skill/
+├─ SKILL.md                       ← 스킬: 언제·어떻게 쓰는지
+├─ .claude-plugin/plugin.json     ← 플러그인 정보(플러그인 이름 cc-skill)
+├─ scripts/cc.py                  ← 학습 도구: doctor·docs·read·changelog·update-check·lessons
+└─ references/                    ← 레슨 14개 · Academy 분석 · CHANGELOG 기능 요약 · 치트시트 · 만들기 안내 · 팁 · 퀴즈
+   ├─ curriculum.md · quiz.md · tips.md
+   ├─ academy.md · changelog-features.md
+   └─ cheatsheet.md · extend.md
 ```
 
 스킬이 어떻게 동작하는지는 SONUB AI 과정의 **Agent Skills** 챕터에서 배울 수 있습니다: https://sonub.com/ko/learn/ai#agent-skill

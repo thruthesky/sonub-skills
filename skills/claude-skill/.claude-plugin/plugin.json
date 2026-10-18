@@ -1,0 +1,13 @@
+{
+  "name": "cc-skill",
+  "version": "1.0.0",
+  "description": "Learn and master Claude Code — a 14-lesson study track with exercises and quizzes (built from Claude Academy and the official docs), answers checked against the live docs, a setup doctor, every new feature from the CHANGELOG summarized, and `/claude-skill update` to pull new features into the skill.",
+  "author": {
+    "name": "JaeHo Song",
+    "email": "thruthesky@gmail.com"
+  },
+  "homepage": "https://github.com/thruthesky/sonub-skills/tree/main/skills/claude-skill",
+  "repository": "https://github.com/thruthesky/sonub-skills",
+  "license": "MIT",
+  "keywords": ["claude-code", "learning", "tutorial", "study", "best-practices", "changelog", "skills", "hooks", "mcp", "plugins"]
+}

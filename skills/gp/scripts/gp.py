@@ -8,7 +8,8 @@ so renaming a column on GitHub never breaks this script.
 
     gp.py doctor                                  # is gh installed, logged in, with the right scopes?
     gp.py projects [--owner O]                    # list boards
-    gp.py init <board URL> [--global]             # this project's board (.gp.json), or --global for every project
+    gp.py init <board URL> [--global]             # this project's board (.gp.json), or --global for every project;
+                                                  # also writes "always use the gp skill" into CLAUDE.md / AGENTS.md
     gp.py project-create --title T [--columns "Todo,In Progress,Done"] [--repo R] [--use]
     gp.py info                                    # fields, columns, counts, views
     gp.py column-add NAME | column-rename OLD NEW | column-delete NAME --yes | column-order "A,B,C"
@@ -692,6 +693,9 @@ def print_board_settings():
 
 def cmd_init(a):
     scope = config_scope(a)
+    if a.remove_instructions:
+        write_instructions(a.dry_run, remove=True)
+        return
     if a.unset:
         path = config_path(scope)
         if not os.path.isfile(path):
@@ -702,9 +706,13 @@ def cmd_init(a):
         else:
             print(f"[dry-run] remove {path}")
         print_board_settings()
+        if not a.no_instructions:
+            write_instructions(a.dry_run)
         return
     if not a.target:
         print_board_settings()
+        if not (a.show or a.no_instructions):
+            write_instructions(a.dry_run)
         return
     owner, number = parse_board(a.target, a.number_arg)
     p = load_project(login_of(owner), number, with_items=False)
@@ -724,6 +732,150 @@ def cmd_init(a):
             print(f"  note: this folder still uses its own board from {local} (gp.py init --unset --local removes it)")
         else:
             print("  used in every folder that has no .gp.json of its own")
+    if not a.no_instructions:
+        write_instructions(a.dry_run)
+
+
+# ---------------------------------------------------------------- instructions in CLAUDE.md / AGENTS.md
+
+GUIDE_BEGIN = "<!-- gp:begin"
+GUIDE_END = "<!-- gp:end -->"
+GUIDE_HEAD = (GUIDE_BEGIN + " — written by the gp skill (`gp init`). Run `gp init` again to refresh it; "
+              "`gp init --remove-instructions` removes it. -->")
+GUIDE_RULES = """## 🛑 GitHub Project work → always use the gp skill
+
+- Every request about GitHub Projects, issues or tasks MUST go through the **gp skill** — load it first (Claude Code: the `gp` skill or `/gp:gp`; Codex and other agents: `$gp`), even when the user does not say "GitHub" or "gp". This covers: issues, 이슈, 일감, 작업, tasks, TODO, 할 일, 해야 할 일, 체크리스트, kanban, 칸반, board, 보드, columns, 컬럼, 칸, fields, views, assignees, 담당자 — and every action on them: create/생성/만들어, edit/수정, move/옮겨, close/완료/끝났어, reopen, delete/삭제, list/목록/보여 줘, search/검색/찾아, assign/할당, attach images/스크린샷 첨부, add TODO lines.
+- Do the work with the skill's `scripts/gp.py` and report from its `check:` lines. Do not call `gh issue`, `gh project` or the GraphQL API directly, and do not keep tasks in another tracker or a local TODO file instead — only when gp.py has no command for it, follow the skill's `references/commands.md`.
+- Don't ask before creating, editing, moving or listing; ask only before deleting, or changing many issues at once."""
+
+
+def guide_board(cfg, where):
+    """The board line of an instruction block."""
+    url = f" — {cfg['url']}" if cfg.get("url") else ""
+    return f"{cfg.get('title') or 'board'}{url} (`{cfg.get('owner')}` #{cfg.get('number')}, {where})"
+
+
+def guide_project(root):
+    """The block for a project's CLAUDE.md/AGENTS.md: the rules + this project's board."""
+    local = os.path.join(root, LOCAL_CONFIG)
+    lines = [GUIDE_HEAD, GUIDE_RULES]
+    own, glob = read_json(local), read_json(CONFIG_PATH)
+    if own.get("number"):
+        lines.append(f"- **This project's board: {guide_board(own, f'saved in `{LOCAL_CONFIG}`')}.** Create, list, "
+                     "search and move every issue of this project on this board — never on another board — unless "
+                     "the user names a different one for that request.")
+    elif glob.get("number"):
+        lines.append(f"- This project has no `{LOCAL_CONFIG}`, so it uses the default board "
+                     f"{guide_board(glob, 'from ~/.config/gp/config.json')}. `gp init <board URL>` gives it its own board.")
+    else:
+        lines.append("- No board is chosen yet: ask the user for the board URL and run `gp init <board URL>` "
+                     "(`gp.py projects` lists their boards; `project-create … --use` makes one).")
+    repo = current_repo()
+    if repo:
+        lines.append(f"- New issues go to `{repo}` (this repository) unless the user names another repository.")
+    if os.path.isdir(os.path.join(root, ".claude", "skills", "gp")):
+        lines.append("- In a Claude Code cloud session use `python3 .claude/skills/gp/scripts/gp.py` (it switches to "
+                     "REST mode by itself; column moves are queued for the gp-sync Action).")
+    return "\n".join(lines + [GUIDE_END])
+
+
+def guide_global():
+    """The block for the user's own CLAUDE.md/AGENTS.md (every project)."""
+    lines = [GUIDE_HEAD, GUIDE_RULES]
+    glob = read_json(CONFIG_PATH)
+    if glob.get("number"):
+        lines.append(f"- **Default board** (every project that has no `{LOCAL_CONFIG}` of its own): "
+                     f"**{guide_board(glob, 'saved in ~/.config/gp/config.json')}.** Work on this board unless the "
+                     f"project's `{LOCAL_CONFIG}` or the user names another.")
+    lines.append(f"- A project's own board is in its `{LOCAL_CONFIG}` (`gp init` shows which board is in effect). "
+                 "No board anywhere → ask the user for the board URL and run `gp init <board URL>`.")
+    return "\n".join(lines + [GUIDE_END])
+
+
+def imports_agents_md(text):
+    return re.search(r"^\s*@(\./)?AGENTS\.md\s*$", text, re.M) is not None
+
+
+def project_instruction_files(root):
+    """[(path, create_with)] — CLAUDE.md is read by Claude Code, AGENTS.md by Codex and other agents (and by Claude
+    Code when there is no CLAUDE.md). A CLAUDE.md that imports @AGENTS.md (or links to it) gets the block once,
+    through AGENTS.md. A missing CLAUDE.md is created as `@AGENTS.md`, so an AGENTS.md-only project stays as it was."""
+    agents = os.path.join(root, "AGENTS.md")
+    claude = next((p for p in (os.path.join(root, "CLAUDE.md"), os.path.join(root, ".claude", "CLAUDE.md"))
+                   if os.path.isfile(p)), None)
+    files = [(agents, None)]
+    if claude is None:
+        files.append((os.path.join(root, "CLAUDE.md"), "@AGENTS.md\n"))
+    elif os.path.realpath(claude) != os.path.realpath(agents):
+        with open(claude, encoding="utf-8") as f:
+            if not imports_agents_md(f.read()):
+                files.append((claude, ""))
+    return files
+
+
+def global_instruction_files():
+    """The user's instructions for every project: ~/.claude/CLAUDE.md (Claude Code), $CODEX_HOME/AGENTS.md (Codex).
+    Only for agents installed on this computer (their folder exists)."""
+    files, seen = [], set()
+    for folder, name in ((os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"), "CLAUDE.md"),
+                         (os.environ.get("CODEX_HOME") or os.path.expanduser("~/.codex"), "AGENTS.md")):
+        path = os.path.join(folder, name)
+        if os.path.isdir(folder) and os.path.realpath(path) not in seen:
+            seen.add(os.path.realpath(path))
+            files.append(path)
+    return files
+
+
+def put_block(path, block, dry, create_with=""):
+    """Add or replace the gp block in a markdown file (block=None removes it). Returns what happened."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+    except FileNotFoundError:
+        text = None
+    except OSError as e:
+        return f"skipped ({e.strerror})"
+    pat = re.compile(re.escape(GUIDE_BEGIN) + r".*?" + re.escape(GUIDE_END) + r"\n?", re.S)
+    if text is None:
+        if block is None:
+            return "no file"
+        new, what = (create_with or "") + ("\n" if create_with else "") + block + "\n", "created"
+    elif pat.search(text):
+        new = pat.sub(lambda m: "" if block is None else block + "\n", text, count=1)
+        if block is None:
+            new = re.sub(r"\n{3,}$", "\n", new.rstrip("\n") + "\n") if new.strip() else ""
+        what = "removed" if block is None else ("unchanged" if new == text else "updated")
+    elif block is None:
+        return "no gp block"
+    else:
+        new, what = text.rstrip("\n") + ("\n\n" if text.strip() else "") + block + "\n", "added"
+    if new != text and not dry:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(new)
+    return what
+
+
+def write_instructions(dry, remove=False):
+    """Put the 'always use the gp skill' block (with the board URL) in the project's and the user's CLAUDE.md and
+    AGENTS.md. A cloud session's home folder is thrown away, so there only the project files are written."""
+    tag = "[dry-run] " if dry else ""
+    print(f"{tag}instructions ({'remove' if remove else 'always use the gp skill for GitHub Project work'}):")
+    root = project_root()
+    if root:
+        block = None if remove else guide_project(root)
+        for path, create_with in project_instruction_files(root):
+            what = put_block(path, block, dry, "" if remove else create_with)
+            note = "  (imports @AGENTS.md)" if create_with and what == "created" else ""
+            print(f"  project · {what}: {path}{note}")
+    else:
+        print("  project · not in a git repository — only the files for every project")
+    if mode() == "rest":
+        print("  global  · skipped in a cloud session (its home folder does not last)")
+        return
+    block = None if remove else guide_global()
+    for path in global_instruction_files():
+        print(f"  global  · {put_block(path, block, dry)}: {path}")
 
 
 def update_options(project, field, options, dry):
@@ -766,6 +918,7 @@ def cmd_project_create(a):
         scope = config_scope(a)
         path = save_config(board_config(load_project(owner, number, with_items=False)), scope)
         print(f"  {scope} board is now {owner} #{number} ({path})")
+        write_instructions(False)
     a.owner, a.number = owner, number
     cmd_info(a)
 
@@ -1924,6 +2077,11 @@ def main():
         where.add_argument("--local", action="store_true", help=f"this project: <git root>/{LOCAL_CONFIG} (default in a git repository)")
         where.add_argument("--global", dest="global_", action="store_true", help=f"every project: {CONFIG_PATH} (default outside git)")
         s.add_argument("--unset", action="store_true", help="remove the local (or --global) setting")
+        s.add_argument("--show", action="store_true", help="only show the board in effect (with no target)")
+        s.add_argument("--no-instructions", action="store_true",
+                       help="don't write the 'always use the gp skill' block into CLAUDE.md / AGENTS.md")
+        s.add_argument("--remove-instructions", action="store_true",
+                       help="remove that block from the project's and your own CLAUDE.md / AGENTS.md")
 
     s = p("project-create", cmd_project_create, "create a board", dry=True)
     s.add_argument("--title", required=True)

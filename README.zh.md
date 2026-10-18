@@ -161,6 +161,7 @@ python3 scripts/gp.py view-add Board --layout board
 - **全局** —— `/gp init <URL> --global`（或者说“设为所有项目的默认看板”）→ `~/.config/gp/config.json`，在所有没有 `.gp.json` 的文件夹中使用。
 - 看板的任何页面地址都可以（`/views/2`、用户看板 `/users/…`、组织看板 `/orgs/…`）。保存前会检查看板是否存在且可以读取。
 - 只输入 `/gp init` 会显示当前使用的看板及其设置文件。删除：`gp.py init --unset`（全局：`--unset --global`）。
+- `/gp init` 在设置看板时，还会在本项目的 `AGENTS.md`/`CLAUDE.md` 以及全局的 `~/.claude/CLAUDE.md`/`~/.codex/AGENTS.md` 中写入指令：“创建、编辑、删除、列出或搜索 GitHub Project 的 issue、任务和 TODO 时，务必使用 gp 技能”。提供 URL 时，还会写入“在此看板上工作”及该 URL。再次运行只会更新这一部分；`--show` 仅显示，`--no-instructions` 跳过指令，`--remove-instructions` 删除指令。
 - 决定使用哪个看板的顺序：`--owner/--number` → `GP_OWNER`/`GP_PROJECT` → 项目的 `.gp.json` → 全局设置。
 
 ### 使用方法 —— 直接说出来

@@ -161,6 +161,7 @@ Installed as a Claude Code plugin: `/gp:gp init …`; Codex: `$gp init …`. Say
 - **Global** — `/gp init <URL> --global` (or "make it the default board for every project") → `~/.config/gp/config.json`, used in every folder without a `.gp.json`.
 - Any page of the board works (`/views/2`, user boards `/users/…`, organization boards `/orgs/…`). The board is checked to exist and be readable before it is saved.
 - `/gp init` alone shows the board in use and its settings file. Remove: `gp.py init --unset` (global: `--unset --global`).
+- `/gp init` also writes an instruction into this project's `AGENTS.md`/`CLAUDE.md` and your global `~/.claude/CLAUDE.md`/`~/.codex/AGENTS.md`: "always use the gp skill to create, edit, delete, list or search GitHub Project issues, tasks and TODOs". Given a URL, it adds "work on this board" with that URL. Running it again refreshes only that part; `--show` only shows, `--no-instructions` skips it, `--remove-instructions` removes it.
 - Which board is used: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → the project's `.gp.json` → the global setting.
 
 ### Using it — just say it

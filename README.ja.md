@@ -161,6 +161,7 @@ Claude Code プラグインとしてインストールした場合は `/gp:gp in
 - **グローバル** — `/gp init <URL> --global`（または「すべてのプロジェクトのデフォルトボードにして」）→ `~/.config/gp/config.json`。`.gp.json` がないすべてのフォルダで使われます。
 - ボードのどのページのアドレスでも使えます（`/views/2`、ユーザーのボード `/users/…`、Organization のボード `/orgs/…`）。保存する前に、ボードが存在して読めるかを確認します。
 - `/gp init` だけを入力すると、いま使っているボードとその設定ファイルを表示します。削除：`gp.py init --unset`（グローバル：`--unset --global`）。
+- `/gp init` はボードを設定するとき、このプロジェクトの `AGENTS.md`・`CLAUDE.md` とグローバルの `~/.claude/CLAUDE.md`・`~/.codex/AGENTS.md` に「GitHub Project・Issue・タスク・TODO の作成/編集/削除/一覧/検索は必ず gp スキルで」という指示も書き込みます。URL を渡すと、そのボードの URL で作業する指示も入ります。再実行するとその部分だけ更新し、`--show` は表示のみ、`--no-instructions` は指示を省き、`--remove-instructions` は指示を削除します。
 - 使うボードを決める順序：`--owner/--number` → `GP_OWNER`/`GP_PROJECT` → プロジェクトの `.gp.json` → グローバル設定。
 
 ### 使い方 — 話しかけるだけ

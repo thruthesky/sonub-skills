@@ -161,6 +161,7 @@ Claude Code 플러그인으로 설치했으면 `/gp:gp init …`, Codex 는 `$gp
 - **전역** — `/gp init <URL> --global`(또는 "모든 프로젝트의 기본 보드로") → `~/.config/gp/config.json`. `.gp.json` 이 없는 모든 폴더에서 씁니다.
 - 주소는 보드의 어느 화면이든 됩니다(`/views/2`, 사용자 보드 `/users/…`, 조직 보드 `/orgs/…`). 저장하기 전에 보드가 있고 읽을 수 있는지 확인합니다.
 - `/gp init` 만 입력하면 지금 쓰는 보드와 설정 파일을 보여 줍니다. 지우기: `gp.py init --unset`(전역은 `--unset --global`).
+- `/gp init` 은 보드를 정하면서 이 프로젝트의 `AGENTS.md`·`CLAUDE.md` 와 전역 `~/.claude/CLAUDE.md`·`~/.codex/AGENTS.md` 에 "GitHub Project·이슈·일감·할 일·TODO 의 생성/수정/삭제/목록/검색은 반드시 gp 스킬로" 라는 지침도 넣습니다. URL 을 주면 그 보드 URL 로 일하라는 내용이 함께 들어갑니다. 다시 실행하면 그 부분만 새로 고치고, `--show` 는 보기만, `--no-instructions` 는 지침을 건너뛰고, `--remove-instructions` 는 지침을 지웁니다.
 - 어느 보드를 쓸지 정하는 순서: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → 프로젝트의 `.gp.json` → 전역 설정.
 
 ### 쓰는 법 — 말로 부탁하기

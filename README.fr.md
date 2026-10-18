@@ -161,6 +161,7 @@ Installée comme plugin Claude Code : `/gp:gp init …` ; Codex : `$gp init …`
 - **Global** — `/gp init <URL> --global` (ou « fais-en le tableau par défaut de tous les projets ») → `~/.config/gp/config.json`, utilisé dans tout dossier sans `.gp.json`.
 - N'importe quelle page du tableau convient (`/views/2`, tableaux d'utilisateur `/users/…`, tableaux d'organisation `/orgs/…`). On vérifie que le tableau existe et est lisible avant de l'enregistrer.
 - `/gp init` seul affiche le tableau utilisé et son fichier de réglages. Supprimer : `gp.py init --unset` (global : `--unset --global`).
+- `/gp init` écrit aussi une consigne dans `AGENTS.md`/`CLAUDE.md` de ce projet et dans vos fichiers globaux `~/.claude/CLAUDE.md`/`~/.codex/AGENTS.md` : « utilise toujours la skill gp pour créer, modifier, supprimer, lister ou chercher les issues, tâches et TODO de GitHub Project ». Avec une URL, il ajoute « travaille sur ce tableau » avec cette URL. Le relancer ne met à jour que cette partie ; `--show` affiche seulement, `--no-instructions` l'ignore, `--remove-instructions` la supprime.
 - Quel tableau est utilisé : `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → le `.gp.json` du projet → le réglage global.
 
 ### Utilisation — il suffit de le dire

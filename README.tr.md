@@ -161,6 +161,7 @@ Claude Code eklentisi olarak kurulduysa: `/gp:gp init …`; Codex: `$gp init …
 - **Global** — `/gp init <URL> --global` (ya da "bunu tüm projeler için varsayılan pano yap") → `~/.config/gp/config.json`; `.gp.json` olmayan her klasörde kullanılır.
 - Panonun herhangi bir sayfası olur (`/views/2`, kullanıcı panoları `/users/…`, kuruluş panoları `/orgs/…`). Kaydetmeden önce panonun var olduğu ve okunabildiği kontrol edilir.
 - Tek başına `/gp init`, kullanılan panoyu ve ayar dosyasını gösterir. Kaldırma: `gp.py init --unset` (global: `--unset --global`).
+- `/gp init` ayrıca bu projenin `AGENTS.md`/`CLAUDE.md` dosyalarına ve global `~/.claude/CLAUDE.md`/`~/.codex/AGENTS.md` dosyalarına bir talimat yazar: "GitHub Project issue, görev ve TODO'larını oluşturmak, düzenlemek, silmek, listelemek veya aramak için her zaman gp skill'ini kullan". URL verilirse o URL ile "bu panoda çalış" da eklenir. Yeniden çalıştırmak yalnızca o kısmı günceller; `--show` yalnızca gösterir, `--no-instructions` atlar, `--remove-instructions` kaldırır.
 - Hangi pano kullanılır: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → projenin `.gp.json` dosyası → global ayar.
 
 ### Kullanım — sadece söyleyin

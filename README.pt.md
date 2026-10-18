@@ -161,6 +161,7 @@ Instalada como plugin do Claude Code: `/gp:gp init …`; Codex: `$gp init …`. 
 - **Global** — `/gp init <URL> --global` (ou "torne-o o quadro padrão de todos os projetos") → `~/.config/gp/config.json`, usado em qualquer pasta sem `.gp.json`.
 - Qualquer página do quadro serve (`/views/2`, quadros de usuário `/users/…`, quadros de organização `/orgs/…`). Antes de salvar, verifica-se que o quadro existe e pode ser lido.
 - `/gp init` sozinho mostra o quadro em uso e o seu arquivo de configuração. Remover: `gp.py init --unset` (global: `--unset --global`).
+- `/gp init` também escreve uma instrução no `AGENTS.md`/`CLAUDE.md` deste projeto e nos seus globais `~/.claude/CLAUDE.md`/`~/.codex/AGENTS.md`: “use sempre a skill gp para criar, editar, excluir, listar ou buscar issues, tarefas e TODOs do GitHub Project”. Com uma URL, acrescenta “trabalhe neste quadro” com essa URL. Rodar de novo atualiza só essa parte; `--show` só mostra, `--no-instructions` pula a instrução, `--remove-instructions` a remove.
 - Qual quadro é usado: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → o `.gp.json` do projeto → a configuração global.
 
 ### Como usar — é só dizer

@@ -19,7 +19,8 @@ python3 $GP doctor                         # gh installed? logged in? 'project' 
 python3 $GP projects [--owner ORG]         # boards of me (or an org)
 python3 $GP init <board URL>               # this project's board → <git root>/.gp.json
 python3 $GP init <board URL> --global      # every project's board → ~/.config/gp/config.json
-python3 $GP init                           # show the board in effect here · init --unset [--global] removes a setting
+python3 $GP init                           # write the "always use gp" instructions (below) + show the board in effect
+python3 $GP init --show                    # only show the board · init --unset [--global] removes a setting
 python3 $GP info                           # fields, columns, items per column, views, closed-but-not-done items
 
 python3 $GP create --repo R --title "…" [--body "…"] [--status todo] [--assignee @me] [--label bug] \
@@ -63,7 +64,13 @@ Each development project can have its own board. `/gp init https://github.com/us
 - The URL may be any page of the board (`/views/N`, `?filterQuery=…`), a user board (`/users/U/projects/N`) or an org board (`/orgs/O/projects/N`); `owner/number` works too.
 - Default: inside a git repository → **local**, saved in `<git root>/.gp.json` and used only in that project. Outside git, or when the user says global / 전역 / 모든 프로젝트 / "기본 보드" → `--global`. "이 프로젝트만" → `--local`.
 - `init` checks that the board exists and is readable before saving. Report the board title, URL, scope and file from its output. `.gp.json` holds no secret (owner, number, title, URL): tell the user once they can commit it so teammates get the same board, or add it to `.gitignore`; don't commit it for them unless asked.
-- `init` with no URL, or "어느 보드야?" → shows the board in effect and where it comes from. No board yet → run `projects` and ask which one (or create one).
+- `init` with no URL → writes the instructions below and shows the board in effect. "어느 보드야?" → `init --show`. No board yet → run `projects` and ask which one (or create one).
+
+**Instructions in CLAUDE.md / AGENTS.md.** Every `init` (with or without a URL, and `project-create --use`) also writes a block "🛑 GitHub Project work → always use the gp skill" — issues, 일감, 할 일, TODO, board, columns; create/edit/move/close/delete/list/search/assign — so later sessions load this skill by themselves instead of calling `gh` directly:
+
+- **Project**: `<git root>/AGENTS.md` (Codex and other agents) and `CLAUDE.md` (or `.claude/CLAUDE.md`), with **this project's board URL** from `.gp.json` (or the global board it falls back to) and the repository new issues go to. A CLAUDE.md that imports `@AGENTS.md` gets it once through AGENTS.md; a missing CLAUDE.md is created as `@AGENTS.md` (Claude Code reads AGENTS.md only when there is no CLAUDE.md, so this keeps both working).
+- **Global** (every project): `~/.claude/CLAUDE.md` and `$CODEX_HOME/AGENTS.md` (`~/.codex`), for the agents installed here, with the `--global` board URL when one is set. Skipped in a cloud session.
+- The block sits between `<!-- gp:begin … -->` and `<!-- gp:end -->` and is replaced in place on the next `init` (the rest of the file is untouched). `--no-instructions` skips it, `init --remove-instructions` removes it everywhere. Report each file and what happened (`created`/`added`/`updated`/`unchanged`) from the output; the project files are worth committing with `.gp.json`.
 
 ## Claude Code cloud sessions
 

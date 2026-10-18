@@ -161,6 +161,7 @@ Nếu cài dưới dạng plugin Claude Code: `/gp:gp init …`; Codex: `$gp ini
 - **Toàn cục** — `/gp init <URL> --global` (hoặc "đặt làm bảng mặc định cho mọi dự án") → `~/.config/gp/config.json`, dùng ở mọi thư mục không có `.gp.json`.
 - Trang nào của bảng cũng được (`/views/2`, bảng của người dùng `/users/…`, bảng của tổ chức `/orgs/…`). Trước khi lưu, bảng được kiểm tra xem có tồn tại và đọc được không.
 - Chỉ gõ `/gp init` sẽ hiển thị bảng đang dùng và tệp cài đặt của nó. Xóa: `gp.py init --unset` (toàn cục: `--unset --global`).
+- `/gp init` còn ghi một chỉ dẫn vào `AGENTS.md`/`CLAUDE.md` của dự án này và vào `~/.claude/CLAUDE.md`/`~/.codex/AGENTS.md` toàn cục: "luôn dùng skill gp để tạo, sửa, xóa, liệt kê hoặc tìm issue, công việc và TODO của GitHub Project". Khi có URL, nó thêm "làm việc trên bảng này" kèm URL đó. Chạy lại chỉ cập nhật phần đó; `--show` chỉ hiển thị, `--no-instructions` bỏ qua, `--remove-instructions` xóa nó.
 - Thứ tự chọn bảng: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → `.gp.json` của dự án → cài đặt toàn cục.
 
 ### Cách dùng — cứ nói ra

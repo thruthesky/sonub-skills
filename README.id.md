@@ -161,6 +161,7 @@ Jika dipasang sebagai plugin Claude Code: `/gp:gp init …`; Codex: `$gp init �
 - **Global** — `/gp init <URL> --global` (atau "jadikan papan default untuk semua proyek") → `~/.config/gp/config.json`, dipakai di setiap folder yang tidak punya `.gp.json`.
 - Halaman mana pun dari papan bisa dipakai (`/views/2`, papan pengguna `/users/…`, papan organisasi `/orgs/…`). Sebelum disimpan, papan diperiksa apakah ada dan bisa dibaca.
 - `/gp init` saja menampilkan papan yang sedang dipakai dan file pengaturannya. Hapus: `gp.py init --unset` (global: `--unset --global`).
+- `/gp init` juga menulis instruksi ke `AGENTS.md`/`CLAUDE.md` proyek ini dan ke `~/.claude/CLAUDE.md`/`~/.codex/AGENTS.md` global Anda: "selalu gunakan skill gp untuk membuat, mengedit, menghapus, menampilkan, atau mencari issue, tugas, dan TODO GitHub Project". Jika diberi URL, ditambahkan "bekerjalah di papan ini" beserta URL-nya. Menjalankannya lagi hanya memperbarui bagian itu; `--show` hanya menampilkan, `--no-instructions` melewatinya, `--remove-instructions` menghapusnya.
 - Urutan penentuan papan: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → `.gp.json` proyek → pengaturan global.
 
 ### Cara memakainya — cukup katakan

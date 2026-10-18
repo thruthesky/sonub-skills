@@ -161,6 +161,7 @@ python3 scripts/gp.py view-add Board --layout board
 - **global** — `/gp init <URL> --global` (หรือพูดว่า "ตั้งเป็นบอร์ดหลักของทุกโปรเจกต์") → `~/.config/gp/config.json` ใช้ในทุกโฟลเดอร์ที่ไม่มี `.gp.json`
 - ใช้หน้าไหนของบอร์ดก็ได้ (`/views/2`, บอร์ดของผู้ใช้ `/users/…`, บอร์ดขององค์กร `/orgs/…`) ก่อนบันทึกจะตรวจว่าบอร์ดมีอยู่จริงและอ่านได้
 - พิมพ์ `/gp init` อย่างเดียวจะแสดงบอร์ดที่ใช้อยู่และไฟล์ตั้งค่าของมัน ลบ: `gp.py init --unset` (global: `--unset --global`)
+- `/gp init` ยังเขียนคำสั่งลงใน `AGENTS.md`/`CLAUDE.md` ของโปรเจกต์นี้และใน `~/.claude/CLAUDE.md`/`~/.codex/AGENTS.md` ระดับ global ว่า "การสร้าง แก้ไข ลบ ดูรายการ หรือค้นหา issue งาน และ TODO ของ GitHub Project ให้ใช้ skill gp เสมอ" ถ้าให้ URL จะเพิ่ม "ทำงานบนบอร์ดนี้" พร้อม URL นั้นด้วย รันซ้ำจะอัปเดตเฉพาะส่วนนั้น `--show` แสดงอย่างเดียว `--no-instructions` ข้ามคำสั่งนี้ `--remove-instructions` ลบออก
 - ลำดับการเลือกบอร์ด: `--owner/--number` → `GP_OWNER`/`GP_PROJECT` → `.gp.json` ของโปรเจกต์ → ค่าตั้ง global
 
 ### วิธีใช้ — แค่พูดออกมา

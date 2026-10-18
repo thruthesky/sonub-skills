@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "defaultLocale": "en",
+  "locales": ["en", "ko"],
+  "labels": {
+    "en": { "dialog": "Glossary", "close": "Close", "easy": "In plain words", "example": "Example", "code": "Code", "related": "Related", "more": "Learn more", "copy": "Copy", "copied": "Copied" },
+    "ko": { "dialog": "용어 사전", "close": "닫기", "easy": "쉽게 말하면", "example": "예시", "code": "코드", "related": "관련 용어", "more": "더 알아보기", "copy": "복사", "copied": "복사됨" }
+  },
+  "categories": {
+    "web": { "en": "Web", "ko": "웹" },
+    "dev": { "en": "Development", "ko": "개발" },
+    "ai": { "en": "AI", "ko": "인공지능" }
+  },
+  "terms": {
+    "api": {
+      "category": "web",
+      "aliases": ["API", "APIs"],
+      "related": ["endpoint", "json"],
+      "href": "demo.html#api",
+      "text": {
+        "en": {
+          "term": "API",
+          "reading": "A-P-I",
+          "short": "The agreed way one program asks another for something",
+          "long": "An API (Application Programming Interface) is a list of requests a program accepts and the answers it gives back. Your app does not need to know how the other program works inside — it only sends a request in the agreed shape.",
+          "easy": "It is like a restaurant menu: you order from the list, and the kitchen stays out of sight.",
+          "example": "`GET /users/42` asks a server for user 42\n`fetch('/api/weather')` calls a weather API from a web page"
+        },
+        "ko": {
+          "term": "API",
+          "reading": "에이피아이",
+          "short": "프로그램끼리 무언가를 부탁하는 약속된 방법",
+          "long": "API(Application Programming Interface)는 한 프로그램이 받아 주는 요청과 돌려주는 답을 정해 둔 목록입니다. 내 앱은 상대 프로그램이 안에서 어떻게 돌아가는지 몰라도, 약속된 모양으로 요청만 보내면 됩니다.",
+          "easy": "식당 메뉴판과 같습니다. 메뉴에서 고르면 되고, 주방 안은 보지 않아도 됩니다.",
+          "example": "`GET /users/42` 서버에 42번 사용자를 달라고 요청\n`fetch('/api/weather')` 웹 페이지에서 날씨 API 를 부르기"
+        }
+      }
+    },
+    "json": {
+      "category": "web",
+      "aliases": ["JSON"],
+      "related": ["api"],
+      "codeLang": "json",
+      "text": {
+        "en": {
+          "term": "JSON",
+          "reading": "jay-son",
+          "short": "A plain-text format for sending data between programs",
+          "long": "JSON (JavaScript Object Notation) writes data as names and values inside curly braces. Almost every API sends and receives JSON, because people can read it and every programming language can parse it.",
+          "code": "{\n  \"id\": 42,\n  \"name\": \"Mina\",\n  \"tags\": [\"admin\", \"editor\"]\n}"
+        },
+        "ko": {
+          "term": "JSON",
+          "reading": "제이슨",
+          "short": "프로그램끼리 데이터를 주고받는 글자 형식",
+          "long": "JSON(JavaScript Object Notation)은 데이터를 중괄호 안의 이름과 값으로 적습니다. 사람이 읽을 수 있고 모든 프로그래밍 언어가 읽어 들일 수 있어서, 거의 모든 API 가 JSON 으로 주고받습니다.",
+          "code": "{\n  \"id\": 42,\n  \"name\": \"Mina\",\n  \"tags\": [\"admin\", \"editor\"]\n}"
+        }
+      }
+    },
+    "endpoint": {
+      "category": "web",
+      "related": ["api"],
+      "text": {
+        "en": { "term": "endpoint", "aliases": "endpoints", "short": "One address of an API that does one job", "long": "An endpoint is a single URL of an API, such as `/users` or `/orders/7`. Each endpoint does one kind of job, and the HTTP method (GET, POST …) says what to do there." },
+        "ko": { "term": "엔드포인트", "short": "한 가지 일을 맡은 API 의 주소 하나", "long": "엔드포인트는 `/users`·`/orders/7` 처럼 API 의 주소 하나입니다. 주소마다 맡은 일이 하나씩 있고, HTTP 메서드(GET·POST …)가 거기서 무엇을 할지 정합니다." }
+      }
+    },
+    "cli": {
+      "category": "dev",
+      "aliases": ["CLI"],
+      "related": ["shell-prompt"],
+      "text": {
+        "en": {
+          "term": "command line (CLI)",
+          "short": "Controlling the computer by typing commands",
+          "long": "On the command line you type a command and press Enter instead of clicking buttons. It looks old-fashioned, but it is fast, can be repeated exactly, and is how most developer tools are run.",
+          "easy": "It is like texting the computer instead of pointing at things.",
+          "example": "`ls` list the files here\n`cd docs` move into the docs folder\n`git status` see what changed"
+        },
+        "ko": {
+          "term": "명령줄(CLI)",
+          "short": "명령을 글자로 쳐서 컴퓨터를 다루는 방식",
+          "long": "명령줄에서는 단추를 누르는 대신 명령을 치고 엔터를 누릅니다. 옛날 방식처럼 보이지만 빠르고, 똑같이 되풀이할 수 있으며, 대부분의 개발 도구가 이렇게 실행됩니다.",
+          "easy": "컴퓨터를 손가락으로 가리키는 대신 문자 메시지로 시키는 것과 같습니다.",
+          "example": "`ls` 지금 폴더의 파일 보기\n`cd docs` docs 폴더로 들어가기\n`git status` 무엇이 바뀌었는지 보기"
+        }
+      }
+    },
+    "prompt": {
+      "category": "ai",
+      "related": ["api"],
+      "text": {
+        "en": { "term": "prompt", "aliases": "prompts", "short": "The instruction you give an AI model", "long": "A prompt is the text you send to an AI model: the question, the task and any examples. Clear prompts with context get better answers." },
+        "ko": { "term": "프롬프트", "short": "인공지능 모델에 주는 지시문", "long": "프롬프트는 인공지능 모델에 보내는 글입니다. 질문·할 일·예시가 들어갑니다. 맥락을 담아 분명하게 쓸수록 답이 좋아집니다." }
+      }
+    },
+    "shell-prompt": {
+      "category": "dev",
+      "scope": "shell",
+      "related": ["cli"],
+      "text": {
+        "en": { "term": "prompt", "short": "The sign that the terminal is waiting for a command", "long": "In a terminal the prompt is the text before the cursor, often ending in `$` or `%`. It tells you the shell is ready, and usually shows the folder you are in." },
+        "ko": { "term": "프롬프트", "short": "터미널이 명령을 기다린다는 표시", "long": "터미널의 프롬프트는 커서 앞의 글자로, 흔히 `$` 나 `%` 로 끝납니다. 셸이 명령을 받을 준비가 되었다는 뜻이고, 보통 지금 있는 폴더를 보여 줍니다." }
+      }
+    },
+    "concept-request-response": {
+      "category": "web",
+      "match": false,
+      "related": ["api", "endpoint"],
+      "text": {
+        "en": { "term": "What this sentence means", "short": "Every web page is a question and an answer", "long": "The browser asks (a request) and the server answers (a response). Everything on the web — pages, images, API calls — is this one exchange repeated." },
+        "ko": { "term": "이 문장의 뜻", "short": "모든 웹 페이지는 질문과 답이다", "long": "브라우저가 묻고(요청) 서버가 답합니다(응답). 페이지·그림·API 호출까지 웹의 모든 것은 이 주고받기 하나가 되풀이되는 것입니다." }
+      }
+    }
+  }
+}

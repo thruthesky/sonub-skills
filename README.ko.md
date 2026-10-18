@@ -8,10 +8,11 @@
 |------|------|
 | [`gp`](skills/gp) | git 과 `gh` CLI 로 나의 모든 일감을 **GitHub Project** 에서 관리 |
 | [`claude-skill`](skills/claude-skill) | **Claude Code 를 공부하고 더 잘 쓰기** — 14개 레슨·퀴즈, 공식 문서로 확인한 답, 설정 점검, CHANGELOG 의 모든 새 기능 요약, `/claude-skill update` 로 새 기능 반영(플러그인 이름 `cc-skill`) |
+| [`popup`](skills/popup) | 어떤 프로젝트의 페이지와 문서에서든 **어려운 용어를 마우스 오버 팝업으로 설명** — 뜻, 쉬운 말, 예시, 소스 코드, 관련 용어, 내 페이지로 가는 "더 알아보기" 링크를 용어 사전 JSON 하나로 |
 
 ## 설치 — 전역(사용자) 또는 프로젝트
 
-모든 스킬은 같은 방법으로 설치합니다. 아래 `<플러그인>` 자리에 표의 플러그인 이름(`gp`, `cc-skill`)을 넣습니다.
+모든 스킬은 같은 방법으로 설치합니다. 아래 `<플러그인>` 자리에 표의 플러그인 이름(`gp`, `cc-skill`, `popup`)을 넣습니다.
 
 **1단계 — 마켓플레이스 추가(컴퓨터마다 한 번)**
 
@@ -38,11 +39,11 @@ claude plugin marketplace add thruthesky/sonub-skills
   "extraKnownMarketplaces": {
     "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
   },
-  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true, "popup@sonub-skills": true }
 }
 ```
 
-**플러그인 없이 폴더 복사** — 스킬 폴더를 에이전트의 스킬 폴더에 넣어도 됩니다(`<스킬>` = `gp`, `claude-skill`).
+**플러그인 없이 폴더 복사** — 스킬 폴더를 에이전트의 스킬 폴더에 넣어도 됩니다(`<스킬>` = `gp`, `claude-skill`, `popup`).
 
 | 도구 | 전역(사용자) | 프로젝트 |
 |------|------|------|
@@ -263,6 +264,62 @@ python3 scripts/cc.py update-check           # 스킬이 다루는 판 vs 최신
 python3 scripts/cc.py lessons                # 레슨과 진도
 ```
 
+## popup — 어려운 낱말을 독자가 만나는 그 자리에서 설명하기
+
+독자는 "토큰", "엔드포인트", "멱등성" 같은 낱말 하나에서 막히고, 그 단락 전체를 놓칩니다. 이 스킬은 그 낱말 위에 작은 카드를 붙입니다. 낱말에 마우스를 올리면(휴대폰은 탭, 키보드는 포커스) 용어를 겹겹이 설명해 줍니다 — 한 줄 뜻, 짧은 설명, 일상 속 비유, 예시 문장, 소스 코드 조각, 관련 용어, 그리고 **내 프로젝트의 다른 페이지로 가는 "더 알아보기" 링크**. 정적 사이트, 문서 생성기, 싱글 페이지 앱, 서버에서 그려 주는 사이트, GitHub 에서 읽는 일반 Markdown 까지 어떤 프로젝트에서도 동작합니다.
+
+### 다루는 것
+
+- **용어 사전은 한 곳에** — 모든 설명이 JSON 파일 하나(또는 언어마다 하나)에 있고, 페이지는 용어 id 만 가리킵니다. 그래서 같은 낱말은 어디서나 똑같이 읽힙니다.
+- **끼워 넣기만 하면 되는 키트** — `popup.js` 와 `popup.css`, 프레임워크도 빌드 단계도 없습니다. `main`/`article` 안의 일반 글은 자동으로 감싸지고(페이지마다 처음 한 번), 구절·문장·"?" 버튼·마우스를 올리면 미리 보이는 링크는 직접 마크업합니다. 페이지당 카드 하나, 클릭하면 고정, 관련 용어 칩은 그 자리에서 바뀌고, Esc 로 포커스가 돌아오며, 휴대폰에서는 아래에서 올라오는 시트, 오른쪽에서 왼쪽으로 쓰는 언어, 다크 모드, CSS 변수로 테마를 지원합니다.
+- **똑똑한 매칭** — 긴 표기부터, 문자 체계별 단어 경계(라틴·키릴·한국어 조사·아랍어 접두사·CJK), 한 절에서만 쓰는 용어(`scope`), 대소문자를 구분하는 명령어 이름.
+- **쓰기 규칙** — 프로젝트가 내놓는 모든 언어에서, 초보자가 한 번 읽고 이해하는 카드 쓰는 법: 칸마다 무엇을 쓰는지, 길이, 비유 하나, 확인한 사실, 진짜 예시가 있으면 반드시 넣기.
+- **도구** — `popup.py check` 는 용어 사전을 검증하고(모든 언어, 언어가 달라도 같은 예시 코드, 관련 id, 더 알아보기 대상이 실제로 있는지, 표기 충돌), `audit` 는 문서가 이미 쓰는 용어와 아직 항목이 없는 전문용어를 찾고, `add` 는 새 용어를 안전하게 합치고, `md` + `link` 는 용어 사전으로 `GLOSSARY.md` 를 만들고 Markdown 파일에서 처음 나오는 용어에 뜻을 마우스 오버 제목으로 단 링크를 겁니다.
+- **SONUB** — SONUB 저장소 안에서는 두 번째 체계를 더하지 않고 SONUB 자체의 Laravel 용어 사전(17개 언어, AI 튜터의 목소리) 위에 얹어 동작합니다.
+
+### 설치
+
+위 [설치](#설치--전역사용자-또는-프로젝트) 절과 같고, 플러그인 이름은 **`popup`** 입니다.
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install popup@sonub-skills                    # 전역 — 모든 프로젝트
+claude plugin install popup@sonub-skills --scope project    # 이 프로젝트(팀 공유)
+```
+
+도구에는 Python 3.8 이상이 필요합니다. 키트는 최신 브라우저 어디서나 동작합니다.
+
+### 쓰는 법
+
+| 이렇게 말하면 | 하는 일 |
+|------|------|
+| `/popup docs/getting-started.md` · "이 페이지에 용어 팝업 달아 줘" | 어려운 낱말을 찾고, 항목을 쓰고, 키트를 연결하고, 브라우저에서 확인 |
+| `/popup token, sampling, temperature` | 그 세 항목을 쓰고, 쓰이는 곳에 붙임 |
+| "메뉴 항목을 마우스 올리면 설명해 줘" | 링크에 마우스 오버 미리 보기를 달고, 휴대폰과 키보드용 "?" 버튼도 넣음 |
+| "README 를 초보자도 읽기 쉽게 만들어 줘" | `GLOSSARY.md` 를 만들고, 용어가 처음 나오는 곳마다 링크를 걸어 마우스를 올리면 뜻이 보이게 함 |
+| "용어 사전을 일본어로 번역해 줘" | 모든 항목에 `ja` 를 더하고 빠진 것이 없는지 확인 |
+
+플러그인으로 설치했으면 `/popup:popup …` 도 됩니다. Codex 는 `$popup …`.
+
+### 도구 — `scripts/popup.py`
+
+Python 표준 라이브러리만 씁니다.
+
+```bash
+python3 scripts/popup.py init popup --locales en,ko   # popup.js/css 복사, glossary.json 시작, .popup.json 작성
+python3 scripts/popup.py audit docs                   # 파일별로 쓰인 용어 + 항목이 없는 전문용어
+python3 scripts/popup.py add new-terms.json --dry-run # 새 용어 합치기(검사하며, 말없이 덮어쓰지 않음)
+python3 scripts/popup.py check                        # 용어 사전 검증
+python3 scripts/popup.py md && python3 scripts/popup.py link README.md docs --write   # GitHub 의 Markdown
+```
+
+그런 다음 레이아웃에 태그 두 개를 더합니다.
+
+```html
+<link rel="stylesheet" href="/popup/popup.css">
+<script defer src="/popup/popup.js" data-glossary="/popup/glossary.json"></script>
+```
+
 ## 저장소 구조
 
 ```
@@ -282,6 +339,13 @@ skills/claude-skill/
    ├─ curriculum.md · quiz.md · tips.md
    ├─ academy.md · changelog-features.md
    └─ cheatsheet.md · extend.md
+skills/popup/
+├─ SKILL.md                       ← 스킬: 언제·어떻게 쓰는지
+├─ .claude-plugin/plugin.json     ← 플러그인 정보
+├─ assets/                        ← popup.js · popup.css · glossary.example.json · demo.html
+├─ scripts/popup.py               ← init, check, audit, add, show, md, link
+├─ scripts/sonub/                 ← SONUB 전용 도구(Laravel 용어 사전)
+└─ references/                    ← content.md · design.md · integrate.md · projects/sonub.md
 ```
 
 스킬이 어떻게 동작하는지는 SONUB AI 과정의 **Agent Skills** 챕터에서 배울 수 있습니다: https://sonub.com/ko/learn/ai#agent-skill

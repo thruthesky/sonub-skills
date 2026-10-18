@@ -8,10 +8,11 @@
 |------|------|
 | [`gp`](skills/gp) | 用 git 和 `gh` CLI 在 **GitHub Projects** 中管理你的所有工作 |
 | [`claude-skill`](skills/claude-skill) | **学习 Claude Code，把它用得更好** —— 14 节课程和小测验、对照官方文档核实的回答、环境检查、CHANGELOG 中所有新功能的总结，以及用 `/claude-skill update` 引入新功能（插件名 `cc-skill`） |
+| [`popup`](skills/popup) | 在任何项目的页面和文档中，**用悬停弹窗解释术语** —— 含义、通俗说法、示例、源代码、相关术语，以及指向你自己页面的"了解更多"链接，全部来自一个术语表 JSON |
 
 ## 安装 —— 全局（用户）或按项目
 
-所有技能的安装方法都一样。把表格中的插件名（`gp`、`cc-skill`）填到 `<插件>` 处。
+所有技能的安装方法都一样。把表格中的插件名（`gp`、`cc-skill`、`popup`）填到 `<插件>` 处。
 
 **第 1 步 —— 添加技能市场（每台电脑只需一次）**
 
@@ -38,11 +39,11 @@ claude plugin marketplace add thruthesky/sonub-skills
   "extraKnownMarketplaces": {
     "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
   },
-  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true, "popup@sonub-skills": true }
 }
 ```
 
-**不用插件 —— 复制文件夹** 到智能体的技能文件夹中（`<技能>` = `gp` 或 `claude-skill`）。
+**不用插件 —— 复制文件夹** 到智能体的技能文件夹中（`<技能>` = `gp`、`claude-skill` 或 `popup`）。
 
 | 工具 | 全局（用户） | 项目 |
 |------|------|------|
@@ -263,6 +264,62 @@ python3 scripts/cc.py update-check           # 已涵盖的版本 vs 最新版�
 python3 scripts/cc.py lessons                # 课程和进度
 ```
 
+## popup —— 让读者在遇到难词的地方当场看懂
+
+读者常常卡在一个不认识的词上 ——"token"、"endpoint"、"幂等"—— 然后整段话都读不下去了。这个技能会在那个词上放一张小卡片：把鼠标悬停在词上（手机上点按，键盘上聚焦），就会分层解释这个术语 —— 一句话含义、简短说明、日常类比、示例、源代码片段、相关术语，以及**指向你自己项目中另一个页面的"了解更多"链接**。它适用于任何项目：静态网站、文档生成器、单页应用、服务端渲染的网站，以及在 GitHub 上阅读的普通 Markdown。
+
+### 涵盖的内容
+
+- **一份术语表，一个地方** —— 所有解释都放在一个 JSON 文件里（或每种语言一个），页面只引用术语 id，所以同一个词在哪里读到的都一样。
+- **拿来就能用的套件** —— `popup.js` 和 `popup.css`，不需要框架，也不需要构建步骤。`main`/`article` 里的普通文字会被自动包裹（每个页面第一次出现时）；短语、句子、"?" 按钮，以及悬停时可预览的链接，则用显式标记来写。每个页面一张卡片，点击后固定，相关术语标签就地切换，按 Esc 把焦点还回去，手机上是底部弹出面板，支持从右到左书写的语言、深色模式，并可用 CSS 变量定制主题。
+- **聪明的匹配** —— 先匹配最长的写法，按文字体系区分词边界（拉丁文、西里尔文、韩语助词、阿拉伯语前缀、CJK），只在某一节里适用的术语（`scope`），区分大小写的命令名。
+- **写作规则** —— 如何写出让初学者读一遍就懂的卡片，并覆盖项目发布的每一种语言：每个字段的用途、长度、一个类比、核实过的事实、有真实示例时一定要写上。
+- **工具** —— `popup.py check` 校验术语表（所有语言、各语言中的示例代码完全一致、相关 id、了解更多的目标是否存在、写法冲突）；`audit` 显示文档已经用到了哪些术语，并找出还没有条目的行话；`add` 安全地合并新术语；`md` + `link` 把术语表生成 `GLOSSARY.md`，并在你的 Markdown 文件中为术语第一次出现的位置加上链接，把含义作为悬停标题。
+- **SONUB** —— 在 SONUB 仓库内，它建立在 SONUB 自己的 Laravel 术语表（17 种语言、AI 导师的声音）之上，而不是再加一套系统。
+
+### 安装
+
+与上面的 [安装](#安装--全局用户或按项目) 相同，插件名为 **`popup`**。
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install popup@sonub-skills                    # 全局 —— 所有项目
+claude plugin install popup@sonub-skills --scope project    # 此项目，与团队共享
+```
+
+工具需要 Python 3.8 或更高版本。套件可在任何现代浏览器中运行。
+
+### 使用方法
+
+| 你说 | 它会 |
+|------|------|
+| `/popup docs/getting-started.md` · "给这个页面加上术语弹窗" | 找出难词，写好条目，接入套件，并在浏览器中检查 |
+| `/popup token, sampling, temperature` | 写好这三个条目，并附加到它们被用到的地方 |
+| "菜单项悬停时给出解释" | 给链接加上悬停预览，并为手机和键盘提供 "?" 按钮 |
+| "让 README 对初学者友好" | 生成 `GLOSSARY.md`，并在每个术语第一次出现的地方加链接，悬停即可看到含义 |
+| "把术语表翻译成日语" | 给每个条目加上 `ja`，并检查有没有遗漏 |
+
+作为插件安装时，也可以用 `/popup:popup …`。Codex：`$popup …`。
+
+### 工具 —— `scripts/popup.py`
+
+只用 Python 标准库。
+
+```bash
+python3 scripts/popup.py init popup --locales en,ko   # 复制 popup.js/css，创建 glossary.json，写入 .popup.json
+python3 scripts/popup.py audit docs                   # 每个文件用到的术语 + 还没有条目的行话
+python3 scripts/popup.py add new-terms.json --dry-run # 合并新术语（会检查，绝不悄悄覆盖）
+python3 scripts/popup.py check                        # 校验术语表
+python3 scripts/popup.py md && python3 scripts/popup.py link README.md docs --write   # GitHub 上的 Markdown
+```
+
+然后在你的布局中加上两个标签：
+
+```html
+<link rel="stylesheet" href="/popup/popup.css">
+<script defer src="/popup/popup.js" data-glossary="/popup/glossary.json"></script>
+```
+
 ## 仓库结构
 
 ```
@@ -282,6 +339,13 @@ skills/claude-skill/
    ├─ curriculum.md · quiz.md · tips.md
    ├─ academy.md · changelog-features.md
    └─ cheatsheet.md · extend.md
+skills/popup/
+├─ SKILL.md                       ← 技能本身：何时使用、如何使用
+├─ .claude-plugin/plugin.json     ← 插件信息
+├─ assets/                        ← popup.js · popup.css · glossary.example.json · demo.html
+├─ scripts/popup.py               ← init, check, audit, add, show, md, link
+├─ scripts/sonub/                 ← SONUB 专用工具（Laravel 术语表）
+└─ references/                    ← content.md · design.md · integrate.md · projects/sonub.md
 ```
 
 在 SONUB AI 课程的 **Agent Skills** 章节中了解技能是如何工作的：https://sonub.com/zh/learn/ai#agent-skill

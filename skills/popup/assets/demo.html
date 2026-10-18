@@ -1,0 +1,44 @@
+<!doctype html>
+<!-- popup demo — serve this folder (python3 -m http.server) and open /demo.html, /demo.html?lang=ko or ?lang=ar&dir=rtl -->
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>popup demo</title>
+	<link rel="stylesheet" href="popup.css">
+	<script>
+		// demo only: ?lang=ko · ?dir=rtl · ?theme=dark
+		var q = new URLSearchParams(location.search);
+		if (q.get('lang')) document.documentElement.lang = q.get('lang');
+		if (q.get('dir')) document.documentElement.dir = q.get('dir');
+		if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme');
+	</script>
+	<script defer src="popup.js" data-glossary="glossary.example.json"></script>
+	<style>
+		body { max-width: 44rem; margin: 2rem auto; padding: 0 1rem; font: 16px/1.7 system-ui, sans-serif; }
+		:root[data-theme='dark'] body { background: #121317; color: #e6e8eb; }
+		nav a { margin-inline-end: 1rem; }
+	</style>
+</head>
+<body>
+	<main>
+		<h1>Using an API</h1>
+		<p>An API answers requests. Each endpoint returns JSON, and the API docs list every endpoint.</p>
+		<p>Open the command line and look at the prompt you write for an AI model.</p>
+		<section data-popup-scope="shell">
+			<p>In the terminal, the prompt shows the current folder. Type a command after the prompt.</p>
+		</section>
+		<p><span data-term="concept-request-response">The browser asks, the server answers.</span></p>
+		<p>Not wrapped: <code>API</code> in code, a <a href="#api">link about the API</a>, an email address, rapid, index.json.</p>
+		<nav>
+			<a href="#api" data-term="api" data-term-label="API">API docs (hover 400 ms)</a>
+			<button class="popup-info" data-term="cli"></button>
+		</nav>
+		<h2 id="api">API</h2>
+		<p>The “learn more” link of the API card lands here.</p>
+		<hr>
+		<h1 lang="ko">API 쓰기</h1>
+		<p lang="ko">API는 요청에 답합니다. 엔드포인트마다 JSON을 돌려주고, 명령줄에서 프롬프트를 봅니다. 엔드포인트화 같은 낱말은 잡지 않습니다.</p>
+	</main>
+</body>
+</html>

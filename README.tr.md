@@ -8,10 +8,11 @@ Bu depo bir **beceri pazaryeridir (skill marketplace)**. Her beceri standart bir
 |------|------|
 | [`gp`](skills/gp) | Tüm işlerinizi git ve `gh` CLI ile **GitHub Projects** üzerinde yönetir |
 | [`claude-skill`](skills/claude-skill) | **Claude Code'u öğrenin ve daha iyi kullanın** — testli 14 ders, resmî belgelerle doğrulanan yanıtlar, kurulum denetleyicisi (doctor), CHANGELOG'daki her yeni özelliğin özeti ve yenilerini eklemek için `/claude-skill update` (eklenti adı `cc-skill`) |
+| [`popup`](skills/popup) | **Terimleri fare üzerine gelince açılan popup'larla açıklayın** — herhangi bir projenin sayfalarında ve belgelerinde anlam, sade anlatım, örnekler, kaynak kod, ilgili terimler ve kendi sayfalarınıza giden "daha fazla bilgi" bağlantıları, hepsi tek bir sözlük JSON'undan |
 
 ## Kurulum — global (kullanıcı) veya proje başına
 
-Her beceri aynı şekilde kurulur. `<eklenti>` yerine tablodaki eklenti adını (`gp`, `cc-skill`) yazın.
+Her beceri aynı şekilde kurulur. `<eklenti>` yerine tablodaki eklenti adını (`gp`, `cc-skill`, `popup`) yazın.
 
 **1. adım — pazaryerini ekleyin (her bilgisayarda bir kez)**
 
@@ -38,11 +39,11 @@ claude plugin marketplace add thruthesky/sonub-skills
   "extraKnownMarketplaces": {
     "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
   },
-  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true, "popup@sonub-skills": true }
 }
 ```
 
-**Eklentisiz — klasörü kopyalayın**, ajanınızın beceri klasörüne (`<beceri>` = `gp` veya `claude-skill`).
+**Eklentisiz — klasörü kopyalayın**, ajanınızın beceri klasörüne (`<beceri>` = `gp`, `claude-skill` veya `popup`).
 
 | Araç | Global (kullanıcı) | Proje |
 |------|------|------|
@@ -263,6 +264,62 @@ python3 scripts/cc.py update-check           # kapsanan sürümler ve en son sü
 python3 scripts/cc.py lessons                # dersler ve ilerleme
 ```
 
+## popup — her zor kelimeyi okurun onunla karşılaştığı yerde açıklayın
+
+Okur tek bir bilinmeyen kelimede — "token", "endpoint", "idempotent" — takılır ve tüm paragrafın akışını kaybeder. Bu beceri o kelimenin üzerine küçük bir kart koyar: üzerine gelin (telefonda dokunun, klavyede odaklanın) ve kart terimi katman katman açıklar — tek satırlık anlam, kısa bir açıklama, gündelik bir benzetme, örnek satırlar, bir kaynak kod parçası, ilgili terimler ve **kendi projenizdeki başka bir sayfaya giden "daha fazla bilgi" bağlantısı**. Her projede çalışır: statik siteler, belge üreticileri, tek sayfalık uygulamalar (SPA), sunucu tarafında oluşturulan siteler ve GitHub'da okunan düz Markdown.
+
+### Neleri kapsar
+
+- **Tek sözlük, tek yer** — tüm açıklamalar tek bir JSON dosyasında (ya da dil başına bir dosyada) durur; sayfalar yalnızca terim id'lerine işaret eder, böylece aynı kelime her yerde aynı şekilde açıklanır.
+- **Hazır bir takım** — `popup.js` ve `popup.css`, framework yok, build adımı yok. `main`/`article` içindeki düz metin otomatik sarılır (her sayfada ilk kullanım); ifadeler, cümleler, "?" düğmeleri ve üzerine gelince önizleme gösteren bağlantılar için açık işaretleme de vardır. Sayfa başına tek kart, tıklayınca sabitlenir, ilgili çipler yerinde değişir, Esc odağı geri verir, telefonda alt sayfa (bottom sheet) olarak açılır, sağdan sola yazılan diller, karanlık mod, CSS değişkenleriyle tema.
+- **Akıllı eşleştirme** — önce en uzun yazım, yazı sistemine göre kelime sınırları (Latin, Kiril, Korece ekler, Arapça önekler, CJK), yalnızca tek bir bölümde geçerli olan terimler (`scope`), büyük/küçük harfe duyarlı komut adları.
+- **Yazım kuralları** — bir acemi tek okumada anlasın diye kart nasıl yazılır, projenin yayımladığı her dilde: her alan ne işe yarar, uzunluklar, tek bir benzetme, doğrulanmış bilgiler, gerçek örnek varsa her zaman örnek.
+- **Araç** — `popup.py check` sözlüğü doğrular (her locale, diller arasında aynı olan örnek kodlar, ilgili id'ler, "daha fazla bilgi" hedeflerinin var olması, yazım çakışmaları); `audit` bir belgenin hangi terimleri zaten kullandığını gösterir ve henüz girdisi olmayan jargonu bulur; `add` yeni terimleri güvenle birleştirir; `md` + `link` sözlüğü `GLOSSARY.md` dosyasına dönüştürür ve Markdown dosyalarınızdaki ilk kullanımı, anlamı üzerine gelince görünen başlık olarak, bağlar.
+- **SONUB** — SONUB deposunun içinde ikinci bir sistem eklemek yerine SONUB'un kendi Laravel sözlüğü (17 dil, yapay zekâ öğretmenin sesi) üzerine kurulur.
+
+### Kurulum
+
+Yukarıdaki [Kurulum](#kurulum--global-kullanıcı-veya-proje-başına) bölümündeki gibi, eklenti adı **`popup`** olarak.
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install popup@sonub-skills                    # global — tüm projeler
+claude plugin install popup@sonub-skills --scope project    # bu proje, ekiple paylaşılır
+```
+
+Araç için Python 3.8+ gerekir. Popup takımı her modern tarayıcıda çalışır.
+
+### Kullanım
+
+| Siz dersiniz | O yapar |
+|------|------|
+| `/popup docs/getting-started.md` · "bu sayfaya sözlük popup'ları ekle" | Zor kelimeleri bulur, girdileri yazar, takımı sayfaya bağlar, tarayıcıda kontrol eder |
+| `/popup token, sampling, temperature` | Bu üç girdiyi yazar ve kullanıldıkları yerlere ekler |
+| "menü öğelerini üzerine gelince açıkla" | Bağlantılara üzerine gelince önizleme ekler; telefon ve klavye için "?" düğmeleri koyar |
+| "README'yi yeni başlayanlara uygun yap" | `GLOSSARY.md` oluşturur ve her terimin ilk kullanımını, anlamı üzerine gelince görünecek şekilde bağlar |
+| "sözlüğü Japoncaya çevir" | Her girdiye `ja` ekler ve eksik bir şey olmadığını kontrol eder |
+
+Eklenti olarak kurulduysa `/popup:popup …` da çalışır. Codex: `$popup …`.
+
+### Araç — `scripts/popup.py`
+
+Yalnızca Python standart kütüphanesi.
+
+```bash
+python3 scripts/popup.py init popup --locales en,ko   # popup.js/css dosyalarını kopyalar, glossary.json başlatır, .popup.json yazar
+python3 scripts/popup.py audit docs                   # dosya başına kullanılan terimler + girdisi olmayan jargon
+python3 scripts/popup.py add new-terms.json --dry-run # yeni terimleri birleştirir (kontrol edilir, sessizce üzerine yazmaz)
+python3 scripts/popup.py check                        # sözlüğü doğrular
+python3 scripts/popup.py md && python3 scripts/popup.py link README.md docs --write   # GitHub'daki Markdown
+```
+
+Ardından layout'unuza iki etiket ekleyin:
+
+```html
+<link rel="stylesheet" href="/popup/popup.css">
+<script defer src="/popup/popup.js" data-glossary="/popup/glossary.json"></script>
+```
+
 ## Depo yapısı
 
 ```
@@ -282,6 +339,13 @@ skills/claude-skill/
    ├─ curriculum.md · quiz.md · tips.md
    ├─ academy.md · changelog-features.md
    └─ cheatsheet.md · extend.md
+skills/popup/
+├─ SKILL.md                       ← beceri: ne zaman ve nasıl kullanılacağı
+├─ .claude-plugin/plugin.json     ← eklenti bilgisi
+├─ assets/                        ← popup.js · popup.css · glossary.example.json · demo.html
+├─ scripts/popup.py               ← init, check, audit, add, show, md, link
+├─ scripts/sonub/                 ← yalnızca SONUB'a özel araçlar (Laravel sözlüğü)
+└─ references/                    ← content.md · design.md · integrate.md · projects/sonub.md
 ```
 
 Becerilerin nasıl çalıştığını SONUB yapay zekâ kursunun **Agent Skills** bölümünde öğrenin: https://sonub.com/tr/learn/ai#agent-skill

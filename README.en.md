@@ -8,10 +8,11 @@ This repository is a **skill marketplace**. Every skill is a standard [Agent Ski
 |------|------|
 | [`gp`](skills/gp) | Manage all your work in **GitHub Projects** with git and the `gh` CLI |
 | [`claude-skill`](skills/claude-skill) | **Learn Claude Code and get better at it** — 14 lessons with quizzes, answers checked against the official docs, a setup doctor, every new CHANGELOG feature summarized, and `/claude-skill update` to pull in new ones (plugin name `cc-skill`) |
+| [`popup`](skills/popup) | **Explain jargon with hover popups** in any project's pages and docs — meaning, plain words, examples, source code, related terms and “learn more” links to your own pages, from one glossary JSON |
 
 ## Install — globally (user) or per project
 
-Every skill installs the same way. Put the plugin name from the table (`gp`, `cc-skill`) in place of `<plugin>`.
+Every skill installs the same way. Put the plugin name from the table (`gp`, `cc-skill`, `popup`) in place of `<plugin>`.
 
 **Step 1 — add the marketplace (once per computer)**
 
@@ -38,11 +39,11 @@ claude plugin marketplace add thruthesky/sonub-skills
   "extraKnownMarketplaces": {
     "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
   },
-  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true, "popup@sonub-skills": true }
 }
 ```
 
-**Without plugins — copy the folder** into your agent's skill folder (`<skill>` = `gp` or `claude-skill`).
+**Without plugins — copy the folder** into your agent's skill folder (`<skill>` = `gp`, `claude-skill` or `popup`).
 
 | Tool | Global (user) | Project |
 |------|------|------|
@@ -263,6 +264,62 @@ python3 scripts/cc.py update-check           # versions covered vs latest
 python3 scripts/cc.py lessons                # lessons and progress
 ```
 
+## popup — explain every hard word where the reader meets it
+
+A reader stops at one unknown word — "token", "endpoint", "idempotent" — and loses the whole paragraph. This skill puts a small card on that word: hover it (tap on a phone, focus with the keyboard) and it explains the term in layers — one-line meaning, a short explanation, an everyday comparison, example lines, a source-code snippet, related terms, and a **“learn more” link to another page of your own project**. It works in any project: static sites, documentation generators, single-page apps, server-rendered sites, and plain Markdown read on GitHub.
+
+### What it covers
+
+- **One glossary, one place** — every explanation lives in one JSON file (or one per language); pages only point at term ids, so the same word reads the same everywhere.
+- **A drop-in kit** — `popup.js` and `popup.css`, no framework and no build step. Plain text inside `main`/`article` is wrapped automatically (first use per page); explicit markup for phrases, sentences, "?" buttons and links that preview on hover. One card per page, pin on click, related chips switch in place, Esc returns focus, bottom sheet on phones, right-to-left languages, dark mode, theming with CSS variables.
+- **Smart matching** — longest spelling first, word boundaries per script (Latin, Cyrillic, Korean particles, Arabic prefixes, CJK), terms that only apply in one section (`scope`), case-sensitive command names.
+- **Writing rules** — how to write a card a beginner understands in one read, in every language the project ships: what each field is for, lengths, one comparison, facts checked, examples whenever real ones exist.
+- **Tools** — `popup.py check` validates the glossary (every locale, example code identical across languages, related ids, learn-more targets exist, spelling clashes); `audit` shows which terms a document already uses and finds jargon with no entry yet; `add` merges new terms safely; `md` + `link` turn the glossary into `GLOSSARY.md` and link the first use in your Markdown files with the meaning as the hover title.
+- **SONUB** — inside the SONUB repository it builds on SONUB's own Laravel glossary (17 languages, the AI tutor's voice) instead of adding a second system.
+
+### Install
+
+As in [Install](#install--globally-user-or-per-project) above, with the plugin name **`popup`**.
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install popup@sonub-skills                    # global — every project
+claude plugin install popup@sonub-skills --scope project    # this project, shared with the team
+```
+
+Needs Python 3.8+ for the tool. The kit runs in any modern browser.
+
+### Using it
+
+| You say | It does |
+|------|------|
+| `/popup docs/getting-started.md` · "add glossary popups to this page" | Finds the hard words, writes the entries, wires the kit in, checks it in a browser |
+| `/popup token, sampling, temperature` | Writes those three entries and attaches them where they are used |
+| "explain the menu items on hover" | Adds hover previews to links, with "?" buttons for phones and keyboards |
+| "make the README beginner-friendly" | Builds `GLOSSARY.md` and links the first use of each term, with the meaning on hover |
+| "translate the glossary to Japanese" | Adds `ja` to every entry and checks nothing is missing |
+
+Installed as a plugin, `/popup:popup …` works too. Codex: `$popup …`.
+
+### The tool — `scripts/popup.py`
+
+Python standard library only.
+
+```bash
+python3 scripts/popup.py init popup --locales en,ko   # copy popup.js/css, start glossary.json, write .popup.json
+python3 scripts/popup.py audit docs                   # terms used per file + jargon with no entry
+python3 scripts/popup.py add new-terms.json --dry-run # merge new terms (checked, never overwrites silently)
+python3 scripts/popup.py check                        # validate the glossary
+python3 scripts/popup.py md && python3 scripts/popup.py link README.md docs --write   # Markdown on GitHub
+```
+
+Then add two tags to your layout:
+
+```html
+<link rel="stylesheet" href="/popup/popup.css">
+<script defer src="/popup/popup.js" data-glossary="/popup/glossary.json"></script>
+```
+
 ## Repository layout
 
 ```
@@ -282,6 +339,13 @@ skills/claude-skill/
    ├─ curriculum.md · quiz.md · tips.md
    ├─ academy.md · changelog-features.md
    └─ cheatsheet.md · extend.md
+skills/popup/
+├─ SKILL.md                       ← the skill: when to use it and how
+├─ .claude-plugin/plugin.json     ← plugin info
+├─ assets/                        ← popup.js · popup.css · glossary.example.json · demo.html
+├─ scripts/popup.py               ← init, check, audit, add, show, md, link
+├─ scripts/sonub/                 ← SONUB-only tools (Laravel glossary)
+└─ references/                    ← content.md · design.md · integrate.md · projects/sonub.md
 ```
 
 Learn how skills work in the **Agent Skills** chapter of the SONUB AI course: https://sonub.com/learn/ai#agent-skill

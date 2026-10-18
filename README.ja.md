@@ -8,10 +8,11 @@
 |------|------|
 | [`gp`](skills/gp) | git と `gh` CLI で、あなたのすべての作業を **GitHub Projects** で管理 |
 | [`claude-skill`](skills/claude-skill) | **Claude Code を学んで、もっと上手に使う** — 14 のレッスンとクイズ、公式ドキュメントで確かめた答え、設定チェック、CHANGELOG のすべての新機能のまとめ、`/claude-skill update` で新機能を取り込み（プラグイン名 `cc-skill`） |
+| [`popup`](skills/popup) | どのプロジェクトのページやドキュメントでも、**難しい用語をホバーポップアップで説明** — 意味、やさしい言葉、例、ソースコード、関連用語、自分のページへの「もっと詳しく」リンクを、1 つの用語集 JSON から |
 
 ## インストール — グローバル（ユーザー）またはプロジェクトごと
 
-どのスキルも同じ方法でインストールします。`<プラグイン>` のところに表のプラグイン名（`gp`、`cc-skill`）を入れてください。
+どのスキルも同じ方法でインストールします。`<プラグイン>` のところに表のプラグイン名（`gp`、`cc-skill`、`popup`）を入れてください。
 
 **ステップ 1 — マーケットプレイスを追加（コンピューターごとに一度だけ）**
 
@@ -38,11 +39,11 @@ claude plugin marketplace add thruthesky/sonub-skills
   "extraKnownMarketplaces": {
     "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
   },
-  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true, "popup@sonub-skills": true }
 }
 ```
 
-**プラグインを使わずに — フォルダをコピー** して、エージェントのスキルフォルダに入れます（`<スキル>` = `gp` または `claude-skill`）。
+**プラグインを使わずに — フォルダをコピー** して、エージェントのスキルフォルダに入れます（`<スキル>` = `gp`、`claude-skill` または `popup`）。
 
 | ツール | グローバル（ユーザー） | プロジェクト |
 |------|------|------|
@@ -263,6 +264,62 @@ python3 scripts/cc.py update-check           # 扱ったバージョン vs 最�
 python3 scripts/cc.py lessons                # レッスンと進み具合
 ```
 
+## popup — 難しい言葉を、読者が出会ったその場で説明する
+
+読者は「トークン」「エンドポイント」「冪等」のような知らない言葉でつまずき、その段落全体を見失います。このスキルは、その言葉に小さなカードを付けます。言葉にマウスを重ねる（スマートフォンではタップ、キーボードではフォーカス）と、用語を段階的に説明します — 一行の意味、短い解説、身近なたとえ、例文、ソースコードの断片、関連用語、そして**自分のプロジェクトの別のページへの「もっと詳しく」リンク**。静的サイト、ドキュメントジェネレーター、シングルページアプリ、サーバーで描画するサイト、GitHub で読むふつうの Markdown まで、どんなプロジェクトでも動きます。
+
+### できること
+
+- **用語集は 1 か所に** — すべての説明が 1 つの JSON ファイル（または言語ごとに 1 つ）にあり、ページは用語 id を指すだけです。だから同じ言葉はどこでも同じように読めます。
+- **差し込むだけのキット** — `popup.js` と `popup.css` だけで、フレームワークもビルド手順も不要です。`main`/`article` の中のふつうの文章は自動で囲まれ（ページごとに最初の 1 回）、句・文・「?」ボタン・ホバーでプレビューされるリンクは明示的にマークアップします。ページにつきカードは 1 枚、クリックで固定、関連用語のチップはその場で切り替わり、Esc でフォーカスが戻り、スマートフォンではボトムシート、右から左へ書く言語、ダークモード、CSS 変数によるテーマに対応します。
+- **賢いマッチング** — 長い表記を優先、文字体系ごとの単語境界（ラテン文字・キリル文字・韓国語の助詞・アラビア語の接頭辞・CJK）、1 つの節でだけ使う用語（`scope`）、大文字小文字を区別するコマンド名。
+- **書き方のルール** — プロジェクトが提供するすべての言語で、初心者が一度読んで分かるカードの書き方：各欄の役割、長さ、たとえは 1 つ、事実の確認、実際の例があれば必ず入れる。
+- **ツール** — `popup.py check` は用語集を検証し（全ロケール、言語が違っても同一の例コード、関連 id、もっと詳しくの行き先が存在するか、表記の衝突）、`audit` はドキュメントがすでに使っている用語と、まだ項目のない専門用語を見つけ、`add` は新しい用語を安全にマージし、`md` と `link` は用語集から `GLOSSARY.md` を作り、Markdown ファイルで最初に出てくる用語に、意味をホバーのタイトルにしたリンクを付けます。
+- **SONUB** — SONUB のリポジトリの中では、2 つ目の仕組みを増やさず、SONUB 自身の Laravel 用語集（17 言語、AI チューターの声）の上に作られています。
+
+### インストール
+
+上の [インストール](#インストール--グローバルユーザーまたはプロジェクトごと) と同じで、プラグイン名は **`popup`** です。
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install popup@sonub-skills                    # グローバル — すべてのプロジェクト
+claude plugin install popup@sonub-skills --scope project    # このプロジェクト、チームで共有
+```
+
+ツールには Python 3.8 以上が必要です。キットはどのモダンブラウザでも動きます。
+
+### 使い方
+
+| こう言うと | こうします |
+|------|------|
+| `/popup docs/getting-started.md` · 「このページに用語ポップアップを付けて」 | 難しい言葉を見つけ、項目を書き、キットを組み込み、ブラウザで確認 |
+| `/popup token, sampling, temperature` | その 3 つの項目を書き、使われている場所に付ける |
+| 「メニューの項目にマウスを重ねたら説明が出るようにして」 | リンクにホバープレビューを付け、スマートフォンとキーボード用に「?」ボタンも添える |
+| 「README を初心者にも読みやすくして」 | `GLOSSARY.md` を作り、各用語が最初に出てくる所にリンクを付けて、ホバーで意味が見えるようにする |
+| 「用語集を日本語に翻訳して」 | すべての項目に `ja` を追加し、抜けがないか確認 |
+
+プラグインとしてインストールした場合は `/popup:popup …` でも使えます。Codex：`$popup …`。
+
+### ツール — `scripts/popup.py`
+
+Python 標準ライブラリだけを使います。
+
+```bash
+python3 scripts/popup.py init popup --locales en,ko   # popup.js/css をコピー、glossary.json を作成、.popup.json を書き出す
+python3 scripts/popup.py audit docs                   # ファイルごとの使用用語 + 項目のない専門用語
+python3 scripts/popup.py add new-terms.json --dry-run # 新しい用語をマージ（検査つき、黙って上書きしない）
+python3 scripts/popup.py check                        # 用語集を検証
+python3 scripts/popup.py md && python3 scripts/popup.py link README.md docs --write   # GitHub の Markdown
+```
+
+そのうえで、レイアウトにタグを 2 つ加えます。
+
+```html
+<link rel="stylesheet" href="/popup/popup.css">
+<script defer src="/popup/popup.js" data-glossary="/popup/glossary.json"></script>
+```
+
 ## リポジトリの構成
 
 ```
@@ -282,6 +339,13 @@ skills/claude-skill/
    ├─ curriculum.md · quiz.md · tips.md
    ├─ academy.md · changelog-features.md
    └─ cheatsheet.md · extend.md
+skills/popup/
+├─ SKILL.md                       ← スキル本体：いつ・どう使うか
+├─ .claude-plugin/plugin.json     ← プラグイン情報
+├─ assets/                        ← popup.js · popup.css · glossary.example.json · demo.html
+├─ scripts/popup.py               ← init, check, audit, add, show, md, link
+├─ scripts/sonub/                 ← SONUB 専用ツール（Laravel の用語集）
+└─ references/                    ← content.md · design.md · integrate.md · projects/sonub.md
 ```
 
 スキルのしくみは、SONUB AI コースの **Agent Skills** の章で学べます：https://sonub.com/ja/learn/ai#agent-skill

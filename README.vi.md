@@ -8,10 +8,11 @@ Kho lưu trữ này là một **chợ kỹ năng (skill marketplace)**. Mỗi k�
 |------|------|
 | [`gp`](skills/gp) | Quản lý mọi công việc của bạn trong **GitHub Projects** bằng git và `gh` CLI |
 | [`claude-skill`](skills/claude-skill) | **Học Claude Code và dùng nó giỏi hơn** — 14 bài học kèm câu đố, câu trả lời được đối chiếu với tài liệu chính thức, công cụ kiểm tra cài đặt (doctor), tóm tắt mọi tính năng mới trong CHANGELOG, và `/claude-skill update` để cập nhật tính năng mới (tên plugin `cc-skill`) |
+| [`popup`](skills/popup) | **Giải thích thuật ngữ bằng popup khi rê chuột** trên các trang và tài liệu của bất kỳ dự án nào — nghĩa, lời lẽ dễ hiểu, ví dụ, mã nguồn, thuật ngữ liên quan và liên kết "tìm hiểu thêm" tới các trang của chính bạn, tất cả từ một tệp JSON bảng thuật ngữ |
 
 ## Cài đặt — toàn cục (người dùng) hoặc theo dự án
 
-Mọi kỹ năng đều được cài theo cùng một cách. Thay `<plugin>` bằng tên plugin trong bảng (`gp`, `cc-skill`).
+Mọi kỹ năng đều được cài theo cùng một cách. Thay `<plugin>` bằng tên plugin trong bảng (`gp`, `cc-skill`, `popup`).
 
 **Bước 1 — thêm marketplace (mỗi máy tính một lần)**
 
@@ -38,11 +39,11 @@ claude plugin marketplace add thruthesky/sonub-skills
   "extraKnownMarketplaces": {
     "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
   },
-  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true, "popup@sonub-skills": true }
 }
 ```
 
-**Không dùng plugin — sao chép thư mục** vào thư mục kỹ năng của agent (`<kỹ năng>` = `gp` hoặc `claude-skill`).
+**Không dùng plugin — sao chép thư mục** vào thư mục kỹ năng của agent (`<kỹ năng>` = `gp`, `claude-skill` hoặc `popup`).
 
 | Công cụ | Toàn cục (người dùng) | Dự án |
 |------|------|------|
@@ -263,6 +264,62 @@ python3 scripts/cc.py update-check           # phiên bản đã bao quát so v�
 python3 scripts/cc.py lessons                # bài học và tiến độ
 ```
 
+## popup — giải thích mọi từ khó ngay tại nơi người đọc gặp nó
+
+Người đọc chỉ cần vấp ở một từ lạ — "token", "endpoint", "idempotent" — là mất mạch cả đoạn văn. Kỹ năng này gắn một tấm thẻ nhỏ lên đúng từ đó: rê chuột vào (trên điện thoại thì chạm, với bàn phím thì focus), thẻ sẽ giải thích thuật ngữ theo từng lớp — nghĩa trong một dòng, lời giải thích ngắn, một phép so sánh đời thường, các dòng ví dụ, một đoạn mã nguồn, các thuật ngữ liên quan và **liên kết "tìm hiểu thêm" tới một trang khác trong chính dự án của bạn**. Dùng được trong mọi dự án: trang web tĩnh, công cụ sinh tài liệu, ứng dụng một trang (SPA), trang web render phía máy chủ và cả Markdown thuần đọc trên GitHub.
+
+### Nội dung bao gồm
+
+- **Một bảng thuật ngữ, một nơi duy nhất** — mọi lời giải thích nằm trong một tệp JSON (hoặc mỗi ngôn ngữ một tệp); các trang chỉ trỏ tới id của thuật ngữ, nên cùng một từ luôn được giải thích giống nhau ở mọi nơi.
+- **Bộ công cụ dùng ngay** — `popup.js` và `popup.css`, không framework, không bước build. Văn bản thường bên trong `main`/`article` được bọc tự động (lần dùng đầu tiên trên mỗi trang); có markup tường minh cho cụm từ, câu, nút "?" và liên kết xem trước khi rê chuột. Mỗi trang một thẻ, nhấp để ghim, các chip liên quan chuyển ngay tại chỗ, Esc trả focus về chỗ cũ, dạng bottom sheet trên điện thoại, hỗ trợ ngôn ngữ viết từ phải sang trái, chế độ tối, tùy biến giao diện bằng biến CSS.
+- **Khớp từ thông minh** — cách viết dài nhất được ưu tiên, ranh giới từ theo từng hệ chữ viết (Latin, Cyrillic, tiểu từ tiếng Hàn, tiền tố tiếng Ả Rập, CJK), thuật ngữ chỉ áp dụng trong một phần (`scope`), tên lệnh phân biệt chữ hoa/thường.
+- **Quy tắc viết** — cách viết một tấm thẻ mà người mới đọc một lần là hiểu, bằng mọi ngôn ngữ dự án phát hành: mỗi trường dùng để làm gì, độ dài, một phép so sánh, sự kiện đã kiểm chứng, có ví dụ thật thì luôn thêm.
+- **Công cụ** — `popup.py check` kiểm tra bảng thuật ngữ (mọi ngôn ngữ, mã ví dụ giống hệt nhau ở các ngôn ngữ, id liên quan, đích của liên kết "tìm hiểu thêm" có tồn tại, trùng cách viết); `audit` cho biết một tài liệu đã dùng những thuật ngữ nào và tìm các từ chuyên môn chưa có mục; `add` gộp thuật ngữ mới một cách an toàn; `md` + `link` biến bảng thuật ngữ thành `GLOSSARY.md` và gắn liên kết ở lần dùng đầu tiên trong các tệp Markdown của bạn, với nghĩa làm tiêu đề khi rê chuột.
+- **SONUB** — bên trong kho SONUB, kỹ năng xây trên bảng thuật ngữ Laravel của chính SONUB (17 ngôn ngữ, giọng nói của gia sư AI) thay vì thêm một hệ thống thứ hai.
+
+### Cài đặt
+
+Như phần [Cài đặt](#cài-đặt--toàn-cục-người-dùng-hoặc-theo-dự-án) ở trên, với tên plugin **`popup`**.
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install popup@sonub-skills                    # toàn cục — mọi dự án
+claude plugin install popup@sonub-skills --scope project    # dự án này, dùng chung với nhóm
+```
+
+Công cụ cần Python 3.8+. Bộ popup chạy được trên mọi trình duyệt hiện đại.
+
+### Cách dùng
+
+| Bạn nói | Kỹ năng làm |
+|------|------|
+| `/popup docs/getting-started.md` · "thêm popup thuật ngữ cho trang này" | Tìm các từ khó, viết các mục, nối bộ popup vào trang, kiểm tra trong trình duyệt |
+| `/popup token, sampling, temperature` | Viết ba mục đó và gắn vào những chỗ chúng được dùng |
+| "giải thích các mục menu khi rê chuột" | Thêm bản xem trước khi rê chuột cho các liên kết, kèm nút "?" cho điện thoại và bàn phím |
+| "làm cho README thân thiện với người mới" | Tạo `GLOSSARY.md` và gắn liên kết ở lần dùng đầu tiên của mỗi thuật ngữ, với nghĩa hiện khi rê chuột |
+| "dịch bảng thuật ngữ sang tiếng Nhật" | Thêm `ja` vào mọi mục và kiểm tra không thiếu mục nào |
+
+Nếu cài dưới dạng plugin, `/popup:popup …` cũng dùng được. Codex: `$popup …`.
+
+### Công cụ — `scripts/popup.py`
+
+Chỉ dùng thư viện chuẩn của Python.
+
+```bash
+python3 scripts/popup.py init popup --locales en,ko   # chép popup.js/css, tạo glossary.json, ghi .popup.json
+python3 scripts/popup.py audit docs                   # thuật ngữ dùng trong từng tệp + từ chuyên môn chưa có mục
+python3 scripts/popup.py add new-terms.json --dry-run # gộp thuật ngữ mới (có kiểm tra, không bao giờ ghi đè âm thầm)
+python3 scripts/popup.py check                        # kiểm tra bảng thuật ngữ
+python3 scripts/popup.py md && python3 scripts/popup.py link README.md docs --write   # Markdown trên GitHub
+```
+
+Sau đó thêm hai thẻ vào layout của bạn:
+
+```html
+<link rel="stylesheet" href="/popup/popup.css">
+<script defer src="/popup/popup.js" data-glossary="/popup/glossary.json"></script>
+```
+
 ## Cấu trúc kho
 
 ```
@@ -282,6 +339,13 @@ skills/claude-skill/
    ├─ curriculum.md · quiz.md · tips.md
    ├─ academy.md · changelog-features.md
    └─ cheatsheet.md · extend.md
+skills/popup/
+├─ SKILL.md                       ← kỹ năng: khi nào dùng và dùng thế nào
+├─ .claude-plugin/plugin.json     ← thông tin plugin
+├─ assets/                        ← popup.js · popup.css · glossary.example.json · demo.html
+├─ scripts/popup.py               ← init, check, audit, add, show, md, link
+├─ scripts/sonub/                 ← công cụ chỉ dành cho SONUB (bảng thuật ngữ Laravel)
+└─ references/                    ← content.md · design.md · integrate.md · projects/sonub.md
 ```
 
 Tìm hiểu cách kỹ năng hoạt động trong chương **Agent Skills** của khóa học AI SONUB: https://sonub.com/vi/learn/ai#agent-skill

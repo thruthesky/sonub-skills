@@ -8,10 +8,11 @@ Repositori ini adalah sebuah **marketplace skill**. Setiap skill adalah [Agent S
 |------|------|
 | [`gp`](skills/gp) | Kelola semua pekerjaan Anda di **GitHub Projects** dengan git dan `gh` CLI |
 | [`claude-skill`](skills/claude-skill) | **Belajar Claude Code dan makin mahir memakainya** — 14 pelajaran dengan kuis, jawaban yang dicek dengan dokumentasi resmi, pemeriksa pengaturan (doctor), ringkasan setiap fitur baru di CHANGELOG, dan `/claude-skill update` untuk menarik fitur terbaru (nama plugin `cc-skill`) |
+| [`popup`](skills/popup) | **Jelaskan istilah sulit dengan popup saat kursor diarahkan** di halaman dan dokumentasi proyek apa pun — arti, penjelasan dengan kata-kata sederhana, contoh, kode sumber, istilah terkait, dan tautan "pelajari lebih lanjut" ke halaman Anda sendiri, semuanya dari satu JSON glosarium |
 
 ## Instalasi — global (pengguna) atau per proyek
 
-Semua skill dipasang dengan cara yang sama. Ganti `<plugin>` dengan nama plugin dari tabel (`gp`, `cc-skill`).
+Semua skill dipasang dengan cara yang sama. Ganti `<plugin>` dengan nama plugin dari tabel (`gp`, `cc-skill`, `popup`).
 
 **Langkah 1 — tambahkan marketplace (sekali per komputer)**
 
@@ -38,11 +39,11 @@ claude plugin marketplace add thruthesky/sonub-skills
   "extraKnownMarketplaces": {
     "sonub-skills": { "source": { "source": "github", "repo": "thruthesky/sonub-skills" } }
   },
-  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true }
+  "enabledPlugins": { "gp@sonub-skills": true, "cc-skill@sonub-skills": true, "popup@sonub-skills": true }
 }
 ```
 
-**Tanpa plugin — salin foldernya** ke folder skill milik agen Anda (`<skill>` = `gp` atau `claude-skill`).
+**Tanpa plugin — salin foldernya** ke folder skill milik agen Anda (`<skill>` = `gp`, `claude-skill`, atau `popup`).
 
 | Alat | Global (pengguna) | Proyek |
 |------|------|------|
@@ -263,6 +264,62 @@ python3 scripts/cc.py update-check           # versi yang sudah dicakup vs terba
 python3 scripts/cc.py lessons                # pelajaran dan progres
 ```
 
+## popup — jelaskan setiap kata sulit tepat di tempat pembaca menemukannya
+
+Pembaca cukup tersandung pada satu kata asing — "token", "endpoint", "idempotent" — dan kehilangan seluruh paragraf. Skill ini menaruh kartu kecil pada kata itu: arahkan kursor ke atasnya (ketuk di ponsel, fokuskan dengan keyboard) dan kartu menjelaskan istilahnya selapis demi selapis — arti dalam satu baris, penjelasan singkat, perbandingan dengan hal sehari-hari, baris contoh, potongan kode sumber, istilah terkait, dan **tautan "pelajari lebih lanjut" ke halaman lain di proyek Anda sendiri**. Bisa dipakai di proyek apa pun: situs statis, generator dokumentasi, aplikasi satu halaman (SPA), situs yang dirender di server, dan Markdown biasa yang dibaca di GitHub.
+
+### Cakupan
+
+- **Satu glosarium, satu tempat** — semua penjelasan ada di satu file JSON (atau satu per bahasa); halaman hanya menunjuk ke id istilah, sehingga kata yang sama dijelaskan sama di mana pun.
+- **Perangkat siap pakai** — `popup.js` dan `popup.css`, tanpa framework dan tanpa langkah build. Teks biasa di dalam `main`/`article` dibungkus otomatis (pemakaian pertama per halaman); ada markup eksplisit untuk frasa, kalimat, tombol "?" dan tautan yang menampilkan pratinjau saat kursor diarahkan. Satu kartu per halaman, klik untuk menyematkan, chip terkait berganti di tempat, Esc mengembalikan fokus, bottom sheet di ponsel, bahasa yang ditulis dari kanan ke kiri, mode gelap, tema lewat variabel CSS.
+- **Pencocokan cerdas** — ejaan terpanjang didahulukan, batas kata sesuai jenis aksara (Latin, Sirilik, partikel Korea, awalan Arab, CJK), istilah yang hanya berlaku di satu bagian (`scope`), nama perintah yang peka huruf besar-kecil.
+- **Aturan menulis** — cara menulis kartu yang dipahami pemula dalam sekali baca, di setiap bahasa yang dirilis proyek: fungsi tiap field, panjangnya, satu perbandingan, fakta yang sudah dicek, contoh selalu disertakan jika ada contoh nyata.
+- **Alat** — `popup.py check` memvalidasi glosarium (setiap locale, kode contoh identik di semua bahasa, id terkait, tujuan tautan "pelajari lebih lanjut" ada, ejaan yang bentrok); `audit` menunjukkan istilah apa saja yang sudah dipakai sebuah dokumen dan menemukan jargon yang belum punya entri; `add` menggabungkan istilah baru dengan aman; `md` + `link` mengubah glosarium menjadi `GLOSSARY.md` dan menautkan pemakaian pertama di file Markdown Anda dengan arti sebagai judul saat kursor diarahkan.
+- **SONUB** — di dalam repositori SONUB, skill ini dibangun di atas glosarium Laravel milik SONUB sendiri (17 bahasa, suara tutor AI) alih-alih menambah sistem kedua.
+
+### Instalasi
+
+Sama seperti bagian [Instalasi](#instalasi--global-pengguna-atau-per-proyek) di atas, dengan nama plugin **`popup`**.
+
+```bash
+claude plugin marketplace add thruthesky/sonub-skills
+claude plugin install popup@sonub-skills                    # global — semua proyek
+claude plugin install popup@sonub-skills --scope project    # proyek ini, dipakai bersama tim
+```
+
+Alatnya memerlukan Python 3.8+. Perangkat popup berjalan di browser modern mana pun.
+
+### Cara memakainya
+
+| Anda bilang | Yang dilakukan |
+|------|------|
+| `/popup docs/getting-started.md` · "tambahkan popup glosarium ke halaman ini" | Menemukan kata-kata sulit, menulis entrinya, memasang perangkatnya, memeriksanya di browser |
+| `/popup token, sampling, temperature` | Menulis ketiga entri itu dan menempelkannya di tempat istilah tersebut dipakai |
+| "jelaskan item menu saat kursor diarahkan" | Menambahkan pratinjau saat kursor diarahkan pada tautan, dengan tombol "?" untuk ponsel dan keyboard |
+| "buat README ramah untuk pemula" | Membuat `GLOSSARY.md` dan menautkan pemakaian pertama tiap istilah, dengan artinya muncul saat kursor diarahkan |
+| "terjemahkan glosarium ke bahasa Jepang" | Menambahkan `ja` ke setiap entri dan memastikan tidak ada yang terlewat |
+
+Jika dipasang sebagai plugin, `/popup:popup …` juga bisa. Codex: `$popup …`.
+
+### Alatnya — `scripts/popup.py`
+
+Hanya pustaka standar Python.
+
+```bash
+python3 scripts/popup.py init popup --locales en,ko   # salin popup.js/css, mulai glossary.json, tulis .popup.json
+python3 scripts/popup.py audit docs                   # istilah yang dipakai per file + jargon yang belum punya entri
+python3 scripts/popup.py add new-terms.json --dry-run # gabungkan istilah baru (dicek, tidak pernah menimpa diam-diam)
+python3 scripts/popup.py check                        # validasi glosarium
+python3 scripts/popup.py md && python3 scripts/popup.py link README.md docs --write   # Markdown di GitHub
+```
+
+Lalu tambahkan dua tag ke layout Anda:
+
+```html
+<link rel="stylesheet" href="/popup/popup.css">
+<script defer src="/popup/popup.js" data-glossary="/popup/glossary.json"></script>
+```
+
 ## Struktur repositori
 
 ```
@@ -282,6 +339,13 @@ skills/claude-skill/
    ├─ curriculum.md · quiz.md · tips.md
    ├─ academy.md · changelog-features.md
    └─ cheatsheet.md · extend.md
+skills/popup/
+├─ SKILL.md                       ← skill: kapan dan bagaimana memakainya
+├─ .claude-plugin/plugin.json     ← info plugin
+├─ assets/                        ← popup.js · popup.css · glossary.example.json · demo.html
+├─ scripts/popup.py               ← init, check, audit, add, show, md, link
+├─ scripts/sonub/                 ← alat khusus SONUB (glosarium Laravel)
+└─ references/                    ← content.md · design.md · integrate.md · projects/sonub.md
 ```
 
 Pelajari cara kerja skill di bab **Agent Skills** dalam kursus AI SONUB: https://sonub.com/id/learn/ai#agent-skill

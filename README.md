@@ -8,6 +8,25 @@ npx skills add https://sonub.com -g -s gp   # gp 만, 이 컴퓨터의 모든 �
 npx skills update                           # 여기서 설치한 스킬을 최신으로
 ```
 
+### Claude 플러그인 마켓플레이스 — Claude 클라우드 계정·Claude Code
+
+이 저장소는 플러그인 마켓플레이스이기도 하다([.claude-plugin/marketplace.json](.claude-plugin/marketplace.json) — 스킬 하나가 플러그인 하나, 폴더는 그대로). Claude 클라우드 계정(claude.ai)은 **Add marketplace** 에 `thruthesky/sonub-skills` 를 넣고 Sync 한다(Sync automatically 를 켜면 이 저장소에 push 할 때마다 새 판).
+
+```
+/plugin marketplace add thruthesky/sonub-skills
+/plugin install gp --marketplace thruthesky/sonub-skills
+/plugin install cc-coach --marketplace thruthesky/sonub-skills
+/plugin install popup --marketplace thruthesky/sonub-skills
+/plugin install cowork --marketplace thruthesky/sonub-skills
+/plugin install infographics --marketplace thruthesky/sonub-skills
+/plugin install linkify --marketplace thruthesky/sonub-skills
+/plugin install webmovie --marketplace thruthesky/sonub-skills
+```
+
+- 플러그인 이름은 스킬 이름과 같다. 다만 claude-skill 은 `cc-coach` 다(`claude-` 로 시작하는 이름은 Anthropic 이 막는다). 부를 때는 `/gp:gp`·`/cc-coach:claude-skill` 처럼 `/플러그인:스킬`.
+- infographics 는 webmovie 플러그인을 함께 설치한다(`dependencies`).
+- 새 스킬을 더하면 `marketplace.json` 의 `plugins` 에도 한 줄 더하고 `claude plugin validate .` 로 확인한다.
+
 | 스킬 | 하는 일 |
 | --- | --- |
 | [gp](gp/SKILL.md) | 나의 모든 일감을 GitHub Project 보드에서 관리 |

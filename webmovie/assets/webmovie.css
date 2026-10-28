@@ -1,0 +1,520 @@
+/*! webmovie.css — pair with webmovie.js. MIT. https://sonub.com/skills
+ *
+ * The final frame is the natural state: every rule that hides or moves something sits inside
+ * @media screen and (prefers-reduced-motion: no-preference) and only under html.webmovie-js,
+ * so without JS, with reduced motion, in print and after the animation the page is the plain HTML.
+ * Animate only opacity · translate · scale · rotate · filter · clip-path (+ stroke-dashoffset, background-size on small inline text).
+ * Presets and their numbers: references/presets.md. Change a preset by overriding its variables in your own CSS.
+ */
+
+:root {
+    --webmovie-ease-calm: cubic-bezier(0.22, 1, 0.36, 1);   /* fast start, long settle, no overshoot */
+    --webmovie-ease-punch: cubic-bezier(0.18, 1.32, 0.32, 1); /* fast start, ~8 % overshoot, settle — the bold default */
+    --webmovie-ease: var(--webmovie-ease-punch);            /* default entrance (data-webmovie-power="calm" → --webmovie-ease-calm) */
+    /* Power: how far, how big, how blurred everything starts. calm 1 · bold 1.6 (default) · wild 2.4 */
+    --webmovie-k: 1.6;
+    --webmovie-ease-expo: cubic-bezier(0.16, 1, 0.3, 1);    /* easeOutExpo — headlines, counters, bars */
+    --webmovie-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* small overshoot */
+    --webmovie-ease-in: cubic-bezier(0.64, 0, 0.78, 0);     /* exits */
+    --webmovie-ease-inout: cubic-bezier(0.65, 0, 0.35, 1);  /* wipes, sweeps, line drawing */
+    --webmovie-cascade: 100ms;                              /* gap between elements that enter the view together */
+    /* linear() curves (Chrome 113+, Firefox 112+, Safari 17.2+; older browsers fall back to the default ease) */
+    --webmovie-ease-bounce: linear(0, 0.004, 0.016, 0.035, 0.063, 0.098, 0.141 13.6%, 0.25, 0.391, 0.563, 0.765, 1, 0.891 40.9%, 0.848, 0.813, 0.785, 0.766, 0.754, 0.75, 0.754, 0.766, 0.785, 0.813, 0.848, 0.891 68.2%, 1 72.7%, 0.973, 0.953, 0.941, 0.938, 0.941, 0.953, 0.973, 1, 0.988, 0.984, 0.988, 1);
+    --webmovie-ease-elastic: linear(0, 0.218 2.1%, 0.862 6.5%, 1.114, 1.296 10.7%, 1.346, 1.37 12.9%, 1.373, 1.364 14.5%, 1.315 16.2%, 1.032 21.8%, 0.941 24%, 0.891 25.9%, 0.877, 0.869 27.8%, 0.87, 0.882 30.7%, 0.907 32.4%, 0.981 36.4%, 1.012 38.3%, 1.036, 1.046 42.7% 44.1%, 1.042 45.7%, 0.996 53.3%, 0.988, 0.984 57.5%, 0.985 60.7%, 1.001 68.1%, 1.006 72.2%, 0.998 86.7%, 1);
+}
+
+/* Power on any container (or the element itself): data-webmovie-power="calm|bold|wild" */
+[data-webmovie-power="calm"] { --webmovie-k: 1; --webmovie-ease: var(--webmovie-ease-calm); }
+[data-webmovie-power="bold"] { --webmovie-k: 1.6; --webmovie-ease: var(--webmovie-ease-punch); }
+[data-webmovie-power="wild"] { --webmovie-k: 2.4; --webmovie-ease: var(--webmovie-ease-spring); --webmovie-cascade: 70ms; }
+
+/* Registered so they can be animated (a plain custom property jumps instead of interpolating). */
+@property --webmovie-p { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --webmovie-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+
+/* Every animated element starts from the same defaults (so a nested element never inherits its parent's preset). */
+[data-webmovie] {
+    --webmovie-name: webmovie-enter;
+    --webmovie-dur: 700ms;
+    --webmovie-stagger: 40ms;
+    --webmovie-max: 1500ms;   /* the whole reveal fits in this, however long the translation is */
+    --webmovie-delay: 0ms;
+    --webmovie-easing: var(--webmovie-ease);
+    --webmovie-o: 0;          /* starting opacity */
+    --webmovie-x: 0px;        /* starting offset toward inline-start (mirrored in RTL) */
+    --webmovie-y: 0px;
+    --webmovie-s: 1;
+    --webmovie-r: 0deg;
+    --webmovie-blur: 0px;
+    --webmovie-wait-o: 0;     /* opacity while waiting to enter (1 = stays visible, e.g. highlight) */
+    --webmovie-dir: 1;
+}
+.webmovie-rtl { --webmovie-dir: -1; }
+
+/* Split pieces (exist only while moving). inline-block so transforms apply; a word never breaks inside. */
+.webmovie-word { display: inline-block; white-space: nowrap; }
+.webmovie-word.webmovie-loose { display: inline; white-space: inherit; }  /* CJK: lines may break between letters, as in the plain text */
+.webmovie-word > .webmovie-piece { display: inline-block; }
+[data-webmovie="count"] { font-variant-numeric: tabular-nums; }
+[data-webmovie="count"]:where(span, data, strong, b, em, output, time) { display: inline-block; }
+/* whole-element acted shots scale and rotate: transforms need a box, so short inline elements (badges, a word) become inline-block */
+:is([data-webmovie="slam"], [data-webmovie="pop"], [data-webmovie="smash"], [data-webmovie="stamp"], [data-webmovie="blast"], [data-webmovie="drop-in"], [data-webmovie="swing"]):where(span, strong, b, em, mark, data, time, small, a) { display: inline-block; }
+
+/* Rotating words: all words stay in the HTML; without JS they read as a list ("fast, simple, yours"). */
+.webmovie-rotating { display: inline-grid; vertical-align: bottom; }
+.webmovie-rotating > * { grid-area: 1 / 1; justify-self: start; }
+.webmovie-rotating > .webmovie-sep { display: none; }
+.webmovie-rotating > :not(.webmovie-on, .webmovie-sep) { visibility: hidden; }
+
+/* Data shapes — their natural state is the final value (--pct 0–100). */
+.webmovie-bar { display: block; inline-size: calc(var(--pct, 0) * 1%); }
+.webmovie-ring-fill { stroke-dasharray: 100; stroke-dashoffset: calc(100 - var(--pct, 0)); }
+.webmovie-pie {
+    --webmovie-p: var(--pct, 0);
+    aspect-ratio: 1; border-radius: 50%;
+    background: conic-gradient(var(--webmovie-pie, currentColor) calc(var(--webmovie-p) * 1%), var(--webmovie-pie-rest, rgb(127 127 127 / 0.25)) 0);
+}
+
+/* Movie: scenes stacked in one grid cell (height = tallest scene, no layout shift), one visible at a time. */
+.webmovie-player-on { display: grid; grid-template-columns: minmax(0, 1fr); }
+.webmovie-player-on > .webmovie-scene { grid-area: 1 / 1; }
+.webmovie-player-on > .webmovie-scene:not(.webmovie-scene-on, .webmovie-scene-off) { visibility: hidden; }
+.webmovie-player-on > .webmovie-controls { grid-row: 2; display: flex; align-items: center; gap: 6px; padding-block-start: 12px; }
+.webmovie-toggle {
+    flex: none; inline-size: 2.25rem; block-size: 2.25rem; border-radius: 50%; display: grid; place-items: center;
+    font: 700 calc(0.8rem * var(--wa-font-size-scale, 1))/1 system-ui, sans-serif; color: inherit; background: rgb(127 127 127 / 0.18); border: 1px solid rgb(127 127 127 / 0.35); cursor: pointer;
+}
+.webmovie-seg { flex: 1; min-inline-size: 16px; padding: 10px 0; background: none; border: 0; cursor: pointer; color: inherit; }
+.webmovie-seg > span { position: relative; display: block; block-size: 3px; border-radius: 3px; overflow: hidden; background: rgb(127 127 127 / 0.3); }
+.webmovie-seg > span::after { content: ""; position: absolute; inset: 0; background: currentColor; transform-origin: left center; scale: 0 1; }
+.webmovie-seg:dir(rtl) > span::after { transform-origin: right center; }
+.webmovie-seg-done > span::after { scale: 1 1; }
+.webmovie-toggle:focus-visible, .webmovie-seg:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* Picture movie: a still illustration rebuilt from a background plate and cut-out layers (people, robots, signs, clouds).
+   The frame is the canvas — layers sit at picture coordinates in % of the frame (physical left/top: a picture is not mirrored
+   in RTL). Natural state = every layer at its place = the composed illustration (no JS, reduced motion, print, the end). */
+.webmovie-picture { position: relative; overflow: hidden; aspect-ratio: var(--webmovie-ratio, 3 / 2); container-type: size; isolation: isolate; }
+.webmovie-picture :is(.webmovie-camera, .webmovie-rig) { position: absolute; inset: 0; }   /* rig = a second camera move inside (shake) */
+.webmovie-picture .webmovie-plate { position: absolute; inset: 0; display: block; inline-size: 100%; block-size: 100%; max-inline-size: none; object-fit: cover; }
+.webmovie-picture .webmovie-layer { position: absolute; left: var(--x, 0%); top: var(--y, 0%); inline-size: var(--w, auto); block-size: auto; max-inline-size: none; }
+.webmovie-picture img.webmovie-layer { display: block; pointer-events: none; }
+.webmovie-picture .webmovie-rtl { --webmovie-dir: 1; }                     /* picture coordinates: moves are not mirrored */
+.webmovie-picture .webmovie-ping { inline-size: var(--webmovie-ping-size, 14px); aspect-ratio: 1; margin: calc(var(--webmovie-ping-size, 14px) / -2) 0 0 calc(var(--webmovie-ping-size, 14px) / -2); border-radius: 50%; background: var(--webmovie-ping, currentColor); box-shadow: 0 0 0 3px rgb(255 255 255 / 0.85); }
+.webmovie-picture .webmovie-ping::after { content: ""; position: absolute; inset: 0; border-radius: inherit; border: 3px solid var(--webmovie-ping, currentColor); opacity: 0; pointer-events: none; }
+[data-webmovie-replay] { display: none; }
+
+/* Highlighter and underline: natural state fully drawn; slice = draws line after line on wrapped text. */
+[data-webmovie="highlight"] {
+    background: linear-gradient(var(--webmovie-mark, rgb(255 210 0 / 0.45)), var(--webmovie-mark, rgb(255 210 0 / 0.45))) no-repeat 0 88% / 100% 0.42em;
+    padding-inline: 0.06em;
+}
+[data-webmovie="underline"] {
+    background: linear-gradient(currentColor, currentColor) no-repeat 0 100% / 100% 0.08em;
+}
+.webmovie-rtl:is([data-webmovie="highlight"], [data-webmovie="underline"]) { background-position-x: 100%; }
+
+@media screen and (prefers-reduced-motion: no-preference) {
+    /* Until webmovie.js prepares the element (it is in <head>, so this is one frame) — and a fail-safe: show it after 3s anyway. */
+    .webmovie-js [data-webmovie]:not(.webmovie-ready, [data-webmovie-trigger="hover"], [data-webmovie-trigger="click"]) {
+        opacity: var(--webmovie-wait-o);
+        animation: webmovie-failsafe 1ms 3s forwards;
+    }
+    .webmovie-wait { opacity: var(--webmovie-wait-o); }
+
+    .webmovie-whole.webmovie-in {
+        animation: var(--webmovie-name) var(--webmovie-dur) var(--webmovie-easing) var(--webmovie-delay) both;
+    }
+    .webmovie-split.webmovie-in .webmovie-piece {
+        animation: var(--webmovie-name) var(--webmovie-dur) var(--webmovie-easing) calc(var(--webmovie-delay) + var(--i, 0) * var(--webmovie-step, 0ms)) both;
+    }
+
+    /* ── text: whole element ── */
+    [data-webmovie="fade"] { --webmovie-dur: 600ms; }
+    [data-webmovie="fade-up"] { --webmovie-y: 36px; --webmovie-s: 0.97; --webmovie-dur: 750ms; }
+    [data-webmovie="focus"] { --webmovie-y: 20px; --webmovie-blur: 16px; --webmovie-s: 1.06; --webmovie-dur: 820ms; }
+    [data-webmovie="pop"] { --webmovie-s: 0.8; --webmovie-dur: 650ms; --webmovie-easing: var(--webmovie-ease-spring); }
+    [data-webmovie="zoom-out"] { --webmovie-s: 1.15; --webmovie-y: 10px; --webmovie-blur: 4px; --webmovie-dur: 850ms; }
+    [data-webmovie="wipe"] { --webmovie-name: webmovie-wipe; --webmovie-o: 1; --webmovie-dur: 900ms; --webmovie-easing: var(--webmovie-ease-inout); }
+    .webmovie-rtl[data-webmovie="wipe"] { --webmovie-name: webmovie-wipe-rtl; }
+    [data-webmovie="wipe-up"] { --webmovie-name: webmovie-wipe-up; --webmovie-o: 1; --webmovie-dur: 900ms; --webmovie-easing: var(--webmovie-ease-inout); }
+    [data-webmovie="weight"] { --webmovie-name: webmovie-weight; --webmovie-o: 1; --webmovie-dur: 1000ms; --webmovie-easing: var(--webmovie-ease-inout); }
+    [data-webmovie="shine"] { --webmovie-name: webmovie-shine; --webmovie-o: 1; --webmovie-wait-o: 1; --webmovie-dur: 1400ms; --webmovie-easing: var(--webmovie-ease-inout); }
+    [data-webmovie="shine"].webmovie-in {
+        background: linear-gradient(105deg, var(--webmovie-ink) 40%, var(--webmovie-glint, #fff) 50%, var(--webmovie-ink) 60%) 0 0 / 250% 100%;  /* repeats: the text is always covered, one glint is visible */
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    [data-webmovie="highlight"], [data-webmovie="underline"] { --webmovie-name: webmovie-mark; --webmovie-o: 1; --webmovie-wait-o: 1; --webmovie-dur: 900ms; --webmovie-easing: var(--webmovie-ease-inout); }
+    .webmovie-wait:is([data-webmovie="highlight"], [data-webmovie="underline"]) { background-size: 0% var(--webmovie-mark-h, 0.42em); }
+    [data-webmovie="underline"] { --webmovie-mark-h: 0.08em; }
+    [data-webmovie="reveal"] { --webmovie-name: webmovie-reveal; --webmovie-o: 1; --webmovie-dur: 1100ms; --webmovie-easing: var(--webmovie-ease-inout); }
+    [data-webmovie="reveal"].webmovie-in {
+        -webkit-mask: linear-gradient(90deg, #000 40%, transparent 60%) 100% 0 / 260% 100% no-repeat;
+        mask: linear-gradient(90deg, #000 40%, transparent 60%) 100% 0 / 260% 100% no-repeat;
+    }
+    .webmovie-rtl[data-webmovie="reveal"] { --webmovie-name: webmovie-reveal-rtl; }
+    .webmovie-rtl[data-webmovie="reveal"].webmovie-in { -webkit-mask-image: linear-gradient(270deg, #000 40%, transparent 60%); mask-image: linear-gradient(270deg, #000 40%, transparent 60%); }
+    [data-webmovie="slam"] { --webmovie-s: 2; --webmovie-blur: 12px; --webmovie-dur: 900ms; --webmovie-easing: var(--webmovie-ease-punch); }
+    [data-webmovie="glow"] { --webmovie-name: webmovie-glow; --webmovie-dur: 1400ms; --webmovie-easing: var(--webmovie-ease); }
+    [data-webmovie="settle"] { --webmovie-o: 1; --webmovie-s: 1.14; --webmovie-dur: 2400ms; --webmovie-easing: var(--webmovie-ease-expo); }
+
+    /* ── text: letters ── */
+    [data-webmovie="soft-blur"] { --webmovie-y: 0.45em; --webmovie-blur: 0.28em; --webmovie-dur: 900ms; --webmovie-stagger: 25ms; --webmovie-max: 1400ms; }
+    [data-webmovie="rise"] { --webmovie-y: 0.8em; --webmovie-s: 0.8; --webmovie-dur: 700ms; --webmovie-stagger: 26ms; }
+    [data-webmovie="drop"] { --webmovie-y: -0.8em; --webmovie-s: 0.8; --webmovie-dur: 700ms; --webmovie-stagger: 26ms; }
+    [data-webmovie="center"] { --webmovie-y: 0.4em; --webmovie-s: 0.85; --webmovie-blur: 0.08em; --webmovie-dur: 620ms; --webmovie-stagger: 22ms; }
+    [data-webmovie="typewriter"] { --webmovie-name: webmovie-type; --webmovie-dur: 55ms; --webmovie-stagger: 55ms; --webmovie-max: 4000ms; --webmovie-easing: linear; }
+    [data-webmovie="typewriter"].webmovie-in .webmovie-piece { animation-duration: var(--webmovie-step); }
+    [data-webmovie="flip"] { --webmovie-r: x -100deg; --webmovie-dur: 800ms; --webmovie-stagger: 35ms; --webmovie-max: 1400ms; --webmovie-easing: var(--webmovie-ease-expo); }
+    [data-webmovie="flip"] .webmovie-word { perspective: 600px; }
+    [data-webmovie="flip"] .webmovie-piece { transform-origin: 50% 100%; backface-visibility: hidden; }
+    /* letters fly in from spread-out positions to their place — a tracking-in look without animating letter-spacing */
+    [data-webmovie="converge"] { --webmovie-blur: 0.12em; --webmovie-dur: 1000ms; --webmovie-stagger: 0ms; --webmovie-easing: var(--webmovie-ease-expo); }
+    [data-webmovie="converge"] .webmovie-piece { --webmovie-x: calc(var(--d, 0) * 0.5em); }
+    [data-webmovie="scramble"] { --webmovie-dur: 600ms; --webmovie-stagger: 30ms; --webmovie-max: 1500ms; --webmovie-easing: linear; }
+
+    /* ── text: words and lines ── */
+    [data-webmovie="words"] { --webmovie-y: 0.5em; --webmovie-s: 0.92; --webmovie-dur: 720ms; --webmovie-stagger: 70ms; --webmovie-max: 1400ms; --webmovie-easing: var(--webmovie-ease-expo); }
+    [data-webmovie="bounce"] { --webmovie-y: -1em; --webmovie-dur: 1000ms; --webmovie-stagger: 90ms; --webmovie-max: 1600ms; --webmovie-easing: var(--webmovie-ease-bounce); }
+    [data-webmovie="spring"] { --webmovie-s: 0.5; --webmovie-dur: 500ms; --webmovie-stagger: 80ms; --webmovie-max: 1400ms; --webmovie-easing: var(--webmovie-ease-spring); }
+    [data-webmovie="depth"] { --webmovie-y: 0.5em; --webmovie-s: 0.82; --webmovie-blur: 0.06em; --webmovie-dur: 700ms; --webmovie-stagger: 70ms; --webmovie-max: 1400ms; }
+    [data-webmovie="mask"] { --webmovie-o: 1; --webmovie-y: 110%; --webmovie-dur: 760ms; --webmovie-stagger: 90ms; --webmovie-max: 1600ms; --webmovie-easing: var(--webmovie-ease-expo); }
+    /* clip-path (not overflow) masks the word: no layout or baseline change; the negative insets keep accents and descenders. */
+    [data-webmovie="mask"] .webmovie-word { clip-path: inset(-0.35em -0.2em -0.12em -0.2em); }
+    [data-webmovie="slide"] { --webmovie-x: -1.6em; --webmovie-blur: 0.1em; --webmovie-dur: 900ms; --webmovie-stagger: 120ms; --webmovie-max: 1600ms; }
+
+    /* ── groups and infographics ── */
+    [data-webmovie="stagger"] { --webmovie-y: 36px; --webmovie-s: 0.94; --webmovie-blur: 3px; --webmovie-dur: 700ms; --webmovie-stagger: 85ms; --webmovie-max: 1500ms; }
+    [data-webmovie="count"] { --webmovie-y: 14px; --webmovie-s: 0.85; --webmovie-dur: 550ms; --webmovie-count-dur: 1600ms; }
+    [data-webmovie="bar"] { --webmovie-name: webmovie-bar; --webmovie-o: 1; --webmovie-wait-o: 1; --webmovie-dur: 1100ms; --webmovie-easing: var(--webmovie-ease-expo); transform-origin: left center; }
+    .webmovie-rtl[data-webmovie="bar"] { transform-origin: right center; }
+    .webmovie-wait[data-webmovie="bar"] { scale: 0 1; }
+    [data-webmovie="ring"] { --webmovie-s: 0.85; --webmovie-dur: 1300ms; --webmovie-easing: var(--webmovie-ease-expo); }
+    [data-webmovie="ring"].webmovie-in .webmovie-ring-fill { animation: webmovie-ring var(--webmovie-dur) var(--webmovie-easing) var(--webmovie-delay) both; }
+    .webmovie-wait[data-webmovie="ring"] .webmovie-ring-fill { stroke-dashoffset: 100; }
+    [data-webmovie="draw"] { --webmovie-name: webmovie-draw; --webmovie-o: 1; --webmovie-wait-o: 1; --webmovie-dur: 1200ms; --webmovie-stagger: 150ms; --webmovie-max: 2400ms; --webmovie-easing: var(--webmovie-ease-inout); }
+    [data-webmovie="draw"] [pathLength] { stroke-dasharray: 1; }
+    [data-webmovie="pie"] { --webmovie-name: webmovie-pie; --webmovie-o: 1; --webmovie-wait-o: 1; --webmovie-dur: 1300ms; --webmovie-easing: var(--webmovie-ease-expo); }
+    .webmovie-wait[data-webmovie="pie"] { --webmovie-p: 0; }
+
+    /* ── picture movie: layers of one illustration (data-webmovie-picture) ── */
+    /* actors act: anticipation → action with squash & stretch → overshoot → follow-through. Keyframes carry the timing (linear). */
+    [data-webmovie="walk"] { --webmovie-name: webmovie-walk; --webmovie-y: 22cqh; --webmovie-bob: -5%; --webmovie-dur: 1800ms; --webmovie-easing: linear; transform-origin: 50% 100%; }
+    [data-webmovie="jump"] { --webmovie-name: webmovie-jump; --webmovie-x: -10cqw; --webmovie-y: 0px; --webmovie-dur: 1100ms; --webmovie-easing: linear; transform-origin: 50% 100%; }
+    [data-webmovie="wave"] { --webmovie-name: webmovie-wave; --webmovie-o: 1; --webmovie-wait-o: 1; --webmovie-dur: 1600ms; --webmovie-easing: linear; transform-origin: 50% 100%; }
+    [data-webmovie="hop"] { --webmovie-name: webmovie-hop; --webmovie-o: 1; --webmovie-wait-o: 1; --webmovie-dur: 1000ms; --webmovie-easing: linear; transform-origin: 50% 100%; }
+    [data-webmovie="unfold"] { --webmovie-name: webmovie-unfold; --webmovie-dur: 950ms; --webmovie-easing: linear; }
+    [data-webmovie="drift"] { --webmovie-name: webmovie-drift-in; --webmovie-x: -14cqw; --webmovie-dur: 4500ms; --webmovie-easing: var(--webmovie-ease-inout); }
+    [data-webmovie="fly"] { --webmovie-name: webmovie-fly; --webmovie-x: -55cqw; --webmovie-y: 14cqh; --webmovie-dur: 4000ms; --webmovie-easing: linear; }
+    [data-webmovie="ping"] { --webmovie-s: 0; --webmovie-dur: 550ms; --webmovie-easing: var(--webmovie-ease-spring); }
+    .webmovie-in[data-webmovie="ping"]::after { animation: webmovie-ping-ring 1000ms cubic-bezier(0.1, 0.7, 0.3, 1) calc(var(--webmovie-delay) + 250ms) var(--webmovie-ping-loops, 2); }
+    /* camera moves: dolly = start pushed in on --webmovie-focus and pull back; shake = an impact on the whole frame */
+    [data-webmovie="dolly"] { --webmovie-name: webmovie-dolly; --webmovie-o: 1; --webmovie-dur: 2600ms; --webmovie-easing: cubic-bezier(0.3, 0.55, 0.15, 1); transform-origin: var(--webmovie-focus, 50% 50%); }
+    [data-webmovie="shake"] { --webmovie-name: webmovie-shake; --webmovie-o: 1; --webmovie-wait-o: 1; --webmovie-dur: 650ms; --webmovie-easing: linear; }
+
+    /* ── bold shots: whole element ── */
+    [data-webmovie="smash"] { --webmovie-name: webmovie-smash; --webmovie-dur: 1000ms; --webmovie-easing: cubic-bezier(0.2, 0.7, 0.3, 1); }
+    [data-webmovie="stamp"] { --webmovie-name: webmovie-stamp; --webmovie-dur: 900ms; --webmovie-easing: cubic-bezier(0.3, 0.8, 0.3, 1); }
+    [data-webmovie="blast"] { --webmovie-name: webmovie-blast; --webmovie-dur: 850ms; --webmovie-easing: cubic-bezier(0.25, 0.8, 0.3, 1); }
+    [data-webmovie="drop-in"] { --webmovie-name: webmovie-drop-in; --webmovie-dur: 1100ms; --webmovie-easing: linear; transform-origin: 50% 100%; }
+    [data-webmovie="swing"] { --webmovie-name: webmovie-swing; --webmovie-dur: 1400ms; --webmovie-easing: ease-out; transform-origin: 50% 0; }
+    [data-webmovie="glitch"] { --webmovie-name: webmovie-glitch; --webmovie-dur: 750ms; --webmovie-easing: steps(1, end); }
+    /* ── bold shots: words and letters (per-piece --r1 --r2 --r3 are fixed pseudo-random numbers −1…1 from webmovie.js) ── */
+    [data-webmovie="whip"] { --webmovie-name: webmovie-whip; --webmovie-dur: 750ms; --webmovie-stagger: 65ms; --webmovie-max: 1500ms; --webmovie-easing: cubic-bezier(0.2, 0.75, 0.3, 1); }
+    [data-webmovie="assemble"] { --webmovie-name: webmovie-assemble; --webmovie-dur: 900ms; --webmovie-stagger: 22ms; --webmovie-max: 1500ms; --webmovie-easing: cubic-bezier(0.2, 0.8, 0.3, 1); }
+    [data-webmovie="elastic"] { --webmovie-name: webmovie-elastic; --webmovie-dur: 900ms; --webmovie-stagger: 40ms; --webmovie-max: 1500ms; --webmovie-easing: linear; }
+    [data-webmovie="elastic"] .webmovie-piece { transform-origin: 50% 100%; }
+    /* a number lands with a punch when its count ends */
+    .webmovie-in.webmovie-punch { animation: webmovie-punch 460ms linear both; }
+    /* impact sparks (data-webmovie-burst): decoration spans thrown from the element, removed after ~1 s */
+    .webmovie-sparks { position: absolute; inline-size: 0; block-size: 0; pointer-events: none; z-index: 50; }
+    .webmovie-sparks > i { position: absolute; left: 0; top: 0; inline-size: var(--sz, 8px); block-size: var(--sz, 8px); margin: calc(var(--sz, 8px) / -2) 0 0 calc(var(--sz, 8px) / -2); border-radius: 50%; background: var(--c, currentColor); animation: webmovie-spark var(--life, 800ms) cubic-bezier(0.12, 0.8, 0.3, 1) both; }
+    .webmovie-sparks > i:nth-child(3n) { border-radius: 2px; rotate: 45deg; }
+    .webmovie-sparks > i:nth-child(4n) { inline-size: calc(var(--sz, 8px) * 0.45); block-size: calc(var(--sz, 8px) * 2.2); border-radius: 99px; rotate: var(--ang, 0deg); }
+    .webmovie-js [data-webmovie-replay] { display: inline-flex; }
+    /* spotlight (data-webmovie-spotlight): one key element at a time gets a cue that starts and ends at its natural state */
+    .webmovie-js .webmovie-cue-on { animation-duration: var(--webmovie-cue-dur, 950ms); animation-timing-function: linear; animation-fill-mode: both; }
+    .webmovie-js .webmovie-cue-pop { animation-name: webmovie-cue-pop; }
+    .webmovie-js .webmovie-cue-tada { animation-name: webmovie-cue-tada; }
+    .webmovie-js .webmovie-cue-jelly { animation-name: webmovie-cue-jelly; }
+    .webmovie-js .webmovie-cue-hop { animation-name: webmovie-cue-hop; }
+    .webmovie-js .webmovie-cue-glow { animation-name: webmovie-cue-glow; }
+    .webmovie-js .webmovie-cue-partner { animation-name: var(--webmovie-cue-partner, webmovie-cue-pop); }
+    .webmovie-js .webmovie-ping.webmovie-cue-partner::after { animation: webmovie-ping-ring 1000ms cubic-bezier(0.1, 0.7, 0.3, 1) 1; }
+    .webmovie-cue-split .webmovie-word { display: inline-block; white-space: nowrap; }
+    .webmovie-cue-split .webmovie-piece { display: inline-block; animation: webmovie-cue-ripple 620ms linear calc(var(--i, 0) * var(--webmovie-step, 45ms)) both; }
+
+    /* ── movie ── */
+    .webmovie-player-on > .webmovie-scene-off { animation: webmovie-scene-out 600ms var(--webmovie-ease-in) both; pointer-events: none; }
+    .webmovie-player-on > .webmovie-scene-off[data-webmovie-exit="zoom"] { animation-name: webmovie-scene-zoom; }
+    .webmovie-player-on > .webmovie-scene-off[data-webmovie-exit="side"] { animation-name: webmovie-scene-side; }
+    .webmovie-player-on > .webmovie-scene-off[data-webmovie-exit="fade"] { animation-name: webmovie-failsafe-out; }
+    .webmovie-player-on > .webmovie-scene-off[data-webmovie-exit="whip"] { animation: webmovie-scene-whip 480ms var(--webmovie-ease-in) both; }
+    .webmovie-player-on > .webmovie-scene-off[data-webmovie-exit="drop"] { animation: webmovie-scene-drop 560ms var(--webmovie-ease-in) both; }
+    /* every scene cuts in (light blur, rise) — the shots inside then land on it */
+    .webmovie-player-on > .webmovie-scene-on { animation: webmovie-scene-in 650ms var(--webmovie-ease-expo) both; }
+    .webmovie-seg-on > span::after { animation: webmovie-bar var(--webmovie-scene-dur) linear both; }
+    .webmovie-player-end .webmovie-seg-on > span::after { animation: none; scale: 1 1; }
+    .webmovie-player-paused *, .webmovie-player-paused *::after { animation-play-state: paused !important; }
+    /* the cut into a scene always completes (a paused movie never stays half faded); the slow push stays paused */
+    .webmovie-player-paused > .webmovie-scene-on { animation-play-state: running !important; }
+    .webmovie-player-paused > .webmovie-scene-on.webmovie-push { animation-play-state: running, paused !important; }
+    /* a slow camera push over the whole scene — the "video" feel */
+    .webmovie-player-on > .webmovie-scene-on.webmovie-push { animation: webmovie-scene-in 650ms var(--webmovie-ease-expo) both, webmovie-push var(--webmovie-scene-dur) linear both; }
+    /* decoration that drifts only while the movie plays (stops on pause and at the end) */
+    .webmovie-player-on:not(.webmovie-player-paused, .webmovie-player-end) .webmovie-ambient { animation: webmovie-drift 7s var(--webmovie-ease-inout) infinite alternate; }
+
+    /* ── CSS only: an element that appears (inserted by JS, x-if, a new chat message, an opened popover) ── */
+    .webmovie-appear { transition: opacity 400ms var(--webmovie-ease), translate 400ms var(--webmovie-ease), display 400ms allow-discrete, overlay 400ms allow-discrete; }
+    @starting-style { .webmovie-appear { opacity: 0; translate: 0 10px; } }
+    /* a light that runs around the border (cards, call to action) — 3 rounds */
+    .webmovie-border-glow {
+        border: 2px solid transparent;
+        background: linear-gradient(var(--webmovie-surface, Canvas), var(--webmovie-surface, Canvas)) padding-box,
+            conic-gradient(from var(--webmovie-angle), transparent 70%, var(--webmovie-c1, #7c3aed), var(--webmovie-c2, #db2777), transparent) border-box;
+        animation: webmovie-spin 3s linear var(--webmovie-loops, 3);
+    }
+    .webmovie-wait[data-webmovie="draw"] [pathLength] { stroke-dashoffset: 1; }
+
+    /* ── UI: CSS only, no JS (hover · press · attention) ── */
+    .webmovie-lift { transition: translate 260ms var(--webmovie-ease-spring), scale 260ms var(--webmovie-ease-spring), box-shadow 260ms var(--webmovie-ease); }
+    .webmovie-lift:is(:hover, :focus-visible) { translate: 0 -5px; scale: 1.03; box-shadow: 0 18px 34px -14px rgb(0 0 0 / 0.5); }
+    .webmovie-press { transition: scale 160ms var(--webmovie-ease-spring); }
+    .webmovie-press:active { scale: 0.93; }
+    .webmovie-sheen { position: relative; overflow: hidden; isolation: isolate; }
+    .webmovie-sheen::after {
+        content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+        background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / 0.35) 50%, transparent 65%) 150% 0 / 250% 100% no-repeat;
+    }
+    .webmovie-sheen:is(:hover, :focus-visible)::after { animation: webmovie-shine 900ms var(--webmovie-ease-inout); }
+    .webmovie-nudge .webmovie-nudge-icon { display: inline-block; transition: translate 200ms var(--webmovie-ease); }
+    .webmovie-nudge:is(:hover, :focus-visible) .webmovie-nudge-icon { translate: calc(0.45em * var(--webmovie-dir, 1)) 0; }
+    .webmovie-pulse { animation: webmovie-pulse 1.6s var(--webmovie-ease) 3; }  /* 3 rings, then stops (WCAG 2.2.2) */
+    .webmovie-float { animation: webmovie-float 3.2s var(--webmovie-ease-inout) var(--webmovie-loops, 3) alternate; }
+    .webmovie-gradient-text {
+        background: linear-gradient(90deg, var(--webmovie-c1, #7c3aed), var(--webmovie-c2, #db2777), var(--webmovie-c3, #f59e0b), var(--webmovie-c1, #7c3aed)) 0 0 / 300% 100%;
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        animation: webmovie-hue 6s linear var(--webmovie-loops, 2);
+    }
+    .webmovie-skeleton {
+        background: linear-gradient(90deg, rgb(127 127 127 / 0.14) 30%, rgb(127 127 127 / 0.28) 50%, rgb(127 127 127 / 0.14) 70%) 0 0 / 300% 100%;
+        animation: webmovie-hue 1.4s linear infinite;  /* a loading state is the one allowed endless loop: it ends when content arrives */
+    }
+
+    /* ── scroll-driven, CSS only (no JS) — browsers without support simply show the final frame ── */
+    @supports (animation-timeline: view()) {
+        .webmovie-scroll { animation: webmovie-enter linear both; animation-timeline: view(); animation-range: entry 0% cover 35%; --webmovie-o: 0; --webmovie-y: 40px; --webmovie-x: 0px; --webmovie-s: 1; --webmovie-r: 0deg; --webmovie-blur: 0px; --webmovie-dir: 1; }
+        .webmovie-progress { position: fixed; inset: 0 0 auto; block-size: 3px; z-index: 50; background: var(--webmovie-progress, currentColor); transform-origin: left center; animation: webmovie-bar linear both; animation-timeline: scroll(root); }
+        .webmovie-progress:dir(rtl) { transform-origin: right center; }
+    }
+}
+/* ?webmovie-t=<s> (screenshots): paused from the first frame; webmovie.js shifts --webmovie-delay by -t, then bakes the frame. */
+.webmovie-frozen .webmovie-in, .webmovie-frozen .webmovie-in * { animation-play-state: paused !important; }
+
+@supports not (animation-timeline: view()) {
+    .webmovie-progress { display: none; }
+}
+
+/* Every distance, size change and blur is multiplied by the power (--webmovie-k); rotation is not (it holds 3D axes). */
+@keyframes webmovie-enter {
+    from {
+        opacity: var(--webmovie-o);
+        translate: calc(var(--webmovie-x) * var(--webmovie-dir) * var(--webmovie-k, 1)) calc(var(--webmovie-y) * var(--webmovie-k, 1));
+        scale: max(0, calc(1 + (var(--webmovie-s) - 1) * var(--webmovie-k, 1)));
+        rotate: var(--webmovie-r);
+        filter: blur(calc(var(--webmovie-blur) * var(--webmovie-k, 1)));
+    }
+}
+@keyframes webmovie-failsafe { to { opacity: 1; } }
+/* clip-path needs an explicit end: inset() → none does not interpolate (it would jump at 50%). */
+@keyframes webmovie-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+@keyframes webmovie-wipe-rtl { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0); } }
+@keyframes webmovie-wipe-up { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0); } }
+@keyframes webmovie-weight { from { font-weight: var(--webmovie-wght-from, 200); } }
+@keyframes webmovie-shine { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+@keyframes webmovie-mark { from { background-size: 0% var(--webmovie-mark-h, 0.42em); } }
+@keyframes webmovie-type {
+    0% { opacity: 0; }
+    1%, 99% { opacity: 1; box-shadow: calc(0.07em * var(--webmovie-dir)) 0 0 currentColor; }  /* the caret walks with the letters */
+    100% { opacity: 1; box-shadow: none; }
+}
+@keyframes webmovie-bar { from { scale: 0 1; } }
+@keyframes webmovie-ring { from { stroke-dashoffset: 100; } }
+@keyframes webmovie-draw { from { stroke-dashoffset: 1; } }
+@keyframes webmovie-pulse { from { box-shadow: 0 0 0 0 var(--webmovie-pulse, rgb(124 58 237 / 0.55)); } to { box-shadow: 0 0 0 22px transparent; } }
+@keyframes webmovie-float { to { translate: 0 -14px; } }
+@keyframes webmovie-hue { to { background-position: 100% 0; } }
+@keyframes webmovie-reveal { from { -webkit-mask-position: 100% 0; mask-position: 100% 0; } to { -webkit-mask-position: 0 0; mask-position: 0 0; } }
+@keyframes webmovie-reveal-rtl { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: 100% 0; mask-position: 100% 0; } }
+@keyframes webmovie-glow { from { opacity: 0; text-shadow: 0 0 0.5em currentColor, 0 0 1.2em currentColor; filter: blur(4px); } 40% { opacity: 1; } }
+@keyframes webmovie-pie { from { --webmovie-p: 0; } }
+@keyframes webmovie-scene-out { to { opacity: 0; translate: 0 -48px; scale: 0.96; filter: blur(10px); } }
+@keyframes webmovie-scene-zoom { to { opacity: 0; scale: 1.3; filter: blur(16px); } }
+@keyframes webmovie-scene-side { to { opacity: 0; translate: calc(-18% * var(--webmovie-dir, 1)) 0; filter: blur(8px); } }
+@keyframes webmovie-failsafe-out { to { opacity: 0; } }
+@keyframes webmovie-push { from { scale: 1; translate: 0 0; } to { scale: 1.1; translate: calc(-1.5% * var(--webmovie-dir, 1)) -1%; } }
+@keyframes webmovie-drift { from { translate: -7% -5%; rotate: 0deg; scale: 1; } to { translate: 7% 5%; rotate: 14deg; scale: 1.12; } }
+@keyframes webmovie-spin { to { --webmovie-angle: 360deg; } }
+/* picture movie — every keyframe ends at the layer's natural place (the composed illustration) */
+@keyframes webmovie-walk {  /* eight steps: each one lifts (stretch, lean) and lands (squash) while the body travels in */
+    0% { opacity: 0; translate: calc(var(--webmovie-x) * var(--webmovie-dir)) var(--webmovie-y); rotate: 0deg; scale: 1; }
+    6% { opacity: 1; }
+    12.5% { translate: calc(var(--webmovie-x) * var(--webmovie-dir) * 0.8) calc(var(--webmovie-y) * 0.8 + var(--webmovie-bob)); rotate: 4deg; scale: 0.97 1.04; }
+    25% { translate: calc(var(--webmovie-x) * var(--webmovie-dir) * 0.62) calc(var(--webmovie-y) * 0.62); rotate: 0deg; scale: 1.05 0.92; }
+    37.5% { translate: calc(var(--webmovie-x) * var(--webmovie-dir) * 0.46) calc(var(--webmovie-y) * 0.46 + var(--webmovie-bob)); rotate: -4deg; scale: 0.97 1.04; }
+    50% { translate: calc(var(--webmovie-x) * var(--webmovie-dir) * 0.32) calc(var(--webmovie-y) * 0.32); rotate: 0deg; scale: 1.05 0.92; }
+    62.5% { translate: calc(var(--webmovie-x) * var(--webmovie-dir) * 0.2) calc(var(--webmovie-y) * 0.2 + var(--webmovie-bob)); rotate: 4deg; scale: 0.97 1.04; }
+    75% { translate: calc(var(--webmovie-x) * var(--webmovie-dir) * 0.1) calc(var(--webmovie-y) * 0.1); rotate: 0deg; scale: 1.05 0.92; }
+    87.5% { translate: calc(var(--webmovie-x) * var(--webmovie-dir) * 0.03) calc(var(--webmovie-y) * 0.03 + var(--webmovie-bob) * 0.5); rotate: -2deg; scale: 0.99 1.02; }
+    94% { translate: 0 0; rotate: 0deg; scale: 1.03 0.96; }
+    100% { opacity: 1; translate: 0 0; rotate: 0deg; scale: 1; }
+}
+@keyframes webmovie-jump {  /* crouch, leap on an arc, land with a squash */
+    0% { opacity: 0; translate: calc(var(--webmovie-x) * var(--webmovie-dir)) var(--webmovie-y); scale: 1; }
+    12% { opacity: 1; translate: calc(var(--webmovie-x) * var(--webmovie-dir)) var(--webmovie-y); scale: 1.12 0.84; }
+    45% { translate: calc(var(--webmovie-x) * var(--webmovie-dir) * 0.45) calc(var(--webmovie-y) * 0.45 - 28%); scale: 0.9 1.14; }
+    72% { translate: 0 0; scale: 1.18 0.8; }
+    86% { translate: 0 -6%; scale: 0.96 1.05; }
+    100% { opacity: 1; translate: 0 0; scale: 1; }
+}
+@keyframes webmovie-wave {  /* anticipation, big swings with small hops, damped */
+    0% { rotate: 0deg; translate: 0 0; scale: 1; }
+    10% { rotate: 7deg; scale: 1.06 0.94; }
+    22% { rotate: -18deg; translate: 0 -9%; scale: 0.96 1.05; }
+    34% { rotate: 15deg; translate: 0 0; scale: 1.04 0.96; }
+    46% { rotate: -14deg; translate: 0 -6%; scale: 0.97 1.03; }
+    58% { rotate: 11deg; translate: 0 0; scale: 1.03 0.97; }
+    70% { rotate: -8deg; translate: 0 -3%; scale: 1; }
+    82% { rotate: 5deg; translate: 0 0; }
+    92% { rotate: -2deg; }
+    100% { rotate: 0deg; translate: 0 0; scale: 1; }
+}
+@keyframes webmovie-hop {
+    0% { translate: 0 0; scale: 1; }
+    18% { scale: 1.12 0.86; }
+    40% { translate: 0 -24%; scale: 0.9 1.12; }
+    58% { translate: 0 0; scale: 1.14 0.85; }
+    72% { translate: 0 -8%; scale: 0.97 1.04; }
+    86% { translate: 0 0; scale: 1.03 0.97; }
+    100% { translate: 0 0; scale: 1; }
+}
+@keyframes webmovie-unfold {  /* springs out of its transform-origin (a board out of its pole), overshoots, wobbles still */
+    0% { opacity: 0; scale: 0; rotate: -16deg; }
+    40% { opacity: 1; scale: 1.24; rotate: 7deg; }
+    56% { scale: 0.9; rotate: -5deg; }
+    70% { scale: 1.07; rotate: 3deg; }
+    84% { scale: 0.98; rotate: -1.5deg; }
+    100% { opacity: 1; scale: 1; rotate: 0deg; }
+}
+@keyframes webmovie-drift-in { 0% { opacity: 0; translate: calc(var(--webmovie-x) * var(--webmovie-dir)) 0; scale: 0.9; } 25% { opacity: 1; } 100% { scale: 1; } }
+@keyframes webmovie-fly {  /* an arc across, wings flapping (squash on the vertical axis) */
+    0% { opacity: 0; translate: calc(var(--webmovie-x) * var(--webmovie-dir)) var(--webmovie-y); scale: 1; }
+    8% { opacity: 1; scale: 1 0.5; } 16% { scale: 1 1.05; } 24% { scale: 1 0.5; } 32% { scale: 1 1.05; } 40% { scale: 1 0.5; }
+    48% { translate: calc(var(--webmovie-x) * var(--webmovie-dir) * 0.45) calc(var(--webmovie-y) * -0.5); scale: 1 1.05; }
+    56% { scale: 1 0.5; } 64% { scale: 1 1.05; } 72% { scale: 1 0.55; } 82% { scale: 1 1; } 90% { scale: 1 0.7; }
+    100% { opacity: 1; translate: 0 0; scale: 1; }
+}
+@keyframes webmovie-ping-ring { from { opacity: 0.9; scale: 1; border-width: 4px; } to { opacity: 0; scale: 5; border-width: 1px; } }
+@keyframes webmovie-dolly {
+    0% { scale: calc(1 + 0.3 * var(--webmovie-k, 1)); filter: blur(3px); }
+    25% { filter: blur(0); }
+    80% { scale: 0.985; }
+    100% { scale: 1; filter: blur(0); }
+}
+@keyframes webmovie-shake {  /* a decaying jolt, % of its own size (a frame); a small zoom covers the edges it would uncover */
+    0%, 100% { translate: 0 0; rotate: 0deg; scale: 1; }
+    8% { translate: calc(-0.9% * var(--webmovie-k, 1)) calc(0.7% * var(--webmovie-k, 1)); rotate: -0.45deg; scale: calc(1 + 0.024 * var(--webmovie-k, 1)); }
+    20% { translate: calc(0.8% * var(--webmovie-k, 1)) calc(-0.6% * var(--webmovie-k, 1)); rotate: 0.4deg; scale: calc(1 + 0.022 * var(--webmovie-k, 1)); }
+    34% { translate: calc(-0.5% * var(--webmovie-k, 1)) calc(0.4% * var(--webmovie-k, 1)); rotate: -0.25deg; scale: calc(1 + 0.014 * var(--webmovie-k, 1)); }
+    50% { translate: calc(0.3% * var(--webmovie-k, 1)) calc(-0.2% * var(--webmovie-k, 1)); rotate: 0.12deg; scale: calc(1 + 0.008 * var(--webmovie-k, 1)); }
+    68% { translate: -0.12% 0.08%; rotate: 0deg; scale: 1.003; }
+}
+@keyframes webmovie-smash {  /* huge and blurred → hits smaller than itself → shakes → settles */
+    0% { opacity: 0; scale: calc(1 + 1.1 * var(--webmovie-k, 1)); rotate: -5deg; filter: blur(calc(7px * var(--webmovie-k, 1))); translate: 0 0; }
+    42% { opacity: 1; scale: 0.88; rotate: 1.5deg; filter: blur(0); translate: 0 0; }
+    52% { translate: 0.05em -0.04em; }
+    60% { scale: 1.07; rotate: -1deg; translate: -0.05em 0.03em; }
+    70% { translate: 0.03em 0.02em; }
+    80% { scale: 0.98; rotate: 0deg; translate: 0 0; }
+    100% { opacity: 1; scale: 1; rotate: 0deg; filter: blur(0); translate: 0 0; }
+}
+@keyframes webmovie-stamp {
+    0% { opacity: 0; scale: calc(1 + 1.5 * var(--webmovie-k, 1)); rotate: -16deg; filter: blur(3px); translate: 0 0; }
+    36% { opacity: 1; scale: 0.9; rotate: -2deg; filter: blur(0); }
+    48% { scale: 1.04; translate: 2px -1px; }
+    58% { translate: -2px 1px; }
+    70% { scale: 1; rotate: 0deg; translate: 0 0; }
+    100% { opacity: 1; scale: 1; rotate: 0deg; filter: blur(0); translate: 0 0; }
+}
+@keyframes webmovie-blast {
+    0% { opacity: 0; scale: 0.1; rotate: -12deg; filter: blur(calc(5px * var(--webmovie-k, 1))); }
+    52% { opacity: 1; scale: 1.22; rotate: 3deg; filter: blur(0); }
+    70% { scale: 0.93; rotate: -1deg; }
+    85% { scale: 1.03; rotate: 0deg; }
+    100% { opacity: 1; scale: 1; rotate: 0deg; filter: blur(0); }
+}
+@keyframes webmovie-drop-in {  /* falls, squashes on the ground, bounces twice */
+    0% { opacity: 0; translate: 0 calc(-80% * var(--webmovie-k, 1)); scale: 0.9 1.15; }
+    10% { opacity: 1; }
+    48% { translate: 0 0; scale: 1.18 0.8; }
+    62% { translate: 0 -14%; scale: 0.94 1.06; }
+    76% { translate: 0 0; scale: 1.07 0.93; }
+    87% { translate: 0 -4%; scale: 1; }
+    100% { opacity: 1; translate: 0 0; scale: 1; }
+}
+@keyframes webmovie-swing {  /* swings in on its hinge (transform-origin, default the top edge) and damps */
+    0% { opacity: 0; rotate: calc(-70deg * var(--webmovie-swing, 1)); }
+    14% { opacity: 1; }
+    32% { rotate: calc(32deg * var(--webmovie-swing, 1)); }
+    50% { rotate: calc(-18deg * var(--webmovie-swing, 1)); }
+    66% { rotate: calc(10deg * var(--webmovie-swing, 1)); }
+    82% { rotate: calc(-4deg * var(--webmovie-swing, 1)); }
+    100% { opacity: 1; rotate: 0deg; }
+}
+@keyframes webmovie-glitch {  /* RGB split and slice jumps for ~0.4 s, then clean — short text only, no full-screen flashing */
+    0% { opacity: 0; translate: -0.12em 0; clip-path: inset(0 0 60% 0); text-shadow: 0.14em 0 rgb(255 0 90 / 0.8), -0.14em 0 rgb(0 220 255 / 0.8); }
+    10% { opacity: 1; translate: 0.1em 0; clip-path: inset(40% 0 20% 0); }
+    20% { translate: -0.06em 0; clip-path: inset(10% 0 50% 0); text-shadow: -0.1em 0 rgb(255 0 90 / 0.8), 0.1em 0 rgb(0 220 255 / 0.8); }
+    30% { translate: 0.08em 0; clip-path: inset(55% 0 0 0); }
+    40% { translate: -0.04em 0; clip-path: inset(-20% -10%); text-shadow: 0.06em 0 rgb(255 0 90 / 0.7), -0.06em 0 rgb(0 220 255 / 0.7); }
+    60% { translate: 0.02em 0; text-shadow: 0.03em 0 rgb(255 0 90 / 0.5), -0.03em 0 rgb(0 220 255 / 0.5); }
+    100% { opacity: 1; translate: 0 0; clip-path: inset(-20% -10%); text-shadow: none; }
+}
+@keyframes webmovie-whip {  /* whips in from inline-start with motion blur and stretch, overshoots, snaps back */
+    0% { opacity: 0; translate: calc(-2.2em * var(--webmovie-k, 1) * var(--webmovie-dir)) 0; scale: 1.3 0.85; filter: blur(calc(5px * var(--webmovie-k, 1))); }
+    55% { opacity: 1; translate: calc(0.22em * var(--webmovie-dir)) 0; scale: 0.93 1.06; filter: blur(0); }
+    76% { translate: calc(-0.07em * var(--webmovie-dir)) 0; scale: 1.02 0.98; }
+    100% { opacity: 1; translate: 0 0; scale: 1; filter: blur(0); }
+}
+@keyframes webmovie-assemble {  /* letters fly in from scattered places, spinning, and click together */
+    0% { opacity: 0; translate: calc(var(--r1, 0) * 1.5em * var(--webmovie-k, 1)) calc(var(--r2, 0) * 1.2em * var(--webmovie-k, 1)); rotate: calc(var(--r3, 0) * 200deg); scale: 0.2; filter: blur(4px); }
+    68% { opacity: 1; translate: calc(var(--r1, 0) * -0.06em) calc(var(--r2, 0) * -0.06em); rotate: calc(var(--r3, 0) * -10deg); scale: 1.14; filter: blur(0); }
+    100% { opacity: 1; translate: 0 0; rotate: 0deg; scale: 1; filter: blur(0); }
+}
+@keyframes webmovie-elastic {  /* letters drop stretched, squash on the baseline, wobble */
+    0% { opacity: 0; translate: 0 calc(-1em * var(--webmovie-k, 1)); scale: 0.7 1.5; }
+    38% { opacity: 1; translate: 0 0; scale: 1.32 0.7; }
+    56% { translate: 0 -0.18em; scale: 0.88 1.14; }
+    72% { translate: 0 0; scale: 1.07 0.94; }
+    86% { scale: 0.98 1.02; }
+    100% { opacity: 1; translate: 0 0; scale: 1; }
+}
+@keyframes webmovie-punch { 0% { scale: 1; } 32% { scale: 1.28; text-shadow: 0 0 0.35em currentColor; } 56% { scale: 0.94; } 76% { scale: 1.05; text-shadow: none; } 100% { scale: 1; } }
+@keyframes webmovie-spark { 0% { opacity: 1; translate: 0 0; scale: 1.3; } 70% { opacity: 1; } 100% { opacity: 0; translate: var(--tx) var(--ty); scale: 0.2; } }
+@keyframes webmovie-scene-in { from { opacity: 0; translate: 0 34px; filter: blur(8px); } }
+@keyframes webmovie-scene-whip { to { opacity: 0; translate: calc(-40% * var(--webmovie-dir, 1)) 0; scale: 1.08 0.94; filter: blur(22px); } }
+@keyframes webmovie-scene-drop { to { opacity: 0; translate: 0 30%; rotate: 4deg; filter: blur(6px); } }
+/* spotlight cues — each ends exactly at the natural state */
+@keyframes webmovie-cue-pop { 0% { scale: 1; } 22% { scale: 1.24; rotate: -3deg; } 42% { scale: 0.93; rotate: 2deg; } 62% { scale: 1.07; rotate: -1deg; } 80% { scale: 0.99; rotate: 0deg; } 100% { scale: 1; rotate: 0deg; } }
+@keyframes webmovie-cue-tada { 0% { scale: 1; rotate: 0deg; } 10%, 20% { scale: 0.92; rotate: -4deg; } 30%, 50%, 70% { scale: 1.16; rotate: 4deg; } 40%, 60% { scale: 1.16; rotate: -4deg; } 85% { scale: 1.02; rotate: 0deg; } 100% { scale: 1; rotate: 0deg; } }
+@keyframes webmovie-cue-jelly { 0% { scale: 1; } 25% { scale: 1.25 0.78; } 40% { scale: 0.8 1.2; } 55% { scale: 1.12 0.9; } 70% { scale: 0.95 1.05; } 85% { scale: 1.03 0.98; } 100% { scale: 1; } }
+@keyframes webmovie-cue-hop { 0% { translate: 0 0; scale: 1; } 15% { scale: 1.1 0.88; } 40% { translate: 0 -38%; scale: 0.94 1.08; } 62% { translate: 0 0; scale: 1.12 0.88; } 78% { translate: 0 -8%; scale: 1; } 100% { translate: 0 0; scale: 1; } }
+@keyframes webmovie-cue-glow {
+    0% { scale: 1; box-shadow: 0 0 0 0 color-mix(in srgb, var(--webmovie-cue-color, currentColor) 70%, transparent); }
+    30% { scale: 1.1; box-shadow: 0 0 0 0.35em color-mix(in srgb, var(--webmovie-cue-color, currentColor) 35%, transparent), 0 0 1.2em color-mix(in srgb, var(--webmovie-cue-color, currentColor) 55%, transparent); }
+    70% { scale: 0.98; }
+    100% { scale: 1; box-shadow: 0 0 0 0.9em transparent; }
+}
+@keyframes webmovie-cue-ripple { 0% { translate: 0 0; scale: 1; } 35% { translate: 0 -0.42em; scale: 1.22; color: var(--webmovie-cue-color, currentColor); } 70% { translate: 0 0.06em; scale: 0.96; } 100% { translate: 0 0; scale: 1; } }

@@ -1,0 +1,124 @@
+<!doctype html>
+<!--
+  Good example — the SONUB learning guide as an infographic: hero picture → one start point → one trunk with a colored node and branch into
+  one path card per row (labeled facts 대상 · 기간 · 단계 · 마치면 in one shared label column, so the values line up),
+  then a route (metro line) per path whose stations link to their pages on sonub.com. Same source as guide-poor.html and guide-text-only.html.
+  Pictures: img/ (made with Codex, prompts in the SONUB repo public/images/learn/guide/).
+  Lines: ../ig-lines.js. Open in a browser; on phones the labels move above the values. Readability rules: ../../references/readability.md.
+  Motion: the webmovie skill (../../../webmovie — install it next to this skill). Reading order = motion order: headline mask → hero wipe →
+  cards stagger in → the trunk and branches wipe in after the cards land → routes: title, stations stagger, line wipe. Without JS, with
+  reduced motion and after the motion the page is exactly this HTML (SKILL.md "Motion plan").
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>가이드 — 좋은 예 (그림 + 선)</title>
+<link rel="stylesheet" href="../../../webmovie/assets/webmovie.css">
+<script src="../../../webmovie/assets/webmovie.js"></script>
+<script defer src="../ig-lines.js"></script>
+<style>
+  :root { --paper: #f5f3f0; --ink: #2b2735; --muted: #645e70; --line: #ddd8e2; --surface: #fff; --brand: #6551a8; --accent: #a5520a;
+    --kids: #c2410c; --ai: #8e44c9; --it: #148a4b; --work: #1c6fd9; font-family: system-ui, "Apple SD Gothic Neo", sans-serif; }
+  body { margin: 0; background: var(--paper); color: var(--ink); }
+  main { container: page / inline-size; max-inline-size: 60rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; display: grid; gap: 3.25rem; word-break: keep-all; }
+  h1 { margin: 0; font-size: 2.4rem; line-height: 1.3; letter-spacing: -0.03em; }
+  h2 { margin: 0; font-size: 1.35rem; }
+  ul, ol { margin: 0; padding: 0; list-style: none; }
+  p { margin: 0; }
+  [data-track='kids'], :is(.ig-line, .ig-node).is-kids { --track: var(--kids); }
+  [data-track='ai'], :is(.ig-line, .ig-node).is-ai { --track: var(--ai); }
+  [data-track='it'], :is(.ig-line, .ig-node).is-it { --track: var(--it); }
+  [data-track='work'], :is(.ig-line, .ig-node).is-work { --track: var(--work); }
+  .ig-line { fill: none; stroke: var(--track, var(--brand)); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+  .ig-line.is-dashed { stroke-width: 2.5; stroke-dasharray: 2 7; }
+  .ig-line.is-trunk { stroke: var(--muted); }
+  .ig-node { r: 8px; fill: var(--track); stroke: var(--paper); stroke-width: 3; }
+  .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: .5rem 1.5rem; }
+  .legend { display: flex; gap: 1rem; color: var(--muted); font-size: .85rem; }
+  .legend li { display: inline-flex; align-items: center; gap: .4rem; }
+  .legend i { inline-size: 1.8rem; border-top: 3px solid var(--ink); }
+  .legend i.dash { border-top-style: dotted; }
+  .legend b { inline-size: .8rem; block-size: .8rem; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
+  /* motion: the line layers draw after the boxes they join have landed */
+  .fork > .ig-svg { --webmovie-delay: 700ms; }
+  .routes > .ig-svg { --webmovie-delay: 900ms; }
+  .sr { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* fork — one start point below the picture, one gray trunk down the middle of the start gutter, a colored node + branch per card.
+     No parallel lanes: lines ≥ 12px apart, dots never touch, nothing on the picture corner (readability.md R10) */
+  .fork { --gutter: 3.5rem; display: grid; gap: 1.75rem; }
+  .fork figure { position: relative; margin: 0; }
+  .fork figure img { display: block; inline-size: 100%; block-size: auto; aspect-ratio: 2 / 1; object-fit: cover; object-position: 50% 72%; border-radius: 1.25rem; }
+  .origin { position: absolute; inset-block-end: -1.6rem; inset-inline-start: calc(var(--gutter) / 2); inline-size: 1.2rem; block-size: 1.2rem; margin-inline-start: -.6rem; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 3px var(--paper); }
+  .cards { display: grid; gap: 1rem; padding-inline-start: var(--gutter); }
+  .card { display: grid; grid-template-columns: 4.5rem 1fr auto; grid-template-areas: 'pic title go' 'pic facts facts'; gap: .75rem 1.25rem; align-items: center; padding: 1.1rem 1.25rem; border: 1px solid var(--line); border-inline-start: 5px solid var(--track); border-radius: .9rem; background: var(--surface); }
+  .card img { grid-area: pic; align-self: start; inline-size: 100%; block-size: auto; border-radius: .8rem; }
+  .card h3 { grid-area: title; margin: 0; font-size: 1.2rem; }
+  /* labeled facts — one label column shared by every card, so the values start on one vertical line (readability.md R1–R3) */
+  .facts { grid-area: facts; display: grid; grid-template-columns: max-content 1fr; gap: .45rem 1rem; align-items: baseline; margin: 0; }
+  .facts > div { display: contents; }
+  .facts dt { color: var(--muted); font-size: .85rem; font-weight: 650; }
+  .facts dd { margin: 0; line-height: 1.6; }
+  .facts .time dd { color: var(--accent); font-weight: 750; }
+  .go { grid-area: go; padding: .45rem .9rem; border-radius: .6rem; background: var(--brand); color: #fff; font-size: .85rem; text-decoration: none; white-space: nowrap; }
+
+  /* routes */
+  .route { display: grid; gap: .9rem; padding-block: 1.25rem; border-top: 1px solid var(--line); }
+  .route h3 { display: flex; align-items: center; gap: .6rem; margin: 0; font-size: 1.2rem; }
+  .route h3 img { inline-size: 2.25rem; block-size: auto; border-radius: 50%; box-shadow: 0 0 0 2px var(--track); }
+  /* stations in equal-width cells (readability.md R6) */
+  /* row gap 2.4rem: the wrap line runs in the middle, ≥ 14px from the chip borders (R10) */
+  .stations { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr)); gap: 2.4rem 1.75rem; }
+  .stations li { display: flex; border: 2px solid var(--track); border-radius: .9rem; background: var(--surface); }
+  /* every station links to its page; the li keeps the box the lines attach to (R11) */
+  .stations li > * { display: flex; flex: 1; align-items: center; gap: .55rem; min-block-size: 2.75rem; padding: .35rem .8rem .35rem .4rem; border-radius: inherit; color: inherit; text-decoration: none; }
+  .stations li > a:hover { background: color-mix(in srgb, var(--track) 12%, var(--surface)); text-decoration: underline; }
+  .stations li > a:focus-visible { outline: 3px solid var(--track); outline-offset: 4px; }
+  .stations li.opt { border-style: dashed; color: var(--muted); }
+  .stations b { flex: none; white-space: nowrap; display: inline-grid; place-items: center; min-inline-size: 1.65rem; block-size: 1.65rem; border: 2px solid var(--track); border-radius: 50%; background: var(--track); color: #fff; font-size: .85rem; }
+  .stations .opt b { background: var(--surface); color: var(--ink); }
+  .stations .shared b { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
+
+  @container page (max-width: 46rem) {
+    .fork { --gutter: 2.75rem; }
+    .fork figure img { aspect-ratio: 3 / 2; }
+    .card { grid-template-columns: 2.75rem 1fr; grid-template-areas: 'pic title' 'facts facts' 'go go'; }
+    .go { justify-self: start; }
+    .facts { grid-template-columns: 1fr; row-gap: .7rem; }
+    .facts > div { display: grid; gap: .1rem; }
+    h1 { font-size: 1.9rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1 data-webmovie="mask">나에게 맞는 길 하나를 골라 1단계부터 시작해요</h1>
+
+  <!-- HERO: picture → start point → one trunk with a node and branch per card → one card per row -->
+  <section class="fork" data-ig-lines data-ig-motion="wipe" aria-label="네 갈래 길">
+    <figure>
+      <img data-webmovie="wipe" src="img/crossroads.webp" alt="가방을 멘 학습자가 갈림길 표지판 앞에 서 있고, 네 갈래 길이 놀이터 · 별자리 관측소 · 작업실 · 사무실로 이어져요." width="1536" height="1024">
+      <span class="origin" id="fork-origin" aria-hidden="true"></span>
+    </figure>
+    <ol class="cards" data-webmovie="stagger" data-ig-tree="fork-origin" data-ig-class="is-trunk">
+      <li class="card" id="card-kids" data-track="kids" data-ig-class="is-kids"><img src="img/kids.webp" alt=""><h3>어린이 가이드</h3><a class="go" href="https://sonub.com/ko/guide/kids">이 가이드 보기 →</a><dl class="facts"><div><dt>대상</dt><dd>7살부터 · 초등학교 1~2학년 · 처음 배우는 누구나</dd></div><div class="time"><dt>기간</dt><dd>하루 20분 · 4주 · 수업 10개</dd></div><div><dt>단계</dt><dd>4단계 · 필수 4</dd></div><div><dt>마치면</dt><dd>간단한 게임을 말로 설명하고 인공지능과 함께 만들 수 있어요.</dd></div></dl></li>
+      <li class="card" id="card-ai" data-track="ai" data-ig-class="is-ai"><img src="img/ai.webp" alt=""><h3>인공지능 학습 가이드</h3><a class="go" href="https://sonub.com/ko/guide/ai">이 가이드 보기 →</a><dl class="facts"><div><dt>대상</dt><dd>중학생 이상 · 인공지능을 제대로 이해하고 싶은 누구나</dd></div><div class="time"><dt>기간</dt><dd>주 3회 · 약 6주</dd></div><div><dt>단계</dt><dd>6단계 · 필수 4</dd></div><div><dt>마치면</dt><dd>모델이 다음 단어를 어떻게 고르는지, 같은 질문에 왜 다른 답이 나오는지 설명할 수 있어요.</dd></div></dl></li>
+      <li class="card" id="card-it" data-track="it" data-ig-class="is-it"><img src="img/it.webp" alt=""><h3>IT 전문 가이드</h3><a class="go" href="https://sonub.com/ko/guide/it">이 가이드 보기 →</a><dl class="facts"><div><dt>대상</dt><dd>개발자 · 서버 운영자 · IT 직무 종사자</dd></div><div class="time"><dt>기간</dt><dd>주 4회 · 약 12주</dd></div><div><dt>단계</dt><dd>12단계 · 필수 10</dd></div><div><dt>마치면</dt><dd>인공지능 에이전트에게 코딩을 맡기고, 받아들이기 전에 그 변경을 diff 로 검토할 수 있어요.</dd></div></dl></li>
+      <li class="card" id="card-work" data-track="work" data-ig-class="is-work"><img src="img/work.webp" alt=""><h3>업무 전문 가이드</h3><a class="go" href="https://sonub.com/ko/guide/work">이 가이드 보기 →</a><dl class="facts"><div><dt>대상</dt><dd>직장인 · 자영업자 · 팀 리더</dd></div><div class="time"><dt>기간</dt><dd>주 2회 · 약 5주</dd></div><div><dt>단계</dt><dd>7단계 · 필수 3</dd></div><div><dt>마치면</dt><dd>내 일 가운데 무엇을 인공지능에 맡기고 무엇을 직접 할지 정할 수 있어요.</dd></div></dl></li>
+    </ol>
+  </section>
+
+  <!-- routes: stations joined by the path's color line; optional = dotted, shared = double ring; each station links to its page, a step with no page stays plain -->
+  <section class="routes" data-ig-lines data-ig-motion="wipe">
+    <div class="head"><h2 data-webmovie="words">길마다 전체 순서</h2><ul class="legend"><li><i></i>필수</li><li><i class="dash"></i>선택</li><li><b></b>여러 길이 함께 지나요</li></ul></div>
+    <div class="route" data-track="kids"><h3><img src="img/kids.webp" alt="">어린이 가이드</h3>
+      <ol class="stations" data-webmovie="stagger" data-ig-chain data-ig-class="is-kids"><li class="shared"><a href="https://sonub.com/ko/typing"><b>1</b>키보드 연습</a></li><li class="shared"><a href="https://sonub.com/ko/ai"><b>2</b>인공지능 기초 공부</a></li><li><a href="https://sonub.com/ko/chat"><b>3</b>챗봇 사용</a></li><li class="shared"><a href="https://sonub.com/ko/vibe-coding"><b>4</b>바이브 코딩</a></li></ol></div>
+    <div class="route" data-track="ai"><h3><img src="img/ai.webp" alt="">인공지능 학습 가이드</h3>
+      <ol class="stations" data-webmovie="stagger" data-ig-chain data-ig-class="is-ai"><li class="shared"><a href="https://sonub.com/ko/ai"><b>1</b>왕초보 인공지능</a></li><li class="opt" data-ig-dash><a href="https://sonub.com/ko/ai/probability"><b>2</b>확률로 이해하는 인공지능 <span class="sr">(선택)</span></a></li><li class="shared"><a href="https://sonub.com/ko/chat"><b>3</b>인공지능과 대화</a></li><li class="shared"><a href="https://sonub.com/ko/learn/ai#prompting"><b>4</b>인공지능 연습(프롬프트)</a></li><li class="shared"><a href="https://sonub.com/ko/ai/advanced"><b>5</b>심화 과정</a></li><li class="opt" data-ig-dash><a href="https://sonub.com/ko/ai/exam"><b>6</b>AI 지식 시험 <span class="sr">(선택)</span></a></li></ol></div>
+    <div class="route" data-track="work"><h3><img src="img/work.webp" alt="">업무 전문 가이드</h3>
+      <ol class="stations" data-webmovie="stagger" data-ig-chain data-ig-class="is-work"><li class="opt shared" data-ig-dash><a href="https://sonub.com/ko/typing"><b>1</b>키보드 연습 <span class="sr">(선택)</span></a></li><li class="shared"><a href="https://sonub.com/ko/ai"><b>2</b>인공지능 기초 공부</a></li><li class="shared"><a href="https://sonub.com/ko/chat"><b>3</b>인공지능과 대화</a></li><li class="shared"><a href="https://sonub.com/ko/learn/ai#prompting"><b>4</b>프롬프트 연습</a></li><li class="opt" data-ig-dash><a href="https://sonub.com/ko/work/project"><b>5</b>프로젝트 · 할일 관리 <span class="sr">(준비 중)</span> <span class="sr">(선택)</span></a></li><li class="opt" data-ig-dash><a href="https://sonub.com/ko/work/image"><b>6</b>자료 관리 · 이미지 생성 <span class="sr">(준비 중)</span> <span class="sr">(선택)</span></a></li><li class="opt" data-ig-dash><span><b>7</b>팀 협업 <span class="sr">(선택)</span></span></li></ol></div>
+  </section>
+</main>
+</body>
+</html>

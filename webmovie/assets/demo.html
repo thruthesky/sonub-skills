@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>webmovie — movies made of HTML</title>
+<meta name="description" content="A movie made of HTML scenes instead of a video file, plus kinetic typography, infographic and UI shots in plain CSS and a little JavaScript — indexable, translatable, editable.">
+<link rel="stylesheet" href="webmovie.css">
+<script src="webmovie.js"></script>
+<style>
+  /* Demo page only. In a real site this goes in your stylesheet. */
+  :root { color-scheme: dark; --ink: #f4f1ff; --muted: #b9b3d6; --line: #3a3460; --brand: #a78bfa; --pink: #f472b6; --gold: #fbbf24; --bg: #130f24; --card: #1d1838; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 400 17px/1.6 system-ui, -apple-system, "Segoe UI", "Noto Sans", sans-serif; color: var(--ink); background: radial-gradient(1200px 600px at 80% -10%, #3b1d6e 0%, transparent 60%), var(--bg); }
+  .bar { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 12px 24px; border-block-end: 1px solid var(--line); position: sticky; top: 0; background: rgb(19 15 36 / 0.85); backdrop-filter: blur(8px); z-index: 10; }
+  .bar b { letter-spacing: 0.04em; }
+  .bar nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  button, .btn { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; text-decoration: none; }
+  button[aria-pressed="true"] { background: var(--brand); color: #130f24; border-color: var(--brand); }
+  main { max-inline-size: 1080px; margin-inline: auto; padding: 24px; }
+  /* The movie: a stage like a video frame. Without JS the scenes are simply sections one after another. */
+  .stage { position: relative; isolation: isolate; overflow: hidden; margin-block: 24px 8px; padding: clamp(24px, 5vw, 56px); border-radius: 24px; border: 1px solid var(--line); background: linear-gradient(160deg, #1f1545, #120e26 60%); color: var(--ink); }
+  .stage .blob { position: absolute; z-index: -1; inline-size: 46%; aspect-ratio: 1; border-radius: 50%; filter: blur(60px); opacity: 0.55; pointer-events: none; }
+  .stage .blob.a { background: #7c3aed; inset-block-start: -18%; inset-inline-start: -10%; }
+  .stage .blob.b { background: #db2777; inset-block-end: -25%; inset-inline-end: -8%; animation-duration: 11s; }
+  .scene { display: grid; align-content: center; gap: 14px; min-block-size: clamp(300px, 46vw, 440px); }
+  .scene + .scene { margin-block-start: 40px; }            /* no JS: a storyboard; the movie stacks them instead */
+  .webmovie-player-on > .scene + .scene { margin-block-start: 0; }
+  .kicker { margin: 0; font: 700 0.85rem/1 ui-monospace, Menlo, monospace; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); }
+  .scene h1, .scene h2 { font-size: clamp(2.1rem, 6.2vw, 4.6rem); line-height: 1.08; letter-spacing: -0.02em; margin: 0; font-weight: 800; text-wrap: balance; }
+  .scene p { font-size: clamp(1.05rem, 2.2vw, 1.35rem); color: var(--muted); max-inline-size: 44ch; margin: 0; text-wrap: pretty; }
+  .scene .why { color: var(--ink); font-weight: 600; }
+  .scene [data-webmovie-rotate] { color: var(--gold); }
+  .scene .big { display: flex; gap: clamp(16px, 4vw, 48px); align-items: center; flex-wrap: wrap; }
+  .scene .big data { font-size: clamp(4rem, 14vw, 9rem); font-weight: 900; line-height: 0.9; color: var(--gold); }
+  .scene .pie { inline-size: clamp(110px, 16vw, 160px); --webmovie-pie: var(--pink); --webmovie-pie-rest: #2a2450; display: grid; place-items: center; }
+  .scene .pie b { font-size: 1.4rem; background: #1a1436; border-radius: 50%; inline-size: 64%; aspect-ratio: 1; display: grid; place-items: center; }
+  .webmovie-controls { color: var(--gold); }
+  .webmovie-border-glow { --webmovie-surface: #1d1838; }
+  .cta { display: flex; gap: 12px; flex-wrap: wrap; margin-block-start: 24px; }
+  .btn-primary { background: linear-gradient(135deg, var(--brand), var(--pink)); color: #130f24; border: 0; font-weight: 700; padding: 12px 22px; }
+  .btn-ghost { padding: 12px 22px; }
+  h2 { font-size: 1.6rem; margin: 56px 0 6px; letter-spacing: -0.01em; }
+  .lead { color: var(--muted); margin: 0 0 20px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px 18px; display: grid; gap: 10px; align-content: start; }
+  .card header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .card code { font: 600 0.85rem ui-monospace, Menlo, monospace; color: var(--brand); }
+  .card button { padding: 2px 10px; font-size: 0.85rem; }
+  #spotlight .lead { font-size: 1.25rem; line-height: 1.6; max-inline-size: 46em; }
+  #spotlight .chips { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  #spotlight .chip { display: inline-block; padding: 0.4rem 1rem; border: 2px solid #a78bfa; border-radius: 999px; color: inherit; text-decoration: none; font-weight: 700; --webmovie-cue-color: #a78bfa; }
+  .card .sample { font-size: 1.5rem; font-weight: 700; line-height: 1.25; min-block-size: 2.5em; }
+  .stats { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+  .stat .num { font-size: 2.6rem; font-weight: 800; line-height: 1; color: var(--gold); }
+  .stat .unit { font-size: 1.2rem; font-weight: 700; color: var(--gold); margin-inline-start: 2px; }
+  .stat p { margin: 8px 0 0; color: var(--muted); }
+  .bars { display: grid; gap: 12px; margin: 0; padding: 18px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; }
+  .bars div { display: grid; grid-template-columns: 9em 1fr 3.5em; gap: 12px; align-items: center; }
+  .bars dt, .bars dd { margin: 0; }
+  .track { background: #2a2450; border-radius: 999px; block-size: 12px; overflow: hidden; }
+  .track .webmovie-bar { block-size: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--brand), var(--pink)); }
+  .bars .val { font-variant-numeric: tabular-nums; text-align: end; color: var(--ink); font-weight: 700; }
+  .rings { display: flex; gap: 18px; flex-wrap: wrap; }
+  .ring { display: grid; place-items: center; inline-size: 150px; text-align: center; }
+  .ring svg { inline-size: 120px; block-size: 120px; rotate: -90deg; }
+  .ring circle { fill: none; stroke-width: 3.2; }
+  .webmovie-ring-track { stroke: #2a2450; }
+  .webmovie-ring-fill { stroke: var(--gold); stroke-linecap: round; }
+  .ring .lbl { margin-block-start: -86px; block-size: 86px; font-weight: 800; font-size: 1.4rem; }
+  .ring p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+  .two { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+  figure { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+  figcaption { color: var(--muted); font-size: 0.95rem; margin-block-start: 8px; }
+  .chart { inline-size: 100%; block-size: auto; }
+  .chart .grid-line { stroke: #2a2450; stroke-width: 1; }
+  .chart .series { fill: none; stroke: var(--pink); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+  .chart .series.b { stroke: var(--brand); }
+  .chart text { fill: var(--muted); font-size: 11px; }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: s; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 2.2em 1fr; gap: 12px; align-items: start; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+  .steps li::before { content: counter(s); display: grid; place-items: center; inline-size: 2.2em; block-size: 2.2em; border-radius: 50%; background: var(--brand); color: #130f24; font-weight: 800; }
+  .steps b { display: block; }
+  .steps span { color: var(--muted); }
+  footer { color: var(--muted); padding: 48px 24px; text-align: center; }
+  @media (max-width: 560px) { .bars div { grid-template-columns: 1fr 3.5em; } .bars dt { grid-column: 1 / -1; } }
+</style>
+</head>
+<body>
+<div class="webmovie-progress" aria-hidden="true"></div>
+<header class="bar">
+  <b>webmovie</b>
+  <nav aria-label="Language">
+    <button type="button" data-lang="en" aria-pressed="true">English</button>
+    <button type="button" data-lang="ko" aria-pressed="false">한국어</button>
+    <button type="button" data-lang="ja" aria-pressed="false">日本語</button>
+    <button type="button" data-lang="ar" aria-pressed="false">العربية</button>
+    <button type="button" id="replay">↻ <span data-t="replay">Replay</span></button>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="stage" data-webmovie-player aria-label="webmovie" data-label-play="Play" data-label-pause="Pause" data-label-replay="Replay" data-label-scene="Scene">
+    <span class="blob a webmovie-ambient" aria-hidden="true"></span><span class="blob b webmovie-ambient" aria-hidden="true"></span>
+    <section class="scene webmovie-scene webmovie-push">
+      <p class="kicker" data-webmovie="fade">webmovie</p>
+      <h1 data-webmovie="mask" data-t="h1">Text that moves — and stays text.</h1>
+      <p data-webmovie="soft-blur" data-t="sub">No video files: every word is HTML that search engines read and translators translate.</p>
+    </section>
+    <section class="scene webmovie-scene webmovie-push" data-webmovie-exit="zoom">
+      <h2 data-webmovie="converge" data-t="m2">Search engines read it.</h2>
+      <p data-webmovie="words" data-t="m2p">Headings, numbers and links stay in the page — not inside a picture.</p>
+      <p class="why"><span data-t="for">Made for</span> <span data-webmovie-rotate data-t-list="rot"><span>search engines</span>, <span>translators</span>, <span>screen readers</span>, <span>editors</span></span></p>
+    </section>
+    <section class="scene webmovie-scene" data-webmovie-exit="side">
+      <h2 data-webmovie="flip" data-t="m3">One source, every language.</h2>
+      <div class="big">
+        <data value="17" data-webmovie="count">17</data>
+        <div class="pie webmovie-pie" data-webmovie="pie" style="--pct: 83" role="img" aria-labelledby="pie-label"><b id="pie-label">83%</b></div>
+      </div>
+      <p data-webmovie="fade-up" data-t="m3p">languages from one HTML page — the pie is a sample value</p>
+    </section>
+    <section class="scene webmovie-scene webmovie-push">
+      <h2 data-webmovie="bounce" data-t="m4">Edit it like text.</h2>
+      <p data-webmovie="reveal" data-t="m4p">Fix a typo, change a number, add a language — deploy, done.</p>
+      <div class="cta" data-webmovie="stagger">
+        <a class="btn btn-primary webmovie-lift webmovie-press webmovie-sheen webmovie-nudge" href="#type"><span data-t="cta">See the shots</span> <span class="webmovie-nudge-icon" aria-hidden="true">→</span></a>
+        <a class="btn btn-ghost webmovie-lift webmovie-press webmovie-border-glow" href="#data" data-t="cta2">Infographics</a>
+      </div>
+    </section>
+  </section>
+
+  <section id="type">
+    <h2 data-webmovie="words" data-t="h2type">Shots — kinetic typography</h2>
+    <p class="lead" data-webmovie="fade-up" data-t="leadtype">The same sentence in every shot — switch the language: Arabic letters are never torn apart, Japanese splits by word.</p>
+    <div class="grid" id="cards">
+      <div class="card"><header><code>soft-blur</code><button type="button" data-replay aria-label="Replay soft-blur">↻</button></header><div class="sample"><span data-webmovie="soft-blur" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>rise</code><button type="button" data-replay aria-label="Replay rise">↻</button></header><div class="sample"><span data-webmovie="rise" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>drop</code><button type="button" data-replay aria-label="Replay drop">↻</button></header><div class="sample"><span data-webmovie="drop" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>center</code><button type="button" data-replay aria-label="Replay center">↻</button></header><div class="sample"><span data-webmovie="center" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>typewriter</code><button type="button" data-replay aria-label="Replay typewriter">↻</button></header><div class="sample"><span data-webmovie="typewriter" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>scramble</code><button type="button" data-replay aria-label="Replay scramble">↻</button></header><div class="sample"><span data-webmovie="scramble" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>words</code><button type="button" data-replay aria-label="Replay words">↻</button></header><div class="sample"><span data-webmovie="words" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>spring</code><button type="button" data-replay aria-label="Replay spring">↻</button></header><div class="sample"><span data-webmovie="spring" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>depth</code><button type="button" data-replay aria-label="Replay depth">↻</button></header><div class="sample"><span data-webmovie="depth" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>mask</code><button type="button" data-replay aria-label="Replay mask">↻</button></header><div class="sample"><span data-webmovie="mask" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>slide</code><button type="button" data-replay aria-label="Replay slide">↻</button></header><div class="sample"><span data-webmovie="slide" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>focus</code><button type="button" data-replay aria-label="Replay focus">↻</button></header><div class="sample"><span data-webmovie="focus" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>pop</code><button type="button" data-replay aria-label="Replay pop">↻</button></header><div class="sample"><span data-webmovie="pop" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>wipe</code><button type="button" data-replay aria-label="Replay wipe">↻</button></header><div class="sample"><span data-webmovie="wipe" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>shine</code><button type="button" data-replay aria-label="Replay shine">↻</button></header><div class="sample"><span data-webmovie="shine" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>highlight</code><button type="button" data-replay aria-label="Replay highlight">↻</button></header><div class="sample"><span data-webmovie="highlight" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>underline</code><button type="button" data-replay aria-label="Replay underline">↻</button></header><div class="sample"><span data-webmovie="underline" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>weight</code><button type="button" data-replay aria-label="Replay weight">↻</button></header><div class="sample"><span data-webmovie="weight" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>flip</code><button type="button" data-replay aria-label="Replay flip">↻</button></header><div class="sample"><span data-webmovie="flip" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>converge</code><button type="button" data-replay aria-label="Replay converge">↻</button></header><div class="sample"><span data-webmovie="converge" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>slam</code><button type="button" data-replay aria-label="Replay slam">↻</button></header><div class="sample"><span data-webmovie="slam" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>glow</code><button type="button" data-replay aria-label="Replay glow">↻</button></header><div class="sample"><span data-webmovie="glow" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>bounce</code><button type="button" data-replay aria-label="Replay bounce">↻</button></header><div class="sample"><span data-webmovie="bounce" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>reveal</code><button type="button" data-replay aria-label="Replay reveal">↻</button></header><div class="sample"><span data-webmovie="reveal" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>whip</code><button type="button" data-replay aria-label="Replay whip">↻</button></header><div class="sample"><span data-webmovie="whip" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>assemble</code><button type="button" data-replay aria-label="Replay assemble">↻</button></header><div class="sample"><span data-webmovie="assemble" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>elastic</code><button type="button" data-replay aria-label="Replay elastic">↻</button></header><div class="sample"><span data-webmovie="elastic" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>smash</code><button type="button" data-replay aria-label="Replay smash">↻</button></header><div class="sample"><span data-webmovie="smash" data-webmovie-burst="16" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>stamp</code><button type="button" data-replay aria-label="Replay stamp">↻</button></header><div class="sample"><span data-webmovie="stamp" data-webmovie-burst="12" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>blast</code><button type="button" data-replay aria-label="Replay blast">↻</button></header><div class="sample"><span data-webmovie="blast" data-webmovie-burst="14" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>drop-in</code><button type="button" data-replay aria-label="Replay drop-in">↻</button></header><div class="sample"><span data-webmovie="drop-in" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>swing</code><button type="button" data-replay aria-label="Replay swing">↻</button></header><div class="sample"><span data-webmovie="swing" data-t="sample">Every word stays searchable</span></div></div>
+      <div class="card"><header><code>glitch</code><button type="button" data-replay aria-label="Replay glitch">↻</button></header><div class="sample"><span data-webmovie="glitch" data-t="sample">Every word stays searchable</span></div></div>
+    </div>
+  </section>
+
+  <section id="spotlight">
+    <h2 data-webmovie="whip">Spotlight — key texts take turns</h2>
+    <p class="lead" data-webmovie="fade-up" data-webmovie-spotlight="ripple" data-webmovie-loops="3">A page with a lot of text loses the eye once it has entered. The spotlight points at <strong data-webmovie-cue>the key phrases</strong> once more: <strong data-webmovie-cue>one at a time</strong>, in reading order, with a short cue, then <strong data-webmovie-cue>everything is still</strong> again — and the text never stops being text.</p>
+    <p class="chips" data-webmovie="stagger" data-webmovie-spotlight="pop">
+      <a class="chip" href="#type" data-webmovie-cue="tada">Typography</a>
+      <a class="chip" href="#data" data-webmovie-cue="jelly">Infographics</a>
+      <a class="chip" href="#top" data-webmovie-cue="glow">Movie</a>
+      <a class="chip" href="#spotlight" data-webmovie-cue="hop">Spotlight</a>
+    </p>
+  </section>
+
+  <section id="data">
+    <h2 data-webmovie="words" data-t="h2data">Infographics that count</h2>
+    <p class="lead" data-webmovie="fade-up" data-t="leaddata">The final numbers are in the HTML. The animation only counts up to them, in the reader's number format.</p>
+    <div class="stats" data-webmovie="stagger">
+      <div class="stat"><data class="num" value="12500" data-webmovie="count">12,500</data><p data-t="s1">learners this year</p></div>
+      <div class="stat"><data class="num" value="98.6" data-webmovie="count">98.6</data><span class="unit">%</span><p data-t="s2">finish the first lesson</p></div>
+      <div class="stat"><data class="num" value="17" data-webmovie="count">17</data><p data-t="s3">languages, one source</p></div>
+    </div>
+
+    <div class="two">
+      <dl class="bars" aria-label="Share of time" data-webmovie="stagger">
+        <div><dt data-t="b1">Writing</dt><dd class="track"><span class="webmovie-bar" data-webmovie="bar" style="--pct: 72"></span></dd><dd class="val">72%</dd></div>
+        <div><dt data-t="b2">Reviewing</dt><dd class="track"><span class="webmovie-bar" data-webmovie="bar" style="--pct: 48"></span></dd><dd class="val">48%</dd></div>
+        <div><dt data-t="b3">Testing</dt><dd class="track"><span class="webmovie-bar" data-webmovie="bar" style="--pct: 35"></span></dd><dd class="val">35%</dd></div>
+        <div><dt data-t="b4">Translating</dt><dd class="track"><span class="webmovie-bar" data-webmovie="bar" style="--pct: 12"></span></dd><dd class="val">12%</dd></div>
+      </dl>
+      <div class="rings">
+        <div class="ring">
+          <svg viewBox="0 0 36 36" data-webmovie="ring" style="--pct: 80" aria-hidden="true"><circle class="webmovie-ring-track" cx="18" cy="18" r="15.9"/><circle class="webmovie-ring-fill" cx="18" cy="18" r="15.9" pathLength="100"/></svg>
+          <div class="lbl">80%</div><p data-t="r1">pages indexed</p>
+        </div>
+        <div class="ring">
+          <svg viewBox="0 0 36 36" data-webmovie="ring" style="--pct: 45" aria-hidden="true"><circle class="webmovie-ring-track" cx="18" cy="18" r="15.9"/><circle class="webmovie-ring-fill" cx="18" cy="18" r="15.9" pathLength="100"/></svg>
+          <div class="lbl">45%</div><p data-t="r2">smaller than video</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="two">
+      <figure>
+        <svg class="chart" viewBox="0 0 320 160" data-webmovie="draw" role="img" aria-labelledby="chart-cap">
+          <line class="grid-line" x1="20" y1="140" x2="310" y2="140"/><line class="grid-line" x1="20" y1="90" x2="310" y2="90"/><line class="grid-line" x1="20" y1="40" x2="310" y2="40"/>
+          <polyline class="series" pathLength="1" points="20,130 80,112 140,96 200,70 260,52 310,30"/>
+          <polyline class="series b" pathLength="1" points="20,136 80,130 140,122 200,118 260,104 310,96"/>
+          <text x="20" y="156">2021</text><text x="290" y="156">2026</text>
+        </svg>
+        <figcaption id="chart-cap" data-t="cap">Visitors from search (pink) grew faster than from ads (purple).</figcaption>
+      </figure>
+      <ol class="steps" data-webmovie="stagger">
+        <li><span><b data-t="st1">Write the text</b><span data-t="st1d">Real HTML, in your language file.</span></span></li>
+        <li><span><b data-t="st2">Pick one effect</b><span data-t="st2d">One driver per moment — mask, blur or count.</span></span></li>
+        <li><span><b data-t="st3">Check the frames</b><span data-t="st3d">Freeze at 0.2 s, 0.5 s and the end; read it.</span></span></li>
+      </ol>
+    </div>
+  </section>
+</main>
+<footer><span data-webmovie="highlight" data-t="foot">Animation is decoration. The text is the content.</span><br><small data-t="sample-note">All numbers on this page are sample data.</small></footer>
+
+<script>
+  // Demo only: a tiny language switcher. A real site renders each language on the server (one URL per language).
+  const T = {
+    en: { 'sample-note': 'All numbers on this page are sample data.', m2: 'Search engines read it.', m2p: 'Headings, numbers and links stay in the page — not inside a picture.', m3: 'One source, every language.', m3p: 'languages from one HTML page — the pie is a sample value', m4: 'Edit it like text.', m4p: 'Fix a typo, change a number, add a language — deploy, done.', lp: 'Play', lpa: 'Pause', lr: 'Replay', ls: 'Scene', sample: 'Every word stays searchable', replay: 'Replay', h1: 'Text that moves — and stays text.', sub: 'No video files: every word is HTML that search engines read and translators translate.', for: 'Made for', rot: ['search engines', 'translators', 'screen readers', 'editors'], cta: 'See the shots', cta2: 'Infographics', h2type: 'Shots — kinetic typography', leadtype: 'The same sentence in every shot — switch the language: Arabic letters are never torn apart, Japanese splits by word.', h2data: 'Infographics that count', leaddata: "The final numbers are in the HTML. The animation only counts up to them, in the reader's number format.", s1: 'learners this year', s2: 'finish the first lesson', s3: 'languages, one source', b1: 'Writing', b2: 'Reviewing', b3: 'Testing', b4: 'Translating', r1: 'pages indexed', r2: 'smaller than video', cap: 'Visitors from search (pink) grew faster than from ads (purple).', st1: 'Write the text', st1d: 'Real HTML, in your language file.', st2: 'Pick one effect', st2d: 'One driver per moment — mask, blur or count.', st3: 'Check the frames', st3d: 'Freeze at 0.2 s, 0.5 s and the end; read it.', foot: 'Animation is decoration. The text is the content.' },
+    ko: { 'sample-note': '이 페이지의 숫자는 모두 예시 값입니다.', m2: '검색엔진이 읽습니다.', m2p: '제목·숫자·링크가 그림 속이 아니라 페이지에 그대로 있습니다.', m3: '원본 하나, 모든 언어.', m3p: '개 언어를 HTML 한 페이지로 — 원그래프는 예시 값', m4: '글처럼 고칩니다.', m4p: '오타를 고치고, 숫자를 바꾸고, 언어를 더하고 — 배포하면 끝.', lp: '재생', lpa: '일시 정지', lr: '다시 보기', ls: '장면', sample: '모든 낱말이 검색됩니다', replay: '다시 보기', h1: '움직이는 글자, 그래도 글자.', sub: '동영상 파일이 아닙니다. 모든 낱말이 검색엔진이 읽고 번역기가 옮기는 HTML 입니다.', for: '이런 이를 위해', rot: ['검색엔진', '번역가', '화면 낭독기', '편집자'], cta: '연출 보기', cta2: '인포그래픽', h2type: '연출 — 키네틱 타이포그래피', leadtype: '모든 연출에 같은 문장을 넣었습니다. 언어를 바꿔 보세요 — 아랍어 글자는 끊지 않고, 일본어는 낱말로 나눕니다.', h2data: '숫자가 세어지는 인포그래픽', leaddata: '최종 숫자는 HTML 에 있습니다. 애니메이션은 읽는 사람의 숫자 형식으로 그 값까지 셀 뿐입니다.', s1: '올해 학습자', s2: '첫 수업을 마침', s3: '언어, 원본은 하나', b1: '글쓰기', b2: '검토', b3: '테스트', b4: '번역', r1: '색인된 페이지', r2: '동영상보다 작음', cap: '검색으로 온 방문자(분홍)가 광고(보라)보다 빨리 늘었습니다.', st1: '글을 쓴다', st1d: '언어 파일에 있는 진짜 HTML.', st2: '효과 하나를 고른다', st2d: '한순간에 하나 — 마스크, 흐림, 세기 중 하나.', st3: '장면을 확인한다', st3d: '0.2초·0.5초·끝에서 멈춰 읽어 본다.', foot: '애니메이션은 꾸밈이고, 글이 내용입니다.' },
+    ja: { 'sample-note': 'このページの数値はすべてサンプルです。', m2: '検索エンジンが読めます。', m2p: '見出し・数字・リンクは画像の中ではなく、ページにそのまま残ります。', m3: 'ソースはひとつ、言語はすべて。', m3p: '言語を 1 つの HTML ページで — 円グラフはサンプル値', m4: '文章のように直せます。', m4p: '誤字を直し、数字を変え、言語を足して — デプロイで完了。', lp: '再生', lpa: '一時停止', lr: 'もう一度', ls: 'シーン', sample: 'すべての言葉が検索できます', replay: 'もう一度', h1: '動く文字、それでも文字。', sub: '動画ファイルではありません。すべての言葉が検索エンジンに読まれ、翻訳される HTML です。', for: '対象は', rot: ['検索エンジン', '翻訳者', 'スクリーンリーダー', '編集者'], cta: '演出を見る', cta2: 'インフォグラフィック', h2type: '演出 — キネティック・タイポグラフィ', leadtype: 'すべての演出に同じ文を入れました。言語を切り替えてみてください。アラビア文字は切り離さず、日本語は単語で分けます。', h2data: '数えるインフォグラフィック', leaddata: '最終の数値は HTML にあります。アニメーションは読者の数値形式でそこまで数えるだけです。', s1: '今年の学習者', s2: '最初のレッスンを修了', s3: '言語、ソースはひとつ', b1: '執筆', b2: 'レビュー', b3: 'テスト', b4: '翻訳', r1: 'インデックス済みページ', r2: '動画より小さい', cap: '検索からの訪問者（ピンク）が広告（紫）より速く増えました。', st1: '文章を書く', st1d: '言語ファイルにある本物の HTML。', st2: 'エフェクトをひとつ選ぶ', st2d: '一瞬にひとつ — マスク、ぼかし、カウント。', st3: 'フレームを確認する', st3d: '0.2 秒・0.5 秒・最後で止めて読む。', foot: 'アニメーションは飾り。文章が中身です。' },
+    ar: { 'sample-note': 'جميع الأرقام في هذه الصفحة بيانات توضيحية.', m2: 'محركات البحث تقرؤه.', m2p: 'العناوين والأرقام والروابط تبقى في الصفحة — لا داخل صورة.', m3: 'مصدر واحد، كل اللغات.', m3p: 'لغة من صفحة HTML واحدة — المخطط الدائري قيمة توضيحية', m4: 'عدّله كما تعدّل النص.', m4p: 'صحّح خطأً، غيّر رقمًا، أضف لغة — انشر وانتهى.', lp: 'تشغيل', lpa: 'إيقاف مؤقت', lr: 'إعادة', ls: 'مشهد', sample: 'كل كلمة تبقى قابلة للبحث', replay: 'إعادة', h1: 'نص يتحرك — ويبقى نصًا.', sub: 'لا ملفات فيديو: كل كلمة هي HTML تقرؤها محركات البحث ويترجمها المترجمون.', for: 'مصمم من أجل', rot: ['محركات البحث', 'المترجمين', 'قارئات الشاشة', 'المحررين'], cta: 'شاهد اللقطات', cta2: 'الرسوم المعلوماتية', h2type: 'اللقطات — الطباعة الحركية', leadtype: 'الجملة نفسها في كل لقطة — غيّر اللغة: لا تُفصل الحروف العربية أبدًا، واليابانية تُقسَّم إلى كلمات.', h2data: 'رسوم معلوماتية تَعُدّ', leaddata: 'الأرقام النهائية موجودة في HTML، والحركة تعدّ إليها فقط بتنسيق أرقام القارئ.', s1: 'متعلم هذا العام', s2: 'أنهوا الدرس الأول', s3: 'لغة، ومصدر واحد', b1: 'الكتابة', b2: 'المراجعة', b3: 'الاختبار', b4: 'الترجمة', r1: 'صفحات مفهرسة', r2: 'أصغر من الفيديو', cap: 'زوار البحث (الوردي) نموا أسرع من زوار الإعلانات (البنفسجي).', st1: 'اكتب النص', st1d: 'HTML حقيقي في ملف اللغة.', st2: 'اختر تأثيرًا واحدًا', st2d: 'محرك واحد لكل لحظة — قناع أو ضبابية أو عدّ.', st3: 'افحص اللقطات', st3d: 'أوقفها عند 0.2 ث و0.5 ث والنهاية، واقرأها.', foot: 'الحركة زينة، والنص هو المحتوى.' },
+  };
+  const cards = document.getElementById('cards');
+  cards.addEventListener('click', (e) => { const b = e.target.closest('[data-replay]'); if (b) webmovie.replay(b.closest('.card').querySelector('[data-webmovie]')); });
+
+  function setLang(lang) {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    document.querySelectorAll('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+    document.querySelectorAll('[data-t]').forEach((el) => { webmovie.finish(el); el.textContent = T[lang][el.dataset.t]; });
+    document.querySelectorAll('[data-t-list]').forEach((el) => {
+      const words = Object.assign(document.createElement('span'), { innerHTML: T[lang][el.dataset.tList].map((w) => `<span>${w}</span>`).join(lang === 'ja' ? '、' : lang === 'ar' ? '، ' : ', ') });
+      words.dataset.webmovieRotate = '';
+      words.dataset.tList = el.dataset.tList;
+      el.replaceWith(words); // webmovie notices the new element by itself
+    });
+    const fmt = new Intl.NumberFormat(lang);
+    document.querySelectorAll('data[value]').forEach((el) => { webmovie.finish(el); el.textContent = fmt.format(+el.value); });
+    const movie = document.querySelector('[data-webmovie-player]');
+    Object.assign(movie.dataset, { labelPlay: T[lang].lp, labelPause: T[lang].lpa, labelReplay: T[lang].lr, labelScene: T[lang].ls });
+    replayAll();
+  }
+  function replayAll() {
+    document.querySelectorAll('[data-webmovie]').forEach((el) => {
+      if (el.closest('[data-webmovie-player]')) return;            // the movie restarts as a whole
+      el.getBoundingClientRect().top < innerHeight ? webmovie.replay(el) : webmovie.reset(el);
+    });
+    webmovie.go(document.querySelector('[data-webmovie-player]'), 0);
+  }
+  document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
+  document.getElementById('replay').addEventListener('click', replayAll);
+  const first = new URLSearchParams(location.search).get('lang'); // demo.html?lang=ar opens in that language
+  if (T[first]) setLang(first);
+</script>
+</body>
+</html>

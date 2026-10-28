@@ -1,0 +1,378 @@
+/*!
+ * popup.css — glossary popups (`popup` skill from https://sonub.com, MIT).
+ *
+ * Theme it with the variables below — set them on :root (or any ancestor) in your own CSS:
+ *   :root { --popup-accent: #7c3aed; --popup-font-size: 0.9rem; }
+ * Dark mode follows prefers-color-scheme, and also [data-theme="dark"], .dark and .theme-dark on <html>/<body>.
+ * Only logical properties are used, so right-to-left pages (ar, ur, he, fa) work without extra rules.
+ */
+
+:root {
+	--popup-accent: #6d4bd8;
+	--popup-bg: #fff;
+	--popup-fg: #1f2328;
+	--popup-muted: #59636e;
+	--popup-border: #d8dee4;
+	--popup-soft: color-mix(in oklab, var(--popup-accent) 9%, var(--popup-bg));
+	--popup-code-bg: #f3f4f6;
+	--popup-shadow: 0 18px 42px -22px rgb(0 0 0 / 0.35), 0 2px 6px rgb(0 0 0 / 0.08);
+	--popup-radius: 0.7rem;
+	--popup-width: 24rem;
+	--popup-font-size: 0.88rem;
+	--popup-font-code: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	--popup-z: 1000;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']):not(.light) {
+		--popup-accent: #a78bfa;
+		--popup-bg: #1d1f24;
+		--popup-fg: #e6e8eb;
+		--popup-muted: #9aa3ad;
+		--popup-border: #353a42;
+		--popup-code-bg: #2a2e35;
+		--popup-shadow: 0 18px 42px -18px rgb(0 0 0 / 0.75);
+	}
+}
+:root:is([data-theme='dark'], .dark, .theme-dark),
+body:is([data-theme='dark'], .dark, .theme-dark) {
+	--popup-accent: #a78bfa;
+	--popup-bg: #1d1f24;
+	--popup-fg: #e6e8eb;
+	--popup-muted: #9aa3ad;
+	--popup-border: #353a42;
+	--popup-code-bg: #2a2e35;
+	--popup-shadow: 0 18px 42px -18px rgb(0 0 0 / 0.75);
+}
+
+/* ── the term in the text ─────────────────────────── */
+.popup-term {
+	display: inline;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	line-height: inherit;
+	letter-spacing: inherit;
+	text-align: inherit;
+	cursor: help;
+	/* CSS kits often put user-select: none on every button (Web Awesome, many resets) and the word drops out of a drag selection and copy — keep it copyable like the text around it */
+	-webkit-user-select: text;
+	user-select: text;
+	/* the dotted underline is the signal — colour alone is missed by colour-blind readers */
+	text-decoration: underline dotted color-mix(in oklab, var(--popup-accent) 75%, transparent);
+	text-decoration-thickness: 1.5px;
+	text-underline-offset: 0.22em;
+}
+.popup-term:hover,
+.popup-term:focus-visible,
+.popup-term[aria-expanded='true'] {
+	color: var(--popup-accent);
+	text-decoration-style: solid;
+}
+.popup-term:focus-visible {
+	border-radius: 3px;
+	outline: 2px solid var(--popup-accent);
+	outline-offset: 2px;
+}
+/* in right-to-left text an English term (API key, $PATH) keeps its own direction */
+[dir='rtl'] .popup-term:not(.popup-info) {
+	unicode-bidi: plaintext;
+}
+
+/* the small "?" button: <button class="popup-info" data-term="id"></button> */
+.popup-term.popup-info {
+	display: inline-grid;
+	place-items: center;
+	inline-size: 1.25em;
+	block-size: 1.25em;
+	margin-inline-start: 0.2em;
+	border: 1.5px solid currentColor;
+	border-radius: 50%;
+	color: var(--popup-accent);
+	font-size: 0.85em;
+	font-weight: 700;
+	line-height: 1;
+	text-decoration: none;
+	vertical-align: 0.1em;
+	cursor: pointer;
+	opacity: 0.75;
+}
+.popup-term.popup-info:empty::before {
+	content: '?';
+}
+.popup-term.popup-info:hover,
+.popup-term.popup-info[aria-expanded='true'] {
+	background: var(--popup-soft);
+	opacity: 1;
+}
+
+/* ── the card ─────────────────────────────────────── */
+.popup-pop {
+	position: fixed;
+	z-index: var(--popup-z);
+	box-sizing: border-box;
+	inline-size: min(var(--popup-width), calc(100vw - 1rem));
+	max-block-size: min(70vh, 36rem, var(--popup-room, 100vh)); /* --popup-room: set by place() so the card never covers its word */
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: 0.7rem 0.85rem 0.8rem;
+	border: 1px solid var(--popup-border);
+	border-radius: var(--popup-radius);
+	background: var(--popup-bg);
+	box-shadow: var(--popup-shadow);
+	color: var(--popup-fg);
+	font-family: inherit;
+	font-size: var(--popup-font-size);
+	font-weight: 400;
+	line-height: 1.6;
+	text-align: start;
+	text-transform: none;
+	letter-spacing: normal;
+}
+.popup-pop[hidden] {
+	display: none;
+}
+.popup-pop:focus {
+	outline: none;
+}
+.popup-pop p {
+	margin: 0;
+}
+.popup-pop code {
+	padding: 0.05rem 0.3rem;
+	border-radius: 4px;
+	background: var(--popup-code-bg);
+	font-family: var(--popup-font-code);
+	font-size: 0.9em;
+	overflow-wrap: anywhere;
+}
+
+.popup-pop-top {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.15rem 0.45rem;
+	margin-block-end: 0.2rem;
+}
+.popup-pop-term {
+	color: var(--popup-accent);
+	font-size: 1.1em;
+	font-weight: 700;
+}
+.popup-pop-reading {
+	color: var(--popup-muted);
+	font-size: 0.85em;
+}
+.popup-pop-cat {
+	padding: 0.05rem 0.45rem;
+	border-radius: 999px;
+	background: var(--popup-code-bg);
+	color: var(--popup-muted);
+	font-size: 0.78em;
+	white-space: nowrap;
+}
+.popup-pop-close {
+	display: inline-grid;
+	flex: 0 0 auto;
+	place-items: center;
+	align-self: center;
+	inline-size: 1.9rem;
+	block-size: 1.9rem;
+	margin-block: -0.3rem;
+	margin-inline: auto -0.4rem;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: none;
+	color: var(--popup-muted);
+	font: inherit;
+	font-size: 1.3rem;
+	line-height: 1;
+	cursor: pointer;
+}
+.popup-pop-close:hover {
+	background: var(--popup-code-bg);
+	color: var(--popup-fg);
+}
+.popup-pop-close:focus-visible,
+.popup-pop-chip:focus-visible,
+.popup-pop-copy:focus-visible,
+.popup-pop-more:focus-visible {
+	outline: 2px solid var(--popup-accent);
+	outline-offset: 1px;
+}
+
+/* one-line meaning → explanation */
+.popup-pop .popup-pop-short {
+	margin-block-end: 0.35rem;
+	font-size: 1.04em;
+	font-weight: 600;
+}
+.popup-pop-long p + p {
+	margin-block-start: 0.4rem;
+}
+
+/* "in plain words" and "example" are the only boxes — each has a different job */
+.popup-pop-easy,
+.popup-pop-example,
+.popup-pop-code {
+	margin: 0.55rem 0 0;
+	padding: 0.45rem 0.6rem;
+	border-radius: 0.5rem;
+	font-size: 0.95em;
+}
+.popup-pop-easy {
+	border-inline-start: 3px solid var(--popup-accent);
+	background: var(--popup-soft);
+}
+.popup-pop-easy .popup-pop-label::before {
+	content: '💡 ';
+}
+.popup-pop-example {
+	background: var(--popup-code-bg);
+}
+.popup-pop-example .popup-pop-label::before {
+	content: '✏️ ';
+}
+.popup-pop-label {
+	display: block;
+	margin-block-end: 0.1rem;
+	color: var(--popup-fg);
+	font-size: 0.9em;
+	font-weight: 600;
+}
+.popup-pop-examples {
+	display: grid;
+	gap: 0.3rem;
+	margin: 0.15rem 0 0;
+	padding: 0;
+	list-style: none;
+}
+.popup-pop-examples li {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.1rem 0.5rem;
+}
+.popup-pop-examples li > code {
+	background: var(--popup-bg);
+	white-space: pre-wrap;
+}
+.popup-pop-examples li > code + span {
+	color: var(--popup-muted);
+}
+
+/* source code */
+.popup-pop-code {
+	padding: 0;
+	overflow: hidden;
+	border: 1px solid var(--popup-border);
+}
+.popup-pop-code figcaption {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.25rem 0.6rem;
+	border-block-end: 1px solid var(--popup-border);
+	background: var(--popup-code-bg);
+}
+.popup-pop-code figcaption .popup-pop-label {
+	margin: 0;
+	color: var(--popup-muted);
+	font-weight: 500;
+}
+.popup-pop-copy {
+	padding: 0.05rem 0.5rem;
+	border: 1px solid var(--popup-border);
+	border-radius: 999px;
+	background: var(--popup-bg);
+	color: var(--popup-fg);
+	font: inherit;
+	font-size: 0.8em;
+	cursor: pointer;
+}
+.popup-pop-code pre {
+	max-block-size: 14rem;
+	margin: 0;
+	padding: 0.5rem 0.6rem;
+	overflow: auto;
+	text-align: left;
+}
+.popup-pop-code pre code {
+	padding: 0;
+	background: none;
+	font-size: 0.86em;
+	line-height: 1.5;
+	white-space: pre;
+	overflow-wrap: normal;
+}
+
+/* related terms switch the card in place (no stacked popups) */
+.popup-pop .popup-pop-related {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.3rem;
+	margin-block-start: 0.55rem;
+}
+.popup-pop-related .popup-pop-label {
+	display: inline;
+	margin: 0;
+	color: var(--popup-muted);
+	font-weight: 400;
+}
+.popup-pop-chip {
+	padding: 0.1rem 0.5rem;
+	border: 1px solid var(--popup-border);
+	border-radius: 999px;
+	background: var(--popup-soft);
+	color: inherit;
+	font: inherit;
+	font-size: 0.86em;
+	cursor: pointer;
+}
+.popup-pop-chip:hover {
+	border-color: var(--popup-accent);
+}
+
+.popup-pop-more {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	margin-block-start: 0.6rem;
+	color: var(--popup-accent);
+	font-size: 0.9em;
+	font-weight: 600;
+	text-decoration: none;
+}
+.popup-pop-more:hover {
+	text-decoration: underline;
+}
+[dir='rtl'] .popup-pop-arrow {
+	display: inline-block;
+	transform: scaleX(-1);
+}
+
+/* narrow screens: a sheet stuck to the bottom of the screen */
+.popup-pop[data-side='sheet'] {
+	inset-inline: 0;
+	inset-block-end: 0;
+	inset-block-start: auto;
+	inline-size: 100%;
+	max-block-size: 70vh;
+	border-end-start-radius: 0;
+	border-end-end-radius: 0;
+	padding-block-end: max(0.9rem, env(safe-area-inset-bottom));
+	font-size: max(var(--popup-font-size), 0.95rem);
+}
+
+@media print {
+	.popup-pop {
+		display: none !important;
+	}
+	.popup-term {
+		text-decoration: none;
+	}
+}

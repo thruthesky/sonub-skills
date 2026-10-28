@@ -1,0 +1,93 @@
+<!doctype html>
+<!-- POOR example — same source as guide-text-only.html and guide-good.html. Mirrors the structure that fails: label headline,
+     a big circle around one number, a generic 3-step flow, 4 equal cards, 3 equal tip cards.
+     See references/examples.md for the analysis. -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>가이드 — 빈약한 예</title>
+<style>
+  :root { --paper: #faf8f4; --ink: #2b2540; --muted: #6b6680; --brand: #6b4fd8; --tint: #f1edfc; --line: #e4dff0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; word-break: keep-all; overflow-wrap: break-word; background: var(--paper); color: var(--ink); font: 16px/1.6 "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif; }
+  main { max-width: 1120px; margin: 0 auto; padding: 32px 24px 64px; }
+  .hero { display: grid; grid-template-columns: 1.4fr 1fr; gap: 32px; align-items: center; padding: 48px; border-radius: 24px; background: var(--tint); }
+  .eyebrow { color: var(--brand); font-size: 14px; font-weight: 700; }
+  h1 { margin: 12px 0; font-size: 48px; line-height: 1.2; }
+  .hero p { color: var(--muted); }
+  .button { display: inline-block; padding: 10px 18px; border-radius: 10px; background: var(--brand); color: #fff; text-decoration: none; }
+  .circle { display: grid; place-items: center; width: 200px; height: 200px; margin: 0 auto; border: 10px solid #e6e0fa; border-radius: 50%; background: #fff; text-align: center; }
+  .circle strong { display: block; font-size: 72px; line-height: 1; color: var(--brand); }
+  .circle span { color: var(--muted); font-size: 15px; }
+  .map-caption { margin-top: 16px; text-align: center; color: var(--muted); font-size: 15px; }
+  h2 { margin: 56px 0 16px; font-size: 22px; }
+  .flow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; padding: 0; list-style: none; }
+  .flow li, .tips li { padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: #fff; text-align: center; }
+  .flow li b, .tips li b { display: block; margin-bottom: 4px; }
+  .flow li span, .tips li span { color: var(--muted); font-size: 15px; }
+  .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; padding: 0; list-style: none; }
+  .card { padding: 24px; border: 1px solid var(--line); border-top: 4px solid var(--brand); border-radius: 16px; background: #fff; }
+  .card .num { float: right; font-size: 28px; font-weight: 700; color: var(--brand); }
+  .card h3 { margin: 8px 0; font-size: 22px; }
+  .card p { color: var(--muted); }
+  .facts { display: flex; gap: 48px; margin: 16px 0; }
+  .facts dt { color: var(--muted); font-size: 15px; }
+  .facts dd { margin: 0; font-weight: 700; }
+  .card ol { margin: 0; padding-inline-start: 22px; }
+  .more { margin-top: 8px; color: var(--brand); font-weight: 700; font-size: 15px; }
+  .tips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; padding: 0; list-style: none; }
+  @media (max-width: 700px) {
+    .hero, .flow, .cards, .tips { grid-template-columns: 1fr; }
+    .hero { padding: 24px; }
+    h1 { font-size: 34px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <div>
+      <div class="eyebrow">배움의 첫걸음</div>
+      <h1>어디서부터 시작할까요?</h1>
+      <p>처음이어도 괜찮아요. 배우고 싶은 것을 하나 골라요. 첫걸음부터 차근차근 함께해요.</p>
+      <a class="button" href="#choose">나는 어디로 가 볼까? ↓</a>
+    </div>
+    <div>
+      <div class="circle"><div><strong>4</strong><span>가지 학습 경로</span></div></div>
+      <p class="map-caption">어느 길이 궁금한가요? 마음에 드는 길을 골라요. 나중에 바꿔도 괜찮아요.</p>
+    </div>
+  </header>
+
+  <h2>시작은 이렇게 하면 돼요</h2>
+  <ol class="flow">
+    <li><b>① 내 길 고르기</b><span>아래에서 나와 닮은 이야기를 골라요.</span></li>
+    <li><b>② 순서 따라가기</b><span>첫 단계부터 하나씩 배워요.</span></li>
+    <li><b>③ 직접 해 보기</b><span>읽은 것을 직접 해 보며 익혀요.</span></li>
+  </ol>
+
+  <h2 id="choose">나는 어디로 가 볼까?</h2>
+  <ul class="cards">
+    <li class="card"><span class="num">1</span><h3>어린이 가이드</h3><p>컴퓨터를 처음 배워요. 그림을 보며 해 보고 싶어요.</p>
+      <dl class="facts"><div><dt>전체 단계</dt><dd>4단계</dd></div><div><dt>예상 기간</dt><dd>하루 20분 · 4주 · 수업 10개</dd></div></dl>
+      <ol><li>키보드 연습</li><li>인공지능 기초 공부</li><li>챗봇 사용</li><li>바이브 코딩</li></ol></li>
+    <li class="card"><span class="num">2</span><h3>인공지능 학습 가이드</h3><p>인공지능이 어떻게 답하는지 궁금해요.</p>
+      <dl class="facts"><div><dt>전체 단계</dt><dd>6단계</dd></div><div><dt>예상 기간</dt><dd>주 3회 · 약 6주</dd></div></dl>
+      <ol><li>왕초보 인공지능</li><li>확률로 이해하는 인공지능</li><li>인공지능과 대화</li><li>인공지능 연습(프롬프트)</li></ol><div class="more">외 2단계 더 ›</div></li>
+    <li class="card"><span class="num">3</span><h3>IT 전문 가이드</h3><p>컴퓨터로 프로그램을 만들고 싶어요.</p>
+      <dl class="facts"><div><dt>전체 단계</dt><dd>12단계</dd></div><div><dt>예상 기간</dt><dd>주 4회 · 약 12주</dd></div></dl>
+      <ol><li>키보드 연습</li><li>터미널 명령어</li><li>쉘 프로그래밍</li><li>GIT</li></ol><div class="more">외 8단계 더 ›</div></li>
+    <li class="card"><span class="num">4</span><h3>업무 전문 가이드</h3><p>인공지능과 함께 일을 해 보고 싶어요.</p>
+      <dl class="facts"><div><dt>전체 단계</dt><dd>7단계</dd></div><div><dt>예상 기간</dt><dd>주 2회 · 약 5주</dd></div></dl>
+      <ol><li>키보드 연습</li><li>인공지능 기초 공부</li><li>인공지능과 대화</li><li>프롬프트 연습</li></ol><div class="more">외 3단계 더 ›</div></li>
+  </ul>
+
+  <h2>어느 가이드든 통하는 요령</h2>
+  <ul class="tips">
+    <li><b>낱말 뜻 보기</b><span>밑줄 낱말을 톡 눌러요. 어려운 말의 뜻을 볼 수 있어요.</span></li>
+    <li><b>리엔에게 묻기</b><span>막히면 리엔 학습 도우미에게 물어요.</span></li>
+    <li><b>내 속도로 배우기</b><span>조금씩 자주 해 봐요. 다 못 해도 괜찮아요.</span></li>
+  </ul>
+</main>
+</body>
+</html>

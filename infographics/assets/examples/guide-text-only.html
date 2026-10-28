@@ -1,0 +1,147 @@
+<!doctype html>
+<!-- TEXT-ONLY example (was "good" before the pictures-and-lines rule) — same source as guide-poor.html and guide-good.html.
+     Correct information, but no image and no line: a document, not an infographic (fails the picture test).
+     Source: (SONUB App\Content\Guide + lang/ko/guide.php, 2026-10-22).
+     Claim headline, a comparison matrix as the hero, a shared-steps dot matrix, the full step map,
+     a "not sure?" chooser and a conclusion strip. Every value comes from the source; nothing is added.
+     Type 40/22/16/13 · one accent (amber) on time and start buttons · see references/examples.md. -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>가이드 — 알찬 예</title>
+<style>
+  :root {
+    --paper: #faf8f4; --card: #ffffff; --ink: #2b2540; --muted: #625c75; --line: #e4dff0;
+    --brand: #5b3fc8; --brand-tint: #f1edfc; --accent: #b4410c; --accent-tint: #fff1e6;
+    --gap-in: 10px; --gap-group: 32px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; word-break: keep-all; overflow-wrap: break-word; background: var(--paper); color: var(--ink); font: 16px/1.6 "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 24px 56px; display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--gap-group) 24px; }
+  main > * { grid-column: 1 / -1; min-width: 0; }
+  h1, h2, h3, p { margin: 0; }
+  .note { font-size: 13px; color: var(--muted); }
+
+  /* 1–2 headline + summary */
+  .head { display: grid; gap: var(--gap-in); }
+  .eyebrow { font-size: 13px; font-weight: 700; color: var(--brand); letter-spacing: .02em; }
+  h1 { font-size: 40px; line-height: 1.25; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 6px 0 0; list-style: none; }
+  .chips li { padding: 4px 12px; border-radius: 999px; background: var(--brand-tint); font-weight: 700; }
+  .chips li.key { background: var(--accent-tint); color: var(--accent); }
+
+  /* 3 HERO — comparison matrix */
+  .block { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px; display: grid; gap: 14px; align-content: start; }
+  h2 { font-size: 22px; line-height: 1.35; }
+  h2 small { display: block; font-size: 16px; font-weight: 400; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 14px 12px; text-align: start; vertical-align: top; border-top: 1px solid var(--line); }
+  thead th { font-size: 13px; color: var(--muted); font-weight: 700; border-top: 0; padding-block: 0 8px; }
+  tbody th { white-space: nowrap; }
+  tbody th span { display: block; font-size: 13px; color: var(--muted); font-weight: 400; }
+  td.time { color: var(--accent); font-weight: 700; white-space: nowrap; }
+  td.steps { white-space: nowrap; }
+  td.steps b { font-size: 22px; }
+  .go { display: inline-block; padding: 8px 14px; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 700; text-decoration: none; white-space: nowrap; }
+
+  /* 4 shared steps + 5 chooser */
+  .shared { grid-column: 1 / span 7; }
+  .chooser { grid-column: 8 / -1; }
+  .dots th, .dots td { padding: 8px 6px; text-align: center; }
+  .dots th:first-child, .dots td:first-child { text-align: start; }
+  .dots td.req, .dots td.opt { color: var(--brand); font-weight: 700; }
+  .dots td.no { color: var(--muted); }
+  .dots tr.all td:first-child { font-weight: 700; }
+  .chooser ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--gap-in); }
+  .chooser li { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--brand-tint); }
+  .chooser li b { color: var(--brand); white-space: nowrap; }
+
+  /* 6 step map */
+  .map ol { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: s; }
+  .map li { counter-increment: s; padding: 3px 10px 3px 6px; border-radius: 8px; border: 1.5px solid var(--brand); }
+  .map li::before { content: counter(s); display: inline-block; min-width: 1.4em; margin-inline-end: 4px; font-weight: 700; color: var(--brand); }
+  .map li.opt { border-style: dashed; color: var(--muted); }
+  .map .row { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: start; padding-block: 10px; border-top: 1px solid var(--line); }
+  .map .row:first-of-type { border-top: 0; }
+  .map .row strong span { display: block; font-size: 13px; color: var(--muted); font-weight: 400; }
+
+  /* 7 conclusion strip */
+  .end { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; justify-content: space-between; padding: 18px 24px; border-radius: 16px; background: var(--brand); color: #fff; font-size: 22px; font-weight: 700; }
+  .end span { font-size: 16px; font-weight: 400; }
+
+  @media (max-width: 760px) {
+    main { gap: 24px 16px; padding: 24px 16px 40px; }
+    h1 { font-size: 32px; }
+    .shared, .chooser { grid-column: 1 / -1; }
+    .compare thead { display: none; }
+    .compare tr { display: grid; gap: 6px; padding-block: 14px; border-top: 1px solid var(--line); }
+    .compare th, .compare td { display: block; padding: 0; border: 0; white-space: normal; }
+    .compare td::before { content: attr(data-label) " · "; font-size: 13px; color: var(--muted); font-weight: 400; }
+    .map .row { grid-template-columns: 1fr; gap: 6px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="head">
+    <p class="eyebrow">SONUB 학습 가이드 · 4가지 길</p>
+    <h1>나에게 맞는 길 하나를 고르세요 — <em>하루 20분</em>부터 <em>주 4회</em>까지</h1>
+    <ul class="chips">
+      <li>4가지 길</li><li>4~12단계</li><li class="key">약 4~12주</li><li>네 길 모두 인공지능 기초와 리엔 대화를 지나요</li>
+    </ul>
+  </header>
+
+  <section class="block" aria-labelledby="t-compare">
+    <h2 id="t-compare">한눈에 비교 — 내 줄을 찾아 시작하세요</h2>
+    <table class="compare">
+      <thead><tr><th scope="col">길</th><th scope="col">누구에게</th><th scope="col">얼마나</th><th scope="col">단계</th><th scope="col">끝나면 할 수 있는 것 (예)</th><th scope="col"><span class="note">시작</span></th></tr></thead>
+      <tbody>
+        <tr><th scope="row">어린이<span>컴퓨터를 처음 배워요</span></th><td data-label="누구에게">7살부터 · 초등학교 1~2학년 · 처음 배우는 누구나</td><td class="time" data-label="얼마나">하루 20분 · 4주 · 수업 10개</td><td class="steps" data-label="단계"><b>4</b>단계 · 필수 4</td><td data-label="끝나면">간단한 게임을 말로 설명하고 인공지능과 함께 만들 수 있어요.</td><td><a class="go" href="#">1단계 시작</a></td></tr>
+        <tr><th scope="row">인공지능 학습<span>어떻게 답하는지 궁금해요</span></th><td data-label="누구에게">중학생 이상 · 인공지능을 제대로 이해하고 싶은 누구나</td><td class="time" data-label="얼마나">주 3회 · 약 6주</td><td class="steps" data-label="단계"><b>6</b>단계 · 필수 4</td><td data-label="끝나면">모델이 다음 단어를 어떻게 고르는지, 같은 질문에 왜 다른 답이 나오는지 설명할 수 있어요.</td><td><a class="go" href="#">1단계 시작</a></td></tr>
+        <tr><th scope="row">IT 전문<span>프로그램을 만들고 싶어요</span></th><td data-label="누구에게">개발자 · 서버 운영자 · IT 직무 종사자</td><td class="time" data-label="얼마나">주 4회 · 약 12주</td><td class="steps" data-label="단계"><b>12</b>단계 · 필수 10</td><td data-label="끝나면">인공지능 에이전트에게 코딩을 맡기고, 받아들이기 전에 그 변경을 diff 로 검토할 수 있어요.</td><td><a class="go" href="#">1단계 시작</a></td></tr>
+        <tr><th scope="row">업무 전문<span>인공지능과 함께 일하고 싶어요</span></th><td data-label="누구에게">직장인 · 자영업자 · 팀 리더</td><td class="time" data-label="얼마나">주 2회 · 약 5주</td><td class="steps" data-label="단계"><b>7</b>단계 · 필수 3</td><td data-label="끝나면">내 일 가운데 무엇을 인공지능에게 맡기고 무엇을 직접 할지 정할 수 있어요.</td><td><a class="go" href="#">1단계 시작</a></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="block shared" aria-labelledby="t-shared">
+    <h2 id="t-shared">같은 단계가 여러 길에 들어 있어요<small>네 길 모두 인공지능 기초와 리엔 대화를 지나요</small></h2>
+    <table class="dots">
+      <thead><tr><th scope="col">단계(같은 페이지)</th><th scope="col">어린이</th><th scope="col">인공지능</th><th scope="col">IT</th><th scope="col">업무</th></tr></thead>
+      <tbody>
+        <tr class="all"><td>인공지능 기초</td><td class="req">●</td><td class="req">●</td><td class="req">●</td><td class="req">●</td></tr>
+        <tr class="all"><td>리엔과 대화</td><td class="req">●</td><td class="req">●</td><td class="req">●</td><td class="req">●</td></tr>
+        <tr><td>키보드 연습</td><td class="req">●</td><td class="no">—</td><td class="opt">○</td><td class="opt">○</td></tr>
+        <tr><td>프롬프트 연습</td><td class="no">—</td><td class="req">●</td><td class="no">—</td><td class="req">●</td></tr>
+        <tr><td>인공지능 심화</td><td class="no">—</td><td class="req">●</td><td class="req">●</td><td class="no">—</td></tr>
+        <tr><td>바이브 코딩</td><td class="req">●</td><td class="no">—</td><td class="req">●</td><td class="no">—</td></tr>
+      </tbody>
+    </table>
+    <p class="note">● 필수 · ○ 선택 · — 없음. 같은 주소의 단계만 셌어요.</p>
+  </section>
+
+  <section class="block chooser" aria-labelledby="t-choose">
+    <h2 id="t-choose">아직 모르겠다면<small>나와 닮은 문장을 고르세요</small></h2>
+    <ul>
+      <li>컴퓨터를 처음 배워요. 그림을 보며 해 보고 싶어요.<b>→ 어린이</b></li>
+      <li>인공지능이 어떻게 답하는지 궁금해요.<b>→ 인공지능 학습</b></li>
+      <li>컴퓨터로 프로그램을 만들고 싶어요.<b>→ IT 전문</b></li>
+      <li>인공지능과 함께 일을 해 보고 싶어요.<b>→ 업무 전문</b></li>
+    </ul>
+    <p class="note">컴퓨터가 처음이면 어린이 가이드가 좋아요. 막히면 리엔 학습 도우미에게 물어요.</p>
+  </section>
+
+  <section class="block map" aria-labelledby="t-map">
+    <h2 id="t-map">길마다 전체 순서<small>실선은 필수, 점선은 선택 단계</small></h2>
+    <div class="row"><strong>어린이<span>4단계</span></strong><ol><li>키보드 연습</li><li>인공지능 기초 공부</li><li>챗봇 사용</li><li>바이브 코딩</li></ol></div>
+    <div class="row"><strong>인공지능 학습<span>6단계</span></strong><ol><li>왕초보 인공지능</li><li class="opt">확률로 이해하는 인공지능</li><li>인공지능과 대화</li><li>인공지능 연습(프롬프트)</li><li>심화 과정</li><li class="opt">AI 지식 시험</li></ol></div>
+    <div class="row"><strong>IT 전문<span>12단계</span></strong><ol><li class="opt">키보드 연습</li><li>터미널 명령어</li><li>쉘 프로그래밍</li><li>GIT</li><li>VSCode</li><li>파이썬</li><li>인공지능 기초 공부</li><li>인공지능 심화 과정</li><li>프롬프트 엔지니어링</li><li>인공지능과 대화</li><li class="opt">Agent Skill</li><li>바이브 코딩</li></ol></div>
+    <div class="row"><strong>업무 전문<span>7단계</span></strong><ol><li class="opt">키보드 연습</li><li>인공지능 기초 공부</li><li>인공지능과 대화</li><li>프롬프트 연습</li><li class="opt">프로젝트 · 할일 관리</li><li class="opt">자료 관리 · 이미지 생성</li><li class="opt">팀 협업</li></ol></div>
+  </section>
+
+  <footer class="end">내 줄의 「1단계 시작」을 누르세요<span>기간은 예상 기간이에요 — 다 못 해도 괜찮아요. 쉬었다가 다시 와요.</span></footer>
+</main>
+</body>
+</html>

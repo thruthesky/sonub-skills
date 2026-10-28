@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>linkify demo</title>
+	<link rel="stylesheet" href="linkify.css">
+	<style>
+		body { margin: 0; font: 16px/1.6 system-ui, sans-serif; color: #222; }
+		.site-header { position: sticky; top: 0; z-index: 10; height: 64px; display: flex; align-items: center; gap: 1rem; padding-inline: 1rem; background: #2d2250; color: #fff; }
+		.site-header a { color: #fff; }
+		.site-header .jumps { display: flex; gap: .75rem; overflow-x: auto; white-space: nowrap; min-width: 0; }
+		main { max-width: 46rem; margin: 0 auto; padding: 1rem; }
+		.filler { height: 60vh; background: repeating-linear-gradient(#fafafa 0 2rem, #f2f2f2 2rem 4rem); }
+		.tabs button[aria-selected='true'] { font-weight: 700; }
+		.card { display: block; padding: 1rem; border: 1px solid #ccc; border-radius: .5rem; color: inherit; text-decoration: none; }
+	</style>
+</head>
+<body>
+	<header class="site-header">
+		<strong>Demo site</strong>
+		<nav><h2 style="font-size:1rem;margin:0">Menu (skipped)</h2></nav>
+		<div class="jumps"><a href="#install">#install</a> <a href="#refund-rule">#refund-rule</a> <a href="#tab-advanced-options">#tab-advanced-options</a> <a href="#deep-inside">#deep-inside</a></div>
+	</header>
+	<main>
+		<h1>linkify demo — the h1 gets no link</h1>
+		<p>Hover a heading and click it (or the link button). The address bar changes to <code>demo.html#…</code> and the address is copied.</p>
+
+		<h2 id="install">Install (keeps its own id)</h2>
+		<div class="filler"></div>
+
+		<h2>Getting started</h2>
+		<h3>Getting started</h3>
+		<p>Two headings with the same text get <code>getting-started</code> and <code>getting-started-2</code>.</p>
+
+		<h2>설치 방법 — 한국어 제목</h2>
+		<p id="refund-rule" data-linkify-anchor>A paragraph with <code>data-linkify-anchor</code> and its own id: refunds are possible within 7 days.</p>
+		<div class="filler"></div>
+
+		<h2>A heading with <a href="https://example.com">a real link</a> inside</h2>
+		<a class="card" href="https://example.com"><h3>A heading inside a card link (no button)</h3><p>Clicking the card still opens the card.</p></a>
+
+		<details>
+			<summary>Closed details — open me</summary>
+			<h3 id="deep-inside">Deep inside a closed details</h3>
+			<p>Opening <code>#deep-inside</code> opens this box first.</p>
+		</details>
+
+		<section class="tabs" id="tabs">
+			<button type="button" aria-selected="true" data-tab="basic">Basic</button>
+			<button type="button" aria-selected="false" data-tab="advanced">Advanced</button>
+			<div data-linkify-reveal="basic"><h3>Basic options</h3><p>Basic panel.</p></div>
+			<div data-linkify-reveal="advanced" hidden><h3 id="tab-advanced-options">Advanced options (in a hidden tab)</h3><p>The page listens for <code>linkify:reveal</code> and shows this tab.</p></div>
+		</section>
+		<div class="filler"></div>
+
+		<aside><h2>Aside heading (skipped)</h2></aside>
+		<h4>Last small heading</h4>
+		<div class="filler"></div>
+	</main>
+
+	<script>
+		// the page's own tab code — linkify only asks it to show a panel
+		const tabs = document.getElementById('tabs');
+		const show = (name) => {
+			tabs.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+			tabs.querySelectorAll('[data-linkify-reveal]').forEach((p) => (p.hidden = p.dataset.linkifyReveal !== name));
+		};
+		tabs.addEventListener('click', (e) => e.target.dataset.tab && show(e.target.dataset.tab));
+		tabs.addEventListener('linkify:reveal', (e) => show(e.detail));
+	</script>
+	<script defer src="linkify.js" data-header=".site-header"></script>
+</body>
+</html>

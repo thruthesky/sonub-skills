@@ -1,0 +1,146 @@
+/*
+ * linkify.css — the link button, the "Link copied" message and the landing flash for linkify.js.
+ * Theme with these variables (set them on :root or any ancestor):
+ *   --linkify-accent   button hover color and flash color      (default #6d4aff)
+ *   --linkify-muted    button color at rest                    (default currentColor at 45%)
+ *   --linkify-toast-bg / --linkify-toast-fg                    (default dark pill, white text)
+ *   --linkify-offset   sticky header height — set by data-header, or by you
+ *   --linkify-gap      space between the header and the section (default .75rem)
+ * Logical properties only, so right-to-left pages work as they are.
+ */
+
+:where([data-linkified]) {
+	scroll-margin-block-start: calc(var(--linkify-offset, 0px) + var(--linkify-gap, 0.75rem));
+}
+
+:where([data-linkified='heading']) {
+	cursor: pointer;
+}
+
+/* the button — after the heading text, hidden until the heading is hovered or the button has focus */
+.linkify-link {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 1.4em;
+	block-size: 1.4em;
+	margin-inline-start: 0.35em;
+	border-radius: 0.35em;
+	color: var(--linkify-muted, color-mix(in srgb, currentColor 45%, transparent));
+	font-size: 0.75em;
+	vertical-align: middle;
+	text-decoration: none;
+	opacity: 0;
+	transition: opacity 0.15s, color 0.15s, background-color 0.15s;
+}
+
+[data-linkified]:hover > .linkify-link,
+.linkify-link:focus-visible,
+[data-linkified].linkify-copied > .linkify-link {
+	opacity: 1;
+}
+
+.linkify-link:hover,
+.linkify-link:focus-visible,
+[data-linkified].linkify-copied > .linkify-link {
+	color: var(--linkify-accent, #6d4aff);
+	background: color-mix(in srgb, var(--linkify-accent, #6d4aff) 12%, transparent);
+}
+
+.linkify-link:focus-visible {
+	outline: 2px solid var(--linkify-accent, #6d4aff);
+	outline-offset: 2px;
+}
+
+/* paragraphs and other blocks: the button sits at the end of the text, smaller */
+[data-linkified='block'] > .linkify-link {
+	font-size: 0.85em;
+}
+
+/* touch screens have no hover — keep the button faintly visible */
+@media (hover: none) {
+	.linkify-link {
+		opacity: 0.55;
+	}
+
+	:where([data-linkified='block']) > .linkify-link {
+		opacity: 0.35;
+	}
+}
+
+/* landing: a short glow so the eye finds the section */
+.linkify-target {
+	animation: linkify-flash 2.2s ease-out;
+	border-radius: 0.25em;
+}
+
+@keyframes linkify-flash {
+	0%,
+	25% {
+		background-color: color-mix(in srgb, var(--linkify-accent, #6d4aff) 18%, transparent);
+		box-shadow: 0 0 0 0.3em color-mix(in srgb, var(--linkify-accent, #6d4aff) 18%, transparent);
+	}
+
+	100% {
+		background-color: transparent;
+		box-shadow: 0 0 0 0.3em transparent;
+	}
+}
+
+/* "Link copied" */
+.linkify-toast {
+	position: fixed;
+	inset-block-end: 1.5rem;
+	inset-inline-start: 50%;
+	z-index: 2147483000;
+	max-inline-size: min(90vw, 28rem);
+	padding: 0.6rem 1.1rem;
+	border-radius: 999px;
+	background: var(--linkify-toast-bg, #1f1d2b);
+	color: var(--linkify-toast-fg, #fff);
+	font: 500 0.9rem/1.4 system-ui, sans-serif;
+	text-align: center;
+	box-shadow: 0 6px 24px rgb(0 0 0 / 0.25);
+	opacity: 0;
+	pointer-events: none;
+	transform: translate(-50%, 0.75rem);
+	transition: opacity 0.2s, transform 0.2s;
+}
+
+[dir='rtl'] .linkify-toast {
+	transform: translate(50%, 0.75rem);
+}
+
+.linkify-toast.is-visible {
+	opacity: 1;
+	transform: translate(-50%, 0);
+}
+
+[dir='rtl'] .linkify-toast.is-visible {
+	transform: translate(50%, 0);
+}
+
+.linkify-toast.is-error {
+	background: var(--linkify-toast-error-bg, #8a1c1c);
+}
+
+/* the hidden textarea of the old copy fallback */
+.linkify-clipboard {
+	position: fixed;
+	inset-block-start: 0;
+	inset-inline-start: -9999px;
+	opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.linkify-target {
+		animation-duration: 0.01s;
+		outline: 2px solid var(--linkify-accent, #6d4aff);
+		outline-offset: 0.2em;
+	}
+
+	.linkify-link,
+	.linkify-toast {
+		transition: none;
+	}
+}

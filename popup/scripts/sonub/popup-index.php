@@ -26,10 +26,12 @@
  * doubt — 뜻이 하나뿐인 용어는 문맥을 보지 않고 늘 감싼다. 그 표기가 일상어(라틴 문자는 소문자 낱말, 다른 문자는 모든 표기)면
  *   다른 뜻으로 쓰인 곳이 숨어 있다("differ in skill" 의 skill). bare 비율이 높은 용어부터 보이니 문장을 읽고 context·avoid·새 뜻으로 고친다.
  *
- * 화면 범위(scope)는 Blade 에서 그 번역 그룹을 감싸는 <x-glossary.text scope="…"> 중 가장 많이 쓰인 값으로 짐작한다.
+ * 화면 범위(scope)는 Blade 에서 그 번역 그룹을 감싸는 <x-glossary.text scope="…">(머리 카드 glossary="…"·lesson-text·글자로 정한 :scope="$변수" 포함) 중
+ * 가장 많이 쓰인 값으로 짐작한다. PHP 가 정하는 그룹(DYNAMIC_SCOPES)과 AI 과정 챕터 글(키마다 AiCourse::glossaryScope())은 그 값을 쓴다 — 화면과 같은 뜻을 고르게.
  * 페이지 문맥은 그룹 하나를 한 페이지로 보고 앞 문장의 용어를 뒤 문장에 넘긴다(html() 이 요청 안에서 하는 것과 같다).
  */
 
+use App\Content\AiCourse;
 use App\Content\Glossary;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Arr;
@@ -49,8 +51,10 @@ $terms = (new ReflectionClassConstant(Glossary::class, 'TERMS'))->getValue();
 /**
  * Blade 의 :scope="$변수" 처럼 PHP 가 화면 범위를 정하는 그룹 — 색인은 Blade 글자만 읽으므로 여기 적는다.
  * 쉘 강의(shell/partials/lesson.blade.php)는 ShellCourse::glossaryScope() 로 'shell'(+단원별 화면)을 넘긴다.
+ * AI 과정(aicourse)은 /learn/ai 의 learn-ai — 챕터 글(aicourse.<챕터>_*)은 아래 $keyScopes 가 챕터마다 AiCourse::glossaryScope() 로 덮는다.
+ * 여기 적은 그룹은 Blade 에서 짐작한 값보다 앞선다(다른 화면이 그 그룹 글 하나를 빌려 쓴 scope 로 그룹 전체를 짐작하지 않게).
  */
-const DYNAMIC_SCOPES = ['shdeep' => 'shell', 'shpat' => 'shell', 'shchain' => 'shell', 'shfig' => 'shell', 'shell_advanced' => 'shell', 'shell_regex' => 'shell'];
+const DYNAMIC_SCOPES = ['aicourse' => 'learn-ai', 'shdeep' => 'shell', 'shpat' => 'shell', 'shchain' => 'shell', 'shfig' => 'shell', 'shell_advanced' => 'shell', 'shell_regex' => 'shell'];
 
 /** 표기가 든 문장 — 앞뒤 문장 경계까지. 표기는 【】로 보인다. 표기 바로 앞 공백은 남겨 낱말 가운데서 시작한 표기(웹브라우저·메타데이터)와 구별한다. */
 function sentence_around(string $text, int $offset, string $surface): string
@@ -180,13 +184,33 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
         if (! str_ends_with($view->getFilename(), '.blade.php')) {
             continue;
         }
-        foreach (file($view->getPathname()) as $line) {
-            if (preg_match('/scope="([a-z0-9,+-]+)"/', $line, $s) && preg_match_all("/__\\(['\"]([a-z0-9_-]+)\\./", $line, $g)) {
+        $lines = file($view->getPathname());
+        // :scope="$scope" — 같은 파일에서 글자로 정한 값($scope = 'learn-ai,claude-code';)이면 그 값으로 읽는다(harness·mcp 화면)
+        preg_match_all("/\\$([a-zA-Z_]+)\\s*=\\s*'([a-z0-9,+-]+)'\\s*;/", implode('', $lines), $vars, PREG_SET_ORDER);
+        $literal = array_column($vars, 2, 1);
+        foreach ($lines as $line) {
+            // 머리 카드(<x-ui.page-header glossary="learn-ai">)의 glossary 값도 화면 범위다. 표의 <th scope="col|row"> 는 HTML 속성이라 뺀다
+            // 수업 화면의 <x-glossary.lesson-text> 는 scope="lesson" 을 고정한 <x-glossary.text> 다(components/glossary/lesson-text.blade.php)
+            $value = str_contains($line, '<x-glossary.lesson-text') ? 'lesson'
+                : (preg_match('/(?<!:)(?:scope|glossary)="(?!(?:col|row|colgroup|rowgroup)")([a-z0-9,+-]+)"/', $line, $s) ? $s[1]
+                : (preg_match('/:scope="\\$([a-zA-Z_]+)"/', $line, $s) ? ($literal[$s[1]] ?? null) : null));
+            // 감싸는 글(:text="__('그룹.…')")이 있으면 그 그룹만 — 같은 줄의 다른 글자(<dt>{{ __('aicourse.easy_analogy') }}</dt>)는 그 화면 범위로 그리지 않는다
+            if ($value !== null && (preg_match_all("/:text=\"__\\(['\"]([a-z0-9_-]+)\\./", $line, $g) || preg_match_all("/__\\(['\"]([a-z0-9_-]+)\\./", $line, $g))) {
                 foreach ($g[1] as $group) {
-                    $groupScopes[$group][$s[1]] = ($groupScopes[$group][$s[1]] ?? 0) + 1;
+                    $groupScopes[$group][$value] = ($groupScopes[$group][$value] ?? 0) + 1;
                 }
             }
         }
+    }
+
+    // AI 과정 챕터(aicourse.<챕터>_*)는 챕터마다 화면 범위가 다르다 — AiCourse::glossaryScope(슬러그)를 키마다 쓴다(learn/ai-course.blade.php 와 같게)
+    $keyScopes = [];
+    foreach (AiCourse::chapters() as $chapter) {
+        array_walk_recursive($chapter, function ($value) use (&$keyScopes, $chapter) {
+            if (is_string($value) && str_starts_with($value, 'aicourse.')) {
+                $keyScopes[$value] = AiCourse::glossaryScope($chapter['slug']);
+            }
+        });
     }
 
     $scopeNames = [];
@@ -234,7 +258,7 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
         $scopes = $groupScopes[$group] ?? [];
         arsort($scopes);
         // Blade 에 scope 가 없으면 PHP 가 정하는 화면 범위(DYNAMIC_SCOPES), 그다음 그룹 이름이 화면 이름인지 본다(git 은 Git::inline 이 PHP 에서 scope 'git' 을 넘긴다)
-        $scope = array_key_first($scopes) ?? DYNAMIC_SCOPES[$group] ?? (isset($scopeNames[$group]) ? $group : null);
+        $scope = DYNAMIC_SCOPES[$group] ?? array_key_first($scopes) ?? (isset($scopeNames[$group]) ? $group : null);
         $page = ['ids' => [], 'topics' => []];
         $shownIds = [];
         foreach (Arr::dot((array) require $path) as $key => $text) {
@@ -242,10 +266,11 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
                 continue;
             }
             $key = "{$group}.{$key}";
+            $keyScope = $keyScopes[$key] ?? $scope;
             $stats['texts']++;
-            $insertText->execute([$key, $group, $scope, $text]);
+            $insertText->execute([$key, $group, $keyScope, $text]);
             $insertFts->execute([$key, $text]);
-            foreach (Glossary::resolve($text, $locale, $scope, $page) as $hit) {
+            foreach (Glossary::resolve($text, $locale, $keyScope, $page) as $hit) {
                 $stats['hits']++;
                 $ids = array_keys($hit['candidates']);
                 $legacy = $ids[0];
@@ -257,7 +282,7 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
                 $chosen = $hit['term'] === null ? null : $hit['candidates'][$hit['term']];
                 $shown = $hit['term'] !== null && ! isset($shownIds[$hit['term']]);
                 $shownIds[$hit['term'] ?? ''] = true;
-                $insertHit->execute([$key, $group, $scope, $hit['surface'], $hit['offset'], $hit['term'], $legacy,
+                $insertHit->execute([$key, $group, $keyScope, $hit['surface'], $hit['offset'], $hit['term'], $legacy,
                     json_encode(array_map(fn ($c) => $c['score'].($c['avoided'] ? '피함' : ($c['eligible'] ? '' : '×')), $hit['candidates']), JSON_UNESCAPED_UNICODE),
                     $margin, $chosen['others'] ?? null, $chosen === null ? null : $chosen['score'] - $chosen['local'] * 10, (int) $shown, $sentence]);
                 if ($hit['term'] !== null) {

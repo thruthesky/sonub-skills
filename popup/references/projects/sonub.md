@@ -88,6 +88,11 @@ SONUB 은 왕초보를 가르친다. 설명 없이 지나간 "토큰" 한 낱말
    ```
    `Glossary` 의 함정 셋: ① `\p{Hangul}`·`\p{Katakana}` 는 PCRE2 가 Script_Extensions 로 읽어 「 、 〈 까지 넣는다 — 경계는 글자 범위로(`Glossary::HANGUL`) ② 별칭 목록은 숫자 사이 쉼표에서 나누지 않는다("44,100Hz" 를 나눠 "16" 이 헤르츠가 됐다) ③ 번역이 없는 언어는 화면에 en 문장이 나오므로 `except`·`keys` 도 대체 언어 문장으로 맞춘다. ④ 데바나가리(hi)는 뒤 경계를 둔다 — 낱말 뒤에 데바나가리 글자가 이어지면 다른 낱말(वेटर·बगल), 어미(याँ·ओं·एँ·ता·ना·िंग·्स·मेंट)만 허용. 벵골어(bn)는 격 어미를 붙여 쓰므로 경계를 두지 않고 틀린 낱말만 `avoid`. ⑤ 아랍 문자: ar 은 ة 로 시작하는 꼬리를 막고(المعرفة 지식·المعاملة 거래·الشرطة 경찰), ur 은 정해진 어미만 허용한다(بٹن 버튼·ٹکٹ 표·ویٹر 웨이터). 사전 표기보다 길게 잡힌 꼴은 `Glossary::surfaces()` 와 색인 `hits.surface` 를 모음 부호를 빼고 맞대어 찾는다.
    다른 문자 언어(hi·bn·th·ar·ur)는 표기 뒤에 붙은 글자를 묶어 읽는다 — 위 명령의 가타카나 범위를 그 문자 범위(hi `\u0900-\u097F`, bn `\u0980-\u09FF`)로 바꾸고, 알려진 어미를 빼면 진짜 다른 낱말만 남는다.
+   **비율 점검** — 같은 용어인데 한 언어의 팝업이 en 보다 훨씬 많으면 그 언어 표기가 일상어다. en 에 없는 키의 문장을 읽는다:
+   ```bash
+   sqlite3 storage/app/popup-index/ru.sqlite "attach 'storage/app/popup-index/en.sqlite' as e; select h.chosen, count(*) n, (select count(*) from e.hits x where x.chosen=h.chosen) en from hits h group by h.chosen having n > 3*en + 10 order by n - en desc limit 20"
+   ```
+   찾은 원인 셋과 고침: ① 별칭 구절 속 쉼표 — 'запрос, ключ и значение' 가 나뉘어 "запрос"(요청) 하나가 표기가 됐다 → 별칭 구절에 쉼표를 쓰지 않는다 ② 두 낱말 용어의 한 낱말 번역 — function call 이 "호출"·"调用"·"Aufruf"(조회수까지) → 그 언어만 `context` 에 넣고 `cues` 로 함수 문맥에서만 ③ 한 낱말이 그 언어에서 두 뜻 — ru "словарь"(dict·어휘), ar "وكيل"(에이전트·프록시) → 그 낱말을 맞는 용어에 별칭으로 주고, 남는 문장은 키로(`except`).
 5. **내용을 쓴다** — 필드·문체·길이·17개 언어 절차는 [sonub/content.md](sonub/content.md)(범용 원칙은 [../content.md](../content.md)). 이미 있는 용어면 새로 만들지 말고 감싸기만 한다. 예시(`example`)는 가능하면 넣고, 더 깊은 내용은 `href` 로 SONUB 의 그 화면에 잇는다. 17개 언어는 JSON 하나에 모아 `add-terms.php` 로 넣는다(손으로 17개 파일을 열다 한 언어를 빠뜨리지 않게). 넣은 직후 `popup-check.php` 로 빠진 언어·자리표시자·죽은 참조(관련 용어·Blade 의 id)·표기 충돌을 검사한다 — 종료 코드 1 이면 고친 뒤 다시.
    ```bash
    # 입력은 컨테이너가 읽는 저장소 안에 둔다(storage/app/). --dry-run 으로 먼저 본다

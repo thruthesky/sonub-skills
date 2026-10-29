@@ -13,6 +13,7 @@
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php lookalike [언어=en] [개수=60] [all]  # IT 밖 화면(용어가 드문 그룹)에 홀로 뜬 용어 — 일상 낱말이 IT 뜻으로 잡힌 곳
  *                                                                              (all = 모든 그룹에서 en 원문의 같은 키에 없는 뜻만 — 번역에서 생긴 낱말)
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php diff <언어> <예전.sqlite>  # 사전을 고치기 전 색인 사본과 비교 — 사라진·바뀐·새로 뜬 팝업
+ *   bash $POPUP/scripts/sonub/run.sh popup-index.php cut [언어=en]              # 낱말 가운데서 끝난 표기(ja 「パラメータ」ー) — 팝업 밖에 남은 글자
  *
  * 데이터베이스: storage/app/popup-index/<언어>.sqlite (git 에 안 들어간다). sqlite3 로 직접 물어도 된다 —
  *   terms(id, category, term, short, scope, context, cues)   사전 — 용어마다 표기·한 줄 뜻·문맥 신호
@@ -207,6 +208,39 @@ if ($command === 'diff') {
         printf("%-42s %s → %s  %s\n", $row['key'], $row['was'] ?? '(없음)', $row['now'] ?? '(안 뜸)', mb_strimwidth($row['sentence'], 0, 110, '…'));
     }
     echo $n === 0 ? "바뀐 팝업 없음\n" : "{$n}곳 바뀜\n";
+    exit(0);
+}
+
+if ($command === 'cut') {
+    // 낱말 가운데서 끝난 표기 — 팝업이 낱말 일부만 감싸 나머지가 밖에 남는다(ja 「パラメータ」ー·「メモリ」ー → 장음 별칭을 더한다).
+    // 가타카나가 이어지면 복합어일 수도 있다(エージェントツール 은 그대로 둔다) — 「ー」가 이어진 것부터 보인다
+    if (! is_file($file)) {
+        fwrite(STDERR, "색인이 없습니다 — 먼저 build {$locale}\n");
+        exit(2);
+    }
+    $db = new PDO("sqlite:{$file}");
+    $found = [];
+    foreach ($db->query('SELECT h.key, h.surface, h.offset, h.chosen, t.text FROM hits h JOIN texts t ON t.key = h.key WHERE h.chosen IS NOT NULL') as $row) {
+        $next = mb_substr(substr($row['text'], $row['offset'] + strlen($row['surface'])), 0, 1);
+        $last = mb_substr($row['surface'], -1);
+        $kind = match (true) {
+            $next === 'ー' && preg_match('/[\x{30A1}-\x{30FA}]$/u', $last) => 'ー',
+            preg_match('/^[\x{30A1}-\x{30FA}\x{30FC}]$/u', $next) && preg_match('/[\x{30A1}-\x{30FA}\x{30FC}]$/u', $last) => '가타카나',
+            preg_match('/^\p{L}$/u', $next) && preg_match('/^[\p{Latin}\p{Cyrillic}]$/u', $last) && preg_match('/^[\p{Latin}\p{Cyrillic}]$/u', $next) => '글자',
+            default => null,
+        };
+        if ($kind !== null) {
+            $f = &$found["{$kind}|{$row['surface']}{$next}|{$row['chosen']}"];
+            $f = ['n' => ($f['n'] ?? 0) + 1, 'key' => $f['key'] ?? $row['key']];
+            unset($f);
+        }
+    }
+    uksort($found, fn ($a, $b) => [! str_starts_with($a, 'ー'), str_starts_with($a, '가타카나'), -$found[$a]['n']] <=> [! str_starts_with($b, 'ー'), str_starts_with($b, '가타카나'), -$found[$b]['n']]);
+    foreach ($found as $k => $f) {
+        [$kind, $word, $id] = explode('|', $k);
+        printf("%-8s %-24s %-18s %3d곳  예: %s\n", $kind, $word.'…', $id, $f['n'], $f['key']);
+    }
+    echo $found === [] ? "없음\n" : count($found)."가지 — 「ー」·글자는 그 언어 <id>_aliases 에 긴 표기를, 가타카나는 복합어인지 읽고 정한다\n";
     exit(0);
 }
 

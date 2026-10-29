@@ -10,7 +10,8 @@
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php compare <언어> [기준=en]  # 언어 간 대조 — 기준 언어가 문맥으로 거절한 뜻을 이 언어는 감싼 곳
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php query <언어> <id|표기>    # 그 용어·표기가 잡힌 모든 문장과 고른 뜻
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php senses [언어=en]          # 뜻이 여럿인 표기 → 후보 id 와 문맥 신호(뜻 목록)
- *   bash $POPUP/scripts/sonub/run.sh popup-index.php lookalike [언어=en] [개수=60]  # IT 밖 화면(용어가 드문 그룹)에 홀로 뜬 용어 — 일상 낱말이 IT 뜻으로 잡힌 곳
+ *   bash $POPUP/scripts/sonub/run.sh popup-index.php lookalike [언어=en] [개수=60] [all]  # IT 밖 화면(용어가 드문 그룹)에 홀로 뜬 용어 — 일상 낱말이 IT 뜻으로 잡힌 곳
+ *                                                                              (all = 모든 그룹에서 en 원문의 같은 키에 없는 뜻만 — 번역에서 생긴 낱말)
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php diff <언어> <예전.sqlite>  # 사전을 고치기 전 색인 사본과 비교 — 사라진·바뀐·새로 뜬 팝업
  *
  * 데이터베이스: storage/app/popup-index/<언어>.sqlite (git 에 안 들어간다). sqlite3 로 직접 물어도 된다 —
@@ -160,6 +161,7 @@ if ($command === 'lookalike') {
     // 예약·채팅·알림·한국어 과정처럼 용어가 드문 그룹에서, 다른 용어의 근거 없이(evidence 0) 혼자 뜬 IT 용어는 일상 낱말일 때가 많다
     // (ja 「この端末」 = 기기, tr 「Ana sayfaya git」 = 가라, pt 「data」 = 날짜). 영어 교재·수업·메뉴 용어(category english·lesson·menu)는 뺀다
     $limit = (int) ($argv[3] ?? 60);
+    $everyGroup = ($argv[4] ?? '') === 'all' && $locale !== 'en';
     if (! is_file($file)) {
         fwrite(STDERR, "색인이 없습니다 — 먼저 build {$locale}\n");
         exit(2);
@@ -174,7 +176,7 @@ if ($command === 'lookalike') {
     $rows = $db->query("WITH d AS (SELECT t.grp, count(DISTINCT t.key) texts, count(h.chosen) * 1.0 / count(DISTINCT t.key) density
             FROM texts t LEFT JOIN hits h ON h.key = t.key GROUP BY t.grp)
         SELECT h.key, h.chosen, h.surface, h.sentence, d.density, {$inEn} in_en FROM hits h JOIN d ON d.grp = h.grp JOIN terms m ON m.id = h.chosen
-        WHERE h.shown = 1 AND h.evidence = 0 AND d.density < 0.35 AND m.category NOT IN ('english', 'lesson', 'menu')
+        WHERE h.shown = 1 AND h.evidence = 0 AND ".($everyGroup ? "NOT ({$inEn})" : 'd.density < 0.35')." AND m.category NOT IN ('english', 'lesson', 'menu')
         ORDER BY in_en, d.density, h.chosen LIMIT ".max(1, $limit));
     $n = 0;
     foreach ($rows as $row) {

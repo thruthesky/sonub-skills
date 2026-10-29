@@ -379,6 +379,11 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
 
                     continue;
                 }
+                if (preg_match('/^:[A-Za-z_]+$/', $hit['surface']) && preg_match('/^:[A-Za-z_]+/', substr($text, $hit['offset']), $name) && $name[0] === $hit['surface']) {
+                    $stats['excluded']++;   // 표기 자체가 자리표시자(:path) — 화면에서는 값으로 바뀐다
+
+                    continue;
+                }
                 if ($hit['offset'] > 0 && $text[$hit['offset'] - 1] === ':' && preg_match('/^[A-Za-z_]+$/', $hit['surface'])
                     && preg_match('/^[A-Za-z_]+/', substr($text, $hit['offset']), $name) && strlen($name[0]) === strlen($hit['surface'])) {
                     $stats['excluded']++;   // 자리표시자 이름(:form·:name) — 화면에서는 값으로 바뀌어 이 낱말이 나오지 않는다

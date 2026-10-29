@@ -93,6 +93,10 @@ SONUB 은 왕초보를 가르친다. 설명 없이 지나간 "토큰" 한 낱말
    sqlite3 storage/app/popup-index/ru.sqlite "attach 'storage/app/popup-index/en.sqlite' as e; select h.chosen, count(*) n, (select count(*) from e.hits x where x.chosen=h.chosen) en from hits h group by h.chosen having n > 3*en + 10 order by n - en desc limit 20"
    ```
    찾은 원인 셋과 고침: ① 별칭 구절 속 쉼표 — 'запрос, ключ и значение' 가 나뉘어 "запрос"(요청) 하나가 표기가 됐다 → 별칭 구절에 쉼표를 쓰지 않는다 ② 두 낱말 용어의 한 낱말 번역 — function call 이 "호출"·"调用"·"Aufruf"(조회수까지) → 그 언어만 `context` 에 넣고 `cues` 로 함수 문맥에서만 ③ 한 낱말이 그 언어에서 두 뜻 — ru "словарь"(dict·어휘), ar "وكيل"(에이전트·프록시) → 그 낱말을 맞는 용어에 별칭으로 주고, 남는 문장은 키로(`except`).
+   표기 단위로도 본다 — en 에는 그 뜻이 없는 키에서 같은 표기가 여러 화면에 붙었으면 그 언어의 일상어일 수 있다(th "ข้อมูล" 은 "정보" — 예약 정보·내 정보, tr "izin ver" 는 "허락하다", ar "حقوق النشر" 는 저작권, vi "chỉ đọc" 은 "읽기만"). 일상 뜻이 여러 화면에 흩어져 있으면 그 언어만 `context` + `cues`, 굳은 구절이면 그 언어 `avoid`:
+   ```bash
+   sqlite3 storage/app/popup-index/th.sqlite "attach 'storage/app/popup-index/en.sqlite' as e; select h.chosen, lower(h.surface), count(distinct h.key) k from hits h where h.chosen is not null and not exists (select 1 from e.hits x where x.key=h.key and x.chosen=h.chosen) group by 1,2 having k >= 12 order by k desc limit 10"
+   ```
 5. **내용을 쓴다** — 필드·문체·길이·17개 언어 절차는 [sonub/content.md](sonub/content.md)(범용 원칙은 [../content.md](../content.md)). 이미 있는 용어면 새로 만들지 말고 감싸기만 한다. 예시(`example`)는 가능하면 넣고, 더 깊은 내용은 `href` 로 SONUB 의 그 화면에 잇는다. 17개 언어는 JSON 하나에 모아 `add-terms.php` 로 넣는다(손으로 17개 파일을 열다 한 언어를 빠뜨리지 않게). 넣은 직후 `popup-check.php` 로 빠진 언어·자리표시자·죽은 참조(관련 용어·Blade 의 id)·표기 충돌을 검사한다 — 종료 코드 1 이면 고친 뒤 다시.
    ```bash
    # 입력은 컨테이너가 읽는 저장소 안에 둔다(storage/app/). --dry-run 으로 먼저 본다

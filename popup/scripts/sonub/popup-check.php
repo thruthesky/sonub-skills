@@ -201,6 +201,19 @@ foreach ($locales as $locale) {
     }
 }
 
+// TERMS 한 항목에 같은 필드를 두 번 쓰면(PHP 는 뒤의 것만 남긴다) 앞의 avoid·except 가 조용히 사라진다 — 원본 글로 센다
+$source = (string) file_get_contents($root.'/app/Content/Glossary.php');
+$termsEnd = strpos($source, "\n    ];", (int) strpos($source, 'const TERMS'));
+preg_match_all("/^        '([a-z0-9-]+)' => \\[/m", substr($source, 0, $termsEnd ?: strlen($source)), $entries, PREG_OFFSET_CAPTURE);
+foreach ($entries[1] as $n => [$entryId, $at]) {
+    $body = substr($source, $at, ($entries[0][$n + 1][1] ?? $termsEnd) - $at);
+    foreach (['aliases', 'exact', 'scope', 'context', 'cues', 'shares', 'avoid', 'except', 'keys', 'related', 'href'] as $field) {
+        if (preg_match_all("/'{$field}' => /", $body) > 1) {
+            $problems[] = "같은 필드를 두 번 씀(뒤의 것만 남는다): {$entryId} 의 {$field}";
+        }
+    }
+}
+
 foreach (array_unique($warnings) as $warning) {
     echo "경고  {$warning}\n";
 }

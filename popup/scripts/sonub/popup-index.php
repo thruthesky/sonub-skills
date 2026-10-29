@@ -10,6 +10,8 @@
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php compare <언어> [기준=en]  # 언어 간 대조 — 기준 언어가 문맥으로 거절한 뜻을 이 언어는 감싼 곳
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php query <언어> <id|표기>    # 그 용어·표기가 잡힌 모든 문장과 고른 뜻
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php senses [언어=en]          # 뜻이 여럿인 표기 → 후보 id 와 문맥 신호(뜻 목록)
+ *   bash $POPUP/scripts/sonub/run.sh popup-index.php lookalike [언어=en] [개수=60]  # IT 밖 화면(용어가 드문 그룹)에 홀로 뜬 용어 — 일상 낱말이 IT 뜻으로 잡힌 곳
+ *   bash $POPUP/scripts/sonub/run.sh popup-index.php diff <언어> <예전.sqlite>  # 사전을 고치기 전 색인 사본과 비교 — 사라진·바뀐·새로 뜬 팝업
  *
  * 데이터베이스: storage/app/popup-index/<언어>.sqlite (git 에 안 들어간다). sqlite3 로 직접 물어도 된다 —
  *   terms(id, category, term, short, scope, context, cues)   사전 — 용어마다 표기·한 줄 뜻·문맥 신호
@@ -32,6 +34,8 @@
  */
 
 use App\Content\AiCourse;
+use App\Content\AiInternals;
+use App\Content\EnglishCourse;
 use App\Content\Glossary;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Arr;
@@ -44,6 +48,11 @@ $app->make(Kernel::class)->bootstrap();
 $command = $argv[1] ?? 'build';
 $locale = $argv[2] ?? 'en';
 $dir = $root.'/storage/app/popup-index';
+if (! in_array($locale, [...array_keys(config('locales.locales')), ...($command === 'build' ? ['all'] : [])], true)) {
+    // 셸 변수가 안 나뉘어 "ar runner" 같은 값이 오면 그 이름의 빈 데이터베이스를 만들던 것을 막는다
+    fwrite(STDERR, "모르는 언어 '{$locale}' — config/locales.php 의 17개 언어 중 하나(build 는 all 도)\n");
+    exit(2);
+}
 @mkdir($dir, 0775, true);
 $file = "{$dir}/{$locale}.sqlite";
 $terms = (new ReflectionClassConstant(Glossary::class, 'TERMS'))->getValue();
@@ -60,7 +69,7 @@ $terms = (new ReflectionClassConstant(Glossary::class, 'TERMS'))->getValue();
  */
 function group_excludes(): array
 {
-    return ['englesson' => App\Content\EnglishCourse::GLOSSARY_EXCLUDE, 'english' => App\Content\EnglishCourse::GLOSSARY_EXCLUDE, 'aiint' => App\Content\AiInternals::GLOSSARY_EXCLUDE];
+    return ['englesson' => EnglishCourse::GLOSSARY_EXCLUDE, 'english' => EnglishCourse::GLOSSARY_EXCLUDE, 'aiint' => AiInternals::GLOSSARY_EXCLUDE];
 }
 
 const DYNAMIC_SCOPES = ['aicourse' => 'learn-ai', 'shdeep' => 'shell', 'shpat' => 'shell', 'shchain' => 'shell', 'shfig' => 'shell', 'shell_advanced' => 'shell', 'shell_regex' => 'shell'];
@@ -144,6 +153,58 @@ if ($command === 'compare') {
         echo "{$row['key']}  {$locale}: {$row['chosen']}  ←  {$base}: {$row['base_chosen']}\n    {$locale}  ".mb_strimwidth($row['sentence'], 0, 130, '…')."\n    {$base}  ".mb_strimwidth($row['base_sentence'], 0, 130, '…')."\n";
     }
     echo $n === 0 ? "어긋난 곳 없음\n" : "{$n}곳 — 이 언어의 문장도 그 뜻이 아니면 그 키를 except 에(17개 언어 함께), 그 언어만의 구절이면 avoid['{$locale}'] 에\n";
+    exit(0);
+}
+
+if ($command === 'lookalike') {
+    // 예약·채팅·알림·한국어 과정처럼 용어가 드문 그룹에서, 다른 용어의 근거 없이(evidence 0) 혼자 뜬 IT 용어는 일상 낱말일 때가 많다
+    // (ja 「この端末」 = 기기, tr 「Ana sayfaya git」 = 가라, pt 「data」 = 날짜). 영어 교재·수업·메뉴 용어(category english·lesson·menu)는 뺀다
+    $limit = (int) ($argv[3] ?? 60);
+    if (! is_file($file)) {
+        fwrite(STDERR, "색인이 없습니다 — 먼저 build {$locale}\n");
+        exit(2);
+    }
+    $db = new PDO("sqlite:{$file}");
+    // 영어 원문의 같은 키에 그 뜻이 없으면(en 에 없음) 그 언어만의 낱말이 IT 용어와 같은 글자인 것 — 먼저 보인다
+    $inEn = '1';
+    if ($locale !== 'en' && is_file("{$dir}/en.sqlite")) {
+        $db->exec("ATTACH DATABASE '{$dir}/en.sqlite' AS base");
+        $inEn = 'EXISTS (SELECT 1 FROM base.hits b WHERE b.key = h.key AND b.chosen = h.chosen)';
+    }
+    $rows = $db->query("WITH d AS (SELECT t.grp, count(DISTINCT t.key) texts, count(h.chosen) * 1.0 / count(DISTINCT t.key) density
+            FROM texts t LEFT JOIN hits h ON h.key = t.key GROUP BY t.grp)
+        SELECT h.key, h.chosen, h.surface, h.sentence, d.density, {$inEn} in_en FROM hits h JOIN d ON d.grp = h.grp JOIN terms m ON m.id = h.chosen
+        WHERE h.shown = 1 AND h.evidence = 0 AND d.density < 0.35 AND m.category NOT IN ('english', 'lesson', 'menu')
+        ORDER BY in_en, d.density, h.chosen LIMIT ".max(1, $limit));
+    $n = 0;
+    foreach ($rows as $row) {
+        $n++;
+        printf("%-42s %-16s %-14s (용어 %.2f/문장%s) %s\n", $row['key'], $row['chosen'], $row['surface'], $row['density'], $row['in_en'] ? '' : ' · en 에 없음', mb_strimwidth($row['sentence'], 0, 110, '…'));
+    }
+    echo $n === 0 ? "없음\n" : "{$n}곳 — 문장을 읽고 그 뜻이 아니면 그 언어만의 구절은 avoid['{$locale}'], 원문부터 다른 뜻이면 키를 except 에(17개 언어 함께)\n";
+    exit(0);
+}
+
+if ($command === 'diff') {
+    // 사전을 고치기 전에 cp storage/app/popup-index/*.sqlite storage/app/popup-index-old/ → 고치고 build → diff <언어> storage/app/popup-index-old/<언어>.sqlite
+    // 사본은 저장소 안(storage/)에 둔다 — run.sh 가 컨테이너에서 돌아 호스트의 /tmp 는 보이지 않는다
+    $old = $argv[3] ?? '';
+    if (! is_file($file) || ! is_file($old) || filesize($old) === 0) {
+        fwrite(STDERR, "비교할 색인이 없습니다 — diff <언어> <예전 사본.sqlite>\n");
+        exit(2);
+    }
+    $db = new PDO("sqlite:{$file}");
+    $db->exec('ATTACH DATABASE '.$db->quote($old).' AS old');
+    $rows = $db->query("SELECT o.key, o.chosen was, h.chosen now, coalesce(h.sentence, o.sentence) sentence FROM old.hits o LEFT JOIN hits h ON h.key = o.key AND h.offset = o.offset
+            WHERE o.shown = 1 AND (h.key IS NULL OR h.shown <> 1 OR coalesce(h.chosen, '') <> coalesce(o.chosen, ''))
+        UNION ALL SELECT h.key, NULL, h.chosen, h.sentence FROM hits h LEFT JOIN old.hits o ON o.key = h.key AND o.offset = h.offset
+            WHERE h.shown = 1 AND (o.key IS NULL OR o.shown <> 1) ORDER BY 1");
+    $n = 0;
+    foreach ($rows as $row) {
+        $n++;
+        printf("%-42s %s → %s  %s\n", $row['key'], $row['was'] ?? '(없음)', $row['now'] ?? '(안 뜸)', mb_strimwidth($row['sentence'], 0, 110, '…'));
+    }
+    echo $n === 0 ? "바뀐 팝업 없음\n" : "{$n}곳 바뀜\n";
     exit(0);
 }
 
@@ -313,6 +374,7 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
             foreach (Glossary::resolve($text, $locale, $keyScope, $page) as $hit) {
                 if ($hit['term'] !== null && isset($excluded[$hit['term']])) {
                     $stats['excluded']++;   // 화면이 :exclude 로 감싸지 않는 뜻 — 기록하지 않는다
+
                     continue;
                 }
                 $stats['hits']++;

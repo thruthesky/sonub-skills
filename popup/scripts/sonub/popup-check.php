@@ -18,7 +18,7 @@
  *      두 용어의 cues 가 똑같으면 문맥으로 가를 수 없어 문제다. cues·context·shares 가 가리키는 id 도 사전에 있어야 한다(화면 이름 cue 는 scope 에 쓰인 이름).
  *      같은 층끼리만 센다 — 화면 전용 낱말(scope)이 모든 화면의 낱말을 이기는 것은 일부러 그렇게 둔 것이다('프롬프트').
  *      대소문자까지 같아야 하는 표기(case·exact)는 따로 센다('PATH' 와 'path')
- *      avoid 정규식이 컴파일되는지, except·keys 의 번역 키가 lang/en 에 있는지도 본다
+ *      avoid 정규식이 컴파일되는지, avoid 에 같은 언어를 두 번 쓰지 않았는지, except·keys 의 번역 키가 lang/en 에 있는지도 본다
  *   7) 두 글자 이하 라틴 표기 — 다른 낱말에 박히기 쉽다(경고만, 실패로 치지 않는다)
  */
 
@@ -219,6 +219,32 @@ foreach ($entries[1] as $n => [$entryId, $at]) {
     foreach (['aliases', 'exact', 'scope', 'context', 'cues', 'shares', 'avoid', 'except', 'keys', 'related', 'href'] as $field) {
         if (preg_match_all("/'{$field}' => /", $body) > 1) {
             $problems[] = "같은 필드를 두 번 씀(뒤의 것만 남는다): {$entryId} 의 {$field}";
+        }
+    }
+    // avoid 안에 같은 언어를 두 번 쓰면('ar' => […], 'ar' => […]) 앞 언어의 정규식이 조용히 사라진다 — 바로 아래 층의 키만 센다
+    if (preg_match("/'avoid' => \\[/", $body, $open, PREG_OFFSET_CAPTURE)) {
+        $depth = 0;
+        $keys = [];
+        $text = substr($body, $open[0][1] + strlen($open[0][0]) - 1);
+        for ($i = 0, $len = strlen($text); $i < $len; $i++) {
+            $c = $text[$i];
+            if ($c === "'") {
+                $end = $i + 1;
+                while ($end < $len && $text[$end] !== "'") {
+                    $end += $text[$end] === '\\' ? 2 : 1;
+                }
+                if ($depth === 1 && preg_match('/^\s*=>/', substr($text, $end + 1, 4))) {
+                    $keys[] = substr($text, $i + 1, $end - $i - 1);
+                }
+                $i = $end;
+            } elseif ($c === '[') {
+                $depth++;
+            } elseif ($c === ']' && --$depth === 0) {
+                break;
+            }
+        }
+        foreach (array_keys(array_filter(array_count_values($keys), fn ($n) => $n > 1)) as $dup) {
+            $problems[] = "avoid 에 같은 언어를 두 번 씀(뒤의 것만 남는다): {$entryId} 의 '{$dup}' — 한 배열로 합친다";
         }
     }
 }

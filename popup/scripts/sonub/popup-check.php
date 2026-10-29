@@ -18,6 +18,7 @@
  *      두 용어의 cues 가 똑같으면 문맥으로 가를 수 없어 문제다. cues·context·shares 가 가리키는 id 도 사전에 있어야 한다(화면 이름 cue 는 scope 에 쓰인 이름).
  *      같은 층끼리만 센다 — 화면 전용 낱말(scope)이 모든 화면의 낱말을 이기는 것은 일부러 그렇게 둔 것이다('프롬프트').
  *      대소문자까지 같아야 하는 표기(case·exact)는 따로 센다('PATH' 와 'path')
+ *      avoid 정규식이 컴파일되는지, except·keys 의 번역 키가 lang/en 에 있는지도 본다
  *   7) 두 글자 이하 라틴 표기 — 다른 낱말에 박히기 쉽다(경고만, 실패로 치지 않는다)
  */
 
@@ -137,6 +138,25 @@ foreach ($terms as $id => $spec) {
     foreach ($spec['shares'] ?? [] as $owner) {
         if (! Glossary::has($owner)) {
             $problems[] = "없는 용어의 표기를 빌림: {$id} 의 shares → {$owner}";
+        }
+    }
+    // avoid 정규식은 resolve() 처럼 '/…/iu' 로 감싸 컴파일된다 — 틀리면 그 화면 전체가 오류로 멈춘다
+    foreach ($spec['avoid'] ?? [] as $locale => $patterns) {
+        if ($locale !== '*' && ! in_array($locale, $locales, true)) {
+            $problems[] = "없는 언어의 avoid: {$id} → {$locale}";
+        }
+        foreach ($patterns as $pattern) {
+            if (@preg_match('/'.$pattern.'/iu', '') === false) {
+                $problems[] = "avoid 정규식 오류: {$id} ({$locale}) {$pattern} — '/' 는 '\\/' 로";
+            }
+        }
+    }
+    // except·keys 는 번역 키 — 없는 키는 조용히 아무것도 가리지 않는다
+    foreach (['except', 'keys'] as $field) {
+        foreach ($spec[$field] ?? [] as $k) {
+            if (! Lang::has($k, 'en', false)) {
+                $problems[] = "없는 번역 키: {$id} 의 {$field} → {$k}";
+            }
         }
     }
 }

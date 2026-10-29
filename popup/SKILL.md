@@ -34,6 +34,7 @@ A reader stops at one unknown word ("token", "endpoint", "idempotent") and loses
 5. **The meaning of this sentence, or no popup.** One spelling can mean several things ("branch": Git · a branch of a science; "skill": agent skill · ability). Every meaning that is jargon gets its own entry with `cues`; everyday words get `context: true`; phrases with another meaning go to `avoid`. A wrong-meaning popup is worse than none — [content.md](references/content.md#words-with-several-meanings).
 6. **Don't underline everything.** Wrap the first use per page/section; three or four underlines per paragraph at most.
 7. **Index before and after.** When you add a term or change cues, build the sense index (`popup.py index`) and read where the meaning changed, where words were left plain, and where the context was a tie — not just the page you were asked about.
+8. **Doubt the single meanings.** A term with only one meaning is wrapped without looking at context, so its other meanings hide ("differ in **skill**", "pay **attention**", "a six-digit **code**", "a government-issued **ID**"). `popup.py index --doubt` lists everyday words wrapped with no evidence from any other term; read every sentence of the top terms and fix the wrong ones with `avoid` (a phrase that recurs) or a new meaning (`shares`).
 8. **Not done until seen.** Run `popup.py check` and open the page in a browser (hover, tap, Esc, narrow screen). Say what you could not check.
 
 ## The kit
@@ -69,7 +70,7 @@ A reader stops at one unknown word ("token", "endpoint", "idempotent") and loses
 }
 ```
 
-Required per locale: `term`, `short`, `long`. Optional: `easy`, `example`, `code` (if one locale has it, all do), `reading`, `aliases`, `href` (per locale). Per term: `category`, `aliases` (language-independent spellings), `related`, `href` (relative to the JSON file; `{locale}` is replaced), `codeLang`, `scope`, `match: false` (sentences and concepts — only explicit markup), `case: true` / `exact: [...]` (case-sensitive spellings like `cat` or `PATH`). Several meanings: `cues` (ids that show this meaning nearby), `context: true` (everyday word — only with evidence), `shares` (borrow another term's spellings), `avoid` (per-locale phrases with another meaning). Full rules: [content.md](references/content.md#term-settings).
+Required per locale: `term`, `short`, `long`. Optional: `easy`, `example`, `code` (if one locale has it, all do), `reading`, `aliases`, `href` (per locale). Per term: `category`, `aliases` (language-independent spellings), `related`, `href` (relative to the JSON file; `{locale}` is replaced), `codeLang`, `scope`, `match: false` (sentences and concepts — only explicit markup), `case: true` / `exact: [...]` (case-sensitive spellings like `cat` or `PATH`). Several meanings: `cues` (ids that show this meaning nearby), `context: true` (everyday word — only with evidence), `shares` (borrow another term's spellings), `avoid` (per-locale phrases with another meaning). Projects whose text lives in translation keys can also list keys per term (SONUB: `except` / `keys` — one fix covers every locale). Full rules: [content.md](references/content.md#term-settings).
 
 ```json
 "branch":  { "category": "dev", "aliases": ["branch", "branches"], "context": true, "cues": ["git", "commit", "repository"], … },
@@ -88,7 +89,7 @@ The request says what to focus on: `/popup the Getting Started page`, `/popup to
 3. **Audit** — `python3 scripts/popup.py audit docs/guide.md` lists the glossary terms each file already uses and **candidates**: acronyms, camelCase and `code` words with no entry. Words in the user's own language are not detected — read the text and pick them yourself.
 4. **Choose** — words a newcomer stops at; words without which the paragraph is lost; words that repeat across the project (one entry pays off many times). Skip everyday words and words the text explains right there.
 5. **Write** the entries ([content.md](references/content.md)): every locale, facts checked, an example whenever a real one exists, `href` to the page of this project that goes deeper. Put them in one input file and merge: `popup.py add new-terms.json --dry-run`, then without `--dry-run` (refuses to overwrite unless `--overwrite`).
-6. **Context** — for every new term, ask "does this spelling mean something else anywhere on the site?" (`popup.py senses`, `popup.py index --query <word>`). Give each jargon meaning `cues`, mark everyday words `context: true`, add `avoid` for phrases that still pick wrong, and declare section topics with `data-popup-topic="git"` where the words alone are not enough. Rebuild the index and read the changed / plain / tie lists.
+6. **Context** — for every new term, ask "does this spelling mean something else anywhere on the site?" (`popup.py senses`, `popup.py index --query <word>`). Give each jargon meaning `cues`, mark everyday words `context: true`, add `avoid` for phrases that still pick wrong, and declare section topics with `data-popup-topic="git"` where the words alone are not enough. Rebuild the index and read the changed / plain / tie lists, then `index --doubt` — the single-meaning words wrapped with no evidence — sentence by sentence.
 7. **Attach** — plain text inside `main`/`article`/`[data-popup-root]` is wrapped automatically. Explicit markup for the rest ([references/design.md](references/design.md#triggers)): `<span data-term="id">…</span>` for inflected forms and sentences, `<button class="popup-info" data-term="id"></button>` next to links/cards/headings, `data-term` on a link for a 400 ms hover preview, `data-popup-scope="shell"` for words whose meaning depends on the section. For Markdown that is read on GitHub (no JavaScript): `popup.py md` writes `GLOSSARY.md` and `popup.py link docs --write` links the first use in each file with the short meaning as the hover title.
 8. **Verify** — below.
 
@@ -99,6 +100,7 @@ python3 scripts/popup.py check            # fields in every locale, example code
                                           # learn-more targets exist, spelling clashes between terms (exit 1 on errors)
 python3 scripts/popup.py audit <files>    # the new terms are now found in the text
 python3 scripts/popup.py index <docs>     # sense index: which meaning each spelling got, everywhere (SQLite .popup-index.sqlite)
+python3 scripts/popup.py index --doubt    # everyday words wrapped with no evidence — where a single meaning may be wrong
 ```
 
 Then the browser: drag-select a paragraph with underlined words and paste — the words are there (a CSS kit's `button { user-select: none }` drops them; see [design.md](references/design.md#things-that-broke-before)) → hover (opens) → move slowly onto the card across the next line (stays) → move away (closes) → click (stays) → related chip (switches) → Esc (closes, focus back on the word) → Tab to a term (opens) → "learn more" lands on the right page → narrow width (bottom sheet) → another locale → RTL if shipped → dark theme if the site has one. If no browser tool is available, say so in the report.
@@ -126,7 +128,8 @@ Files changed, terms added (ids, locales), pages wrapped, words with several mea
 | `md [--locale] [--out]` | write the glossary as a Markdown page, an anchor per id |
 | `link [PATHS…] [--write] [--unlink]` | Markdown: first use of each term per file → `[word](GLOSSARY.md#id "short")`; skips code, links, headings, HTML, front matter; `--unlink` removes them again |
 | `senses [--locale] [--scope]` | spellings with several meanings (or needing evidence) → candidate ids, how each is told apart, their cues |
-| `index [PATHS…] [--locale] [--scope] [--topic] [--out]` | the sense index: every spelling found in the docs, per paragraph, with the meaning chosen by context and the scores → SQLite (`terms`, `surfaces`, `texts` + FTS5, `hits`); prints the meaning counts per spelling and the ties to review |
+| `index [PATHS…] [--locale] [--scope] [--topic] [--out]` | the sense index: every spelling found in the docs, per paragraph, with the meaning chosen by context and the scores → SQLite (`terms`, `surfaces`, `texts` + FTS5, `hits` with evidence / page / shown, `contexts` = per spelling × file × meaning counts); prints the meaning counts per spelling and the ties to review |
 | `index --query WORD\|ID [--out]` | every sentence where that word or meaning was found, with the meaning chosen |
+| `index --doubt [N] [--out]` | the top N terms whose everyday spelling was wrapped with no evidence from any other term, with sentences — read them for hidden meanings |
 
 Paths default to `.popup.json` at the git root (`glossary`, `glossaryPage`, `docs`, `siteRoot`).

@@ -103,11 +103,15 @@ One spelling can mean different things on one site: "branch" (a Git branch · a 
 
 1. **Candidates** — every term that has the spelling (and every term that `shares` it) is a candidate. Scoped terms of this section (`data-popup-scope`) always come before site-wide ones.
 2. **Evidence** — the other glossary terms already found nearby: the same sentence (weight 4), the same paragraph (1), the topics of the section (`data-popup-scope`, `data-popup-topic`, `--topic`; 2). Only unambiguous spellings count as evidence — "branch" itself proves nothing. Terms wrapped earlier on the page add at most 9 points, so they only break ties.
-3. **Avoid** — a candidate whose `avoid` pattern covers the word is out.
+3. **Avoid** — a candidate whose `avoid` pattern covers the word is out (`avoid` is per locale; `"*"` applies to every locale — names that are never translated, like a product called *Sonub Code*). Where the text lives in translation keys, a candidate can also list the keys whose sentence never means it (`except`) or always means it (`keys`) — see below.
 4. **Eligible** — `context: true` words need evidence in the sentence, paragraph or topic; borrowed spellings (`shares`) need it in the same sentence or topic, because the owner's meaning is always there ("runs without a network connection" in a long list that mentions parameters elsewhere is still a computer network). A far paragraph of the same page never makes an everyday word jargon (a course page with a Git chapter and a Python chapter: "the else branch" is not Git).
 5. **Pick** — the eligible candidate with the highest score; equal scores → glossary order. None eligible → plain text.
 
 Writing cues: pick terms that appear **only** around this meaning — `commit`, `repository` for Git; `weight`, `activation-function` for neural networks. Weak, everywhere words (`model`, `data`, `agent`) make wrong guesses: "two agents that use the same model differ in skill" is not about skill packages. When a few English phrases still pick the wrong meaning, add them to `avoid` rather than piling up cues.
+
+**The meaning belongs to the source sentence.** "Needs attention" on a booking board means the same in every translation, so when a project's text lives in translation keys, fix one sentence by its key, not by a regex in each language: `except: ["bookingflow.attention"]` takes the term out of that sentence in all locales, `keys: ["tool-master.harness_part_memory"]` gives a borrowed or `context` meaning that sentence without other evidence (and puts it ahead of scoped terms). Placeholders (`:count`) match anything. Use `avoid` for a phrase that recurs across sentences ("pay attention", "driver's licence", "a six-digit code"); use keys for a single sentence found by the index.
+
+**Hidden meanings of single-meaning terms.** A term with one meaning is wrapped everywhere its spelling appears, so its other meanings never show up as a clash: "skill" (ability), "attention" (pay attention), "code" (a six-digit code, a country code, a product name like *Sonub Code*), "ID" (an ID card), "local" (local time, a local person), "certificate" (a course certificate vs a TLS one), "server" (a waiter), "weight" (body weight), "shell" (an egg shell), "runner" (a jump-runner game). Find them with the doubt list (below): everyday spellings wrapped with **no evidence from any other term**. Read every sentence of the top terms; most are right, the wrong ones get `avoid` / `except`, or — when the other meaning is jargon too — a new term that `shares` the spelling (agent memory next to RAM). If most uses on the site are the other meaning (SONUB's "AI certificate"), make the jargon one `context: true` with precise cues.
 
 Writing a new meaning: if the other meaning is jargon too, add it as its own term with its own `cues` (`grok` the model family next to `grok-cli` the agent). If the other meaning is an everyday word (a branch of a science), don't add an entry — mark the jargon one `context: true`.
 
@@ -119,6 +123,7 @@ Before and after changing cues, look at **every** place a word is found and the 
 python3 scripts/popup.py senses                      # spellings with several meanings → candidates and their cues
 python3 scripts/popup.py index docs site/*.html     # build .popup-index.sqlite and print, per spelling, which meaning won how often
 python3 scripts/popup.py index --query branch       # every sentence with "branch", the meaning chosen, the scores
+python3 scripts/popup.py index --doubt 40           # everyday words wrapped with no evidence: hidden meanings of single-meaning terms
 ```
 
 The index is a SQLite database (standard library, FTS5 when available) you can also query directly:
@@ -128,9 +133,11 @@ The index is a SQLite database (standard library, FTS5 when available) you can a
 | `terms(id, category, term, short, scope, context, cues)` | the glossary — one row per term |
 | `surfaces(surface, candidates)` | the reverse index: a spelling → its candidate meanings (`~id` = borrowed) |
 | `texts(file, paragraph, text)` + `texts_fts` | every paragraph, full-text searchable: `SELECT file FROM texts_fts WHERE texts_fts MATCH 'branch'` |
-| `hits(file, surface, offset, chosen, legacy, candidates, margin, sentence)` | every spelling found: the meaning chosen (`NULL` = left plain), the first candidate (`legacy` — what order alone would pick), scores, the sentence with 【the word】 |
+| `hits(file, paragraph, surface, offset, chosen, legacy, candidates, margin, evidence, page, shown, sentence)` | every spelling found: the meaning chosen (`NULL` = left plain), the first candidate (`legacy` — what order alone would pick), scores, `evidence` from other terms (0 = nothing but the word itself), page evidence, `shown` (the first place in the file — where the popup really appears), the sentence with 【the word】 |
+| `contexts(surface, chosen, file, n, shown, near, bare)` | by context: one spelling per file and meaning — how often, how many with evidence (`near`) or none (`bare`) |
+| `meta(k, v)` | the locale the index was built for |
 
-Read three lists: `chosen <> legacy` (the context changed the meaning — right?), `chosen IS NULL` (left plain — was it really not jargon?), and `margin < 10` (the nearby context was equal and page or order decided — add a cue). Rebuild after every change and compare the counts.
+Read four lists: `chosen <> legacy` (the context changed the meaning — right?), `chosen IS NULL` (left plain — was it really not jargon?), `margin < 10` (the nearby context was equal and page or order decided — add a cue), and `shown = 1 AND evidence = 0` (`--doubt` — a single meaning wrapped on the word alone). Build one index per locale (each locale's text is its own corpus) and compare the counts after every change.
 
 ## Many languages
 

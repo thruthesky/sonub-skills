@@ -257,11 +257,13 @@ class Matcher:
                 i += 1
 
     def needs_context(self, cand):
-        return cand.startswith('~') or self.data['terms'][cand].get('context') is True
+        ctx = self.data['terms'][cand].get('context')
+        return cand.startswith('~') or ctx is True or (isinstance(ctx, list) and self.locale in ctx)   # a list = only in those locales
 
     def resolve(self, text, page=None, topics=()):
         """Pick a meaning for every spelling found in `text` (one paragraph).
-        Returns [(start, end, id or None, {id: (score, eligible, avoided)})]. None = no evidence for a word that needs it — leave it plain."""
+        Returns [(start, end, id or None, {id: (score, eligible, avoided, tier, others)})]. None = no evidence for a word that needs it — leave it plain.
+        others = evidence from other terms (sentence 4, paragraph 1, topic 2, page 1 each) — 0 means nothing but the word itself."""
         terms = self.data['terms']
         hits = list(self.spans(text))
         bounds = [m.start() for m in SENTENCE_END.finditer(text)]
@@ -284,11 +286,15 @@ class Matcher:
                 close = sum(CUE_WEIGHTS['sentence'] * (q in near) + CUE_WEIGHTS['topic'] * (q in topics) for q in cues)
                 local = close + sum(CUE_WEIGHTS['text'] * (q in text_ids) for q in cues)
                 far = sum(1 for q in cues if q in page)
-                avoided = any(m.start() <= s and m.end() >= e for p in ((t.get('avoid') or {}).get(self.locale) or []) for m in re.finditer(p, text, re.I))
+                # evidence from other terms only (not the word itself) — the sense index's "bare" places
+                others = sum(CUE_WEIGHTS['sentence'] * (q in near) + CUE_WEIGHTS['topic'] * (q in topics) + CUE_WEIGHTS['text'] * (q in text_ids) + (q in page)
+                             for q in cues if q != tid)
+                pats = [*((t.get('avoid') or {}).get(self.locale) or []), *((t.get('avoid') or {}).get('*') or [])]   # '*' = every locale (names that are never translated)
+                avoided = any(m.start() <= s and m.end() >= e for p in pats for m in re.finditer(p, text, re.I))
                 # a borrowed meaning competes with the owner's, which is always there — it needs a cue in the same sentence or topic
                 eligible = not avoided and (not self.needs_context(c) or (close if c.startswith('~') else local) > 0)
                 tier = 1 if t.get('scope') and t.get('scope') == self.scope else 0
-                scores[tid] = (local * 10 + min(far, PAGE_CAP), eligible, avoided, tier)
+                scores[tid] = (local * 10 + min(far, PAGE_CAP), eligible, avoided, tier, others)
                 if eligible and (best is None or (tier, scores[tid][0]) > (scores[best][3], scores[best][0])):
                     best = tid
             out.append((s, e, best, scores))
@@ -835,10 +841,12 @@ def cmd_index(a):
     import sqlite3
     conf = project()
     out = a.out or os.path.join(conf['_root'], '.popup-index.sqlite')
-    if a.query:
+    if a.query or a.doubt:
         if not os.path.exists(out):
             raise SystemExit(f'no index at {out} — run: popup.py index PATH…')
         db = sqlite3.connect(out)
+        if a.doubt:
+            return index_doubt(db, a.doubt)
         rows = db.execute('SELECT file, surface, chosen, legacy, candidates, sentence FROM hits WHERE chosen = ? OR legacy = ? OR lower(surface) = lower(?) '
                           'ORDER BY chosen IS NULL DESC, file', (a.query,) * 3).fetchall()
         for f, surface, chosen, legacy, cands, sentence in rows:
@@ -856,7 +864,9 @@ def cmd_index(a):
     db.executescript('''CREATE TABLE terms (id TEXT PRIMARY KEY, category TEXT, term TEXT, short TEXT, scope TEXT, context INTEGER, cues TEXT);
         CREATE TABLE surfaces (surface TEXT, candidates TEXT);
         CREATE TABLE texts (file TEXT, paragraph INTEGER, text TEXT);
-        CREATE TABLE hits (file TEXT, surface TEXT, offset INTEGER, chosen TEXT, legacy TEXT, candidates TEXT, margin INTEGER, sentence TEXT);
+        CREATE TABLE hits (file TEXT, paragraph INTEGER, surface TEXT, offset INTEGER, chosen TEXT, legacy TEXT, candidates TEXT, margin INTEGER,
+            evidence INTEGER, page INTEGER, shown INTEGER, sentence TEXT);
+        CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT);
         CREATE INDEX hits_chosen ON hits(chosen); CREATE INDEX hits_surface ON hits(surface);''')
     try:
         db.execute('CREATE VIRTUAL TABLE texts_fts USING fts5(file UNINDEXED, text)')
@@ -866,7 +876,7 @@ def cmd_index(a):
     for tid, t in data['terms'].items():
         cues = t.get('cues') if t.get('cues') is not None else t.get('related') or []
         db.execute('INSERT INTO terms VALUES (?,?,?,?,?,?,?)', (tid, t.get('category'), text_of(data, tid, locale).get('term'), text_of(data, tid, locale).get('short'),
-                                                                t.get('scope'), int(t.get('context') is True), ','.join(cues)))
+                                                                t.get('scope'), int(m.needs_context(tid)), ','.join(cues)))
     for first in m.by_first.values():
         for s, _, cands in first:
             if len(cands) > 1 or m.needs_context(cands[0]):
@@ -881,7 +891,7 @@ def cmd_index(a):
             continue
         stats['files'] += 1
         rel = os.path.relpath(path)
-        page = {}
+        page, shown = {}, set()
         for n, para in enumerate(x.strip() for x in re.split(r'\n\s*\n', prose(path, raw)[0])):
             if not para:
                 continue
@@ -897,7 +907,10 @@ def cmd_index(a):
                 en = SENTENCE_END.search(para, e)
                 sentence = (para[st:s] + '【' + para[s:e] + '】' + para[e:en.end() if en else len(para)]).strip()
                 cands = json.dumps({k: f"{v[0]}{'' if v[1] else (' avoid' if v[2] else ' ×')}" for k, v in scores.items()}, ensure_ascii=False)
-                db.execute('INSERT INTO hits VALUES (?,?,?,?,?,?,?,?)', (rel, para[s:e], s, tid, legacy, cands, margin, sentence))
+                ev = scores[tid][4] if tid else None
+                db.execute('INSERT INTO hits VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', (rel, n, para[s:e], s, tid, legacy, cands, margin, ev,
+                                                                              scores[tid][0] % 10 if tid else None, int(bool(tid) and tid not in shown), sentence))
+                shown.add(tid)
                 if tid:
                     page[tid] = page.get(tid, 0) + 1
                 if len(scores) > 1 or tid is None or m.needs_context(legacy):
@@ -906,6 +919,10 @@ def cmd_index(a):
                     stats['plain'] += int(tid is None)
                     if margin is not None and margin < 10:
                         review.append(f'{rel:40} {tid or "left plain":18} {sentence[:100]}')
+    db.execute('INSERT INTO meta VALUES (?,?)', ('locale', locale))
+    # by context — one spelling, per file: which meaning, how often, how many with nearby evidence (near) or none at all (bare)
+    db.executescript('''CREATE TABLE contexts AS SELECT lower(surface) surface, chosen, file, count(*) n, sum(shown) shown, sum(evidence > 0) near,
+        sum(evidence = 0) bare FROM hits GROUP BY 1, 2, 3; CREATE INDEX contexts_surface ON contexts(surface);''')
     db.commit()
     print(f'{os.path.relpath(out)} — {stats["files"]} files · {stats["hits"]} spellings found · {stats["ambiguous"]} with several meanings or needing evidence '
           f'({stats["changed"]} not the first candidate · {stats["plain"]} left plain) · locale {locale}')
@@ -916,6 +933,29 @@ def cmd_index(a):
         print('\nto review — the nearby context was equal, so the page or glossary order decided (popup.py index --query <id>):')
         for line in review[:40]:
             print('  ', line)
+    return 0
+
+
+def index_doubt(db, limit):
+    """Common words wrapped with no evidence at all. A term with one meaning is always wrapped; if its spelling is an everyday word
+    ("skill", "branch", "network"), some of those places use another meaning. Read them, then add context / avoid / a new meaning."""
+    plain = lambda w: not re.search(r'[A-Za-z\u00C0-\u024F\u0400-\u04FF]', w) or re.fullmatch(r"[a-z\u00DF-\u00FF\u0430-\u044F][a-z\u00DF-\u00FF\u0430-\u044F\s'’-]*", w)
+    context = {r[0] for r in db.execute('SELECT id FROM terms WHERE context = 1')}
+    terms = {}
+    for tid, surface, f, sentence, ev in db.execute('SELECT chosen, surface, file, sentence, evidence FROM hits WHERE chosen IS NOT NULL AND shown = 1'):
+        if not plain(surface) or tid in context:
+            continue
+        t = terms.setdefault(tid, {'shown': 0, 'bare': []})
+        t['shown'] += 1
+        if ev == 0:
+            t['bare'].append((f, sentence))
+    print('common words wrapped with no evidence — term  bare/shown (all places: --query <id>)')
+    for tid, t in sorted(terms.items(), key=lambda kv: -len(kv[1]['bare']))[:limit]:
+        if not t['bare']:
+            break
+        print(f"\n{tid}  {len(t['bare'])}/{t['shown']}")
+        for f, sentence in t['bare'][:4]:
+            print(f'    {f:36} {sentence[:120]}')
     return 0
 
 
@@ -968,6 +1008,7 @@ def main():
     s.add_argument('--topic', help='comma-separated topics (term ids or scope names) of these docs')
     s.add_argument('--out', help='SQLite file (default .popup-index.sqlite at the git root)')
     s.add_argument('--query', help='look one word or id up in an existing index')
+    s.add_argument('--doubt', type=int, nargs='?', const=40, help='list common words wrapped with no evidence (top N terms, default 40)')
     a = p.parse_args()
     if getattr(a, 'paths', None) == []:
         a.paths = None

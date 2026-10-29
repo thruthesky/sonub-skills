@@ -266,7 +266,11 @@
 		return m;
 	}
 
-	function needsContext(c) { return c.charAt(0) === '~' || data.terms[c].context === true; }
+	// context: true, or a list of locales where only that locale's spelling is an everyday word
+	function needsContext(c) {
+		var ctx = c.charAt(0) === '~' ? true : data.terms[c].context;
+		return ctx === true || (Array.isArray(ctx) && ctx.indexOf(locale) !== -1);
+	}
 
 	// every spelling in `value`: [{ start, text, cands }]
 	function spans(m, value) {
@@ -314,7 +318,7 @@
 				local += n + (para[q] ? CUE_WEIGHTS.text : 0);
 				if (pageIds[q]) far++;
 			});
-			var avoided = ((term.avoid || {})[locale] || []).some(function (p) {
+			var avoided = ((term.avoid || {})[locale] || []).concat((term.avoid || {})['*'] || []).some(function (p) {
 				var re = new RegExp(p, 'giu');
 				var a;
 				while ((a = re.exec(value))) {

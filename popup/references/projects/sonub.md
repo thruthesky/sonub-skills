@@ -46,7 +46,8 @@ SONUB 은 왕초보를 가르친다. 설명 없이 지나간 "토큰" 한 낱말
 | ✅ | 문장·개념·활용형을 명시로 감싸는 `<x-glossary.term id="…">구절</x-glossary.term>` — `'match' => false` 문장 항목, '토큰화' 같은 활용형. 단추에 `data-kind="phrase"`(옅은 밑줄)·`data-term-label`(뜻 받기 전 제목), 없는 id 면 글만(2026-10-21) | `resources/views/components/glossary/term.blade.php` |
 | ✅ | 레이아웃 전역 싣기 — 메인 레이아웃이 `@stack('head')` 앞에서 팝업 자원을 모든 화면에 싣는다. **메인 메뉴·메가 메뉴·전체 메뉴 서랍은 팝업 적용 대상에서 제외한다**(SSOT 11절 "메가 메뉴") — 링크는 이동만 하고 그룹 제목은 일반 글자다. 본문 팝업은 유지한다 | `resources/views/layouts/main.blade.php` · `partials/main-menu.blade.php` · `partials/menu-group.blade.php` |
 | ✅ | **문맥 뜻 가리기**(2026-10-28, SSOT 23절 "용어 문맥 뜻") — 같은 표기의 용어는 모두 후보, `resolve()` 가 같은 문장·문단·화면 주제의 다른 용어(`cues`)로 고른다. 흔한 낱말(`context`)은 근거가 있을 때만, 다른 용어의 표기 빌리기(`shares`), 다른 뜻 구절 빼기(`avoid`), 화면 주제 선언(`<x-glossary.text topic="git">`·`Glossary::topic()`) | `Glossary::resolve()`·`senses()`·`topic()` · `tests/Feature/GlossarySenseTest.php` |
-| ✅ | **뜻 색인**(SQLite) — 모든 번역 문장의 용어 자리·고른 뜻·점수·예전 결과를 `storage/app/popup-index/<언어>.sqlite` 에, FTS5 전문 검색, 표기별 고른 뜻 수·검토 목록·`query` | `$POPUP/scripts/sonub/popup-index.php` |
+| ✅ | **뜻 색인**(SQLite) — 17개 언어마다 모든 번역 문장의 용어 자리·고른 뜻·점수·다른 용어의 근거·실제 팝업 자리를 `storage/app/popup-index/<언어>.sqlite` 에, 문맥별 집계(`contexts`: 표기 × 화면 × 그룹 × 뜻), FTS5 전문 검색, `build all`·`report`(언어별 비교)·`doubt`(근거 없이 감싼 일반 낱말)·`query` | `$POPUP/scripts/sonub/popup-index.php` |
+| ✅ | **번역 키로 뜻 가리기** — TERMS 의 `except`(이 키의 문장에서는 이 뜻이 아니다)·`keys`(이 키의 문장에서는 이 뜻이다). 뜻은 원문 문장의 성질이라 키 하나로 17개 언어가 함께 고쳐진다 | `App\Content\Glossary::resolve()` |
 | ✅ | 팝업 음성 — 스피커(호버 0.7초 뒤·누르면 곧바로 리엔이 설명, 30일 저장)·마이크(말로 묻기), 손님·한도·시험 중·소리 없는 언어 안내(2026-10-21) | `app/Http/Controllers/Glossary/VoiceController.php` · `app/Jobs/GenerateGlossarySpeech.php` · `app/Lyen/SpeechText.php` · `app/Content/GlossaryVoice.php` · `public/js/glossary.js` — [sonub/voice.md](sonub/voice.md) |
 
 ⬜ 는 필요해지는 첫 `/popup` 작업에서 레퍼런스의 청사진대로 만든다. **만든 뒤에는 그 레퍼런스의 청사진을 실제 코드로 바꾸고 표의 ⬜ 를 ✅ 로 고친다**(스킬 문서의 원본은 SONUB 저장소의 `skills/popup/` 이므로 거기서 고치고 커밋한다 — 배포하면 https://sonub.com 이 새 스킬을 내준다).
@@ -67,14 +68,20 @@ SONUB 은 왕초보를 가르친다. 설명 없이 지나간 "토큰" 한 낱말
    ```
    `[감쌈]` 이미 팝업 · `[감쌀 수 있음]` 사전 용어가 있는데 안 감쌈 · `[용어 없음]` 새 항목이 필요한지 볼 문장 · `후보` 사전에 없는 영문 약어. 한글 개념어(확률·샘플링…)는 스크립트가 못 고르니 문장을 읽고 고른다.
 3. **고른다** — 기준: ① 그 화면을 처음 보는 왕초보가 멈출 말 ② 모르면 문단 전체를 놓치는 말 ③ 사이트 여러 곳에 되풀이되는 말(사전 한 곳의 이득이 크다). 일상어·화면이 본문에서 바로 설명 중인 말(`:exclude`)은 뺀다. 한 문단에 밑줄이 서너 개를 넘으면 산만하다 — 핵심만.
-4. **문맥을 본다** — 고를 낱말마다 "이 표기가 사이트 어디선가 다른 뜻으로 쓰이나?"를 뜻 색인으로 확인한다. 다른 뜻이 있으면 [sonub/content.md](sonub/content.md#사전-항목terms) "같은 표기, 여러 뜻" 대로 `cues`·`context`·`shares`·`avoid` 를 정한다. **틀린 뜻의 팝업은 팝업 없음보다 나쁘다.**
+4. **문맥을 본다** — 고를 낱말마다 "이 표기가 사이트 어디선가 다른 뜻으로 쓰이나?"를 뜻 색인으로 확인한다. 다른 뜻이 있으면 [sonub/content.md](sonub/content.md#사전-항목terms) "같은 표기, 여러 뜻" 대로 `cues`·`context`·`shares`·`avoid`·`except`·`keys` 를 정한다. **틀린 뜻의 팝업은 팝업 없음보다 나쁘다.** 뜻이 하나뿐인 용어도 의심한다 — `doubt` 가 다른 용어의 근거 없이 낱말 하나로 감싼 일반 낱말을 용어별로 모아 보인다("Needs attention"·"six-digit code"·"government-issued ID"·"Sonub Code"·"The server asks"(웨이터)·"Jump runner"). 위 몇 용어의 문장을 **모두** 읽는다.
    ```bash
    bash $POPUP/scripts/sonub/run.sh popup-index.php build en        # 색인(약 2분) — 표기별 고른 뜻 수와 검토 목록
+   bash $POPUP/scripts/sonub/run.sh popup-index.php build all       # 17개 언어 모두(요약만) — 4개씩 나란히: printf '%s\n' en ko … | xargs -P 4 -I{} … build {}
+   bash $POPUP/scripts/sonub/run.sh popup-index.php report          # 언어별 한 줄 — 팝업 수·근거 없는 팝업 비율·문맥으로 바뀜·뺌
+   bash $POPUP/scripts/sonub/run.sh popup-index.php doubt en 60     # 근거 없이 감싼 일반 낱말(용어별, 문장 4개씩) — 숨은 다른 뜻 찾기
+   bash $POPUP/scripts/sonub/run.sh popup-index.php compare ko      # 언어 간 대조 — 검토한 en 이 문맥으로 거절한 뜻을 ko 는 감싼 곳(같은 키)
    bash $POPUP/scripts/sonub/run.sh popup-index.php query en branch  # 그 표기·뜻이 잡힌 모든 문장과 점수
    bash $POPUP/scripts/sonub/run.sh popup-index.php senses en        # 뜻이 여럿인 표기 → 후보와 문맥 신호
    sqlite3 storage/app/popup-index/en.sqlite "select key, sentence from hits where chosen is null"   # 근거가 없어 감싸지 않은 곳
    ```
-   고친 뒤 다시 만들어 **예전과 다른 뜻**(`chosen <> legacy`)·**감싸지 않음**(`chosen is null`)·**동점**(`margin < 10`) 세 목록을 읽는다. en 과 ko·ja 처럼 언어 둘 이상.
+   고친 뒤 다시 만들어 **예전과 다른 뜻**(`chosen <> legacy`)·**감싸지 않음**(`chosen is null`)·**동점**(`margin < 10`)·**근거 없는 팝업**(`shown = 1 and evidence = 0` = `doubt`) 네 목록을 읽는다. en 과 ko·ja 처럼 언어 둘 이상 — 언어마다 낱말의 뜻 갈래가 다르다(ko "모델"·"코드", ja "コード").
+   한 문장이 틀렸으면 그 **번역 키**를 `except`·`keys` 에 넣어 17개 언어를 함께 고친다. 여러 문장에 되풀이되는 일상 구절("pay attention")만 언어별 `avoid` 정규식으로. 순서: en 을 `doubt` 로 다 읽고 고친 뒤 → 다른 언어는 `compare <언어>` 로 en 과 어긋난 곳을 본다(en 의 `avoid` 는 다른 언어에 통하지 않으니 그 문장은 키로) → 그 언어의 `doubt` 에서 그 언어만의 뜻 갈래("학습"·"프로그램")를 본다.
+   `avoid` 를 넣은 뒤에는 **너무 넓지 않은지** 감싸지 않은 목록(`chosen is null`)을 꼭 읽는다 — "attention to" 를 막았다가 "use attention to mix in information"(모델의 어텐션)까지 빠졌다.
 5. **내용을 쓴다** — 필드·문체·길이·17개 언어 절차는 [sonub/content.md](sonub/content.md)(범용 원칙은 [../content.md](../content.md)). 이미 있는 용어면 새로 만들지 말고 감싸기만 한다. 예시(`example`)는 가능하면 넣고, 더 깊은 내용은 `href` 로 SONUB 의 그 화면에 잇는다. 17개 언어는 JSON 하나에 모아 `add-terms.php` 로 넣는다(손으로 17개 파일을 열다 한 언어를 빠뜨리지 않게). 넣은 직후 `popup-check.php` 로 빠진 언어·자리표시자·죽은 참조(관련 용어·Blade 의 id)·표기 충돌을 검사한다 — 종료 코드 1 이면 고친 뒤 다시.
    ```bash
    # 입력은 컨테이너가 읽는 저장소 안에 둔다(storage/app/). --dry-run 으로 먼저 본다
@@ -127,8 +134,9 @@ SONUB 은 왕초보를 가르친다. 설명 없이 지나간 "토큰" 한 낱말
 # 1) 사전 — 17개 언어 필드·선택 필드 일치·자리표시자·관련 용어·죽은 참조·문맥 신호(cues·shares)·같은 표기의 cues 유무 (문제 있으면 종료 코드 1)
 bash $POPUP/scripts/sonub/run.sh popup-check.php
 
-# 1-2) 뜻 색인 — 고친 낱말의 모든 자리가 그 문장의 뜻인지(예전과 다른 뜻·감싸지 않음·동점 목록)
+# 1-2) 뜻 색인 — 고친 낱말의 모든 자리가 그 문장의 뜻인지(예전과 다른 뜻·감싸지 않음·동점·근거 없는 팝업)
 bash $POPUP/scripts/sonub/run.sh popup-index.php build en
+bash $POPUP/scripts/sonub/run.sh popup-index.php doubt en
 
 # 2) 번역 파일 문법·키·자리표시자 (AGENTS.md "다국어 번역"의 검사, G=glossary · 다른 그룹을 고쳤으면 그 그룹도)
 docker compose exec -T app sh -c 'for f in lang/*/glossary.php; do php -l "$f" > /dev/null || echo "문법 오류: $f"; done'
@@ -188,5 +196,5 @@ laravel 스킬의 팝업을 분석해 SONUB 에 가져올 것과 가져오지 �
 | `translate/verify-group.php <폴더> <언어…>` | 번역 그룹 하나(예: `shell_advanced`)를 통째로 맡길 때의 작업 파일 검사 |
 | `translate/vocab.php <언어> [id 정규식]` | 그 언어의 사전 표기·별칭 목록 — 번역 작업자가 본문 낱말을 사전 표기와 맞추게 한다(같아야 팝업이 붙는다) |
 | `select-check.mjs [주소목록\|/주소…]` (node, 컨테이너 밖) | 용어 글자 복사 검사 — 페이지마다 보이는 용어 문단을 Chromium·WebKit 에서 실제 마우스로 드래그해 선택 글자에 용어가 빠지지 않았는지, 모든 용어의 계산된 `user-select` 가 `text` 인지 본다. 주소 목록은 `page-crawl.py` 결과(`storage/app/popup-pages/en/pages.txt`), Playwright 는 `PLAYWRIGHT_DIR` |
-| `popup-index.php build\|query\|senses [언어] […]` | **뜻 색인** — 모든 번역 문장(glossary 빼고)에서 용어가 잡힌 자리·문맥으로 고른 뜻·점수·예전 결과(첫 후보)를 SQLite(`storage/app/popup-index/<언어>.sqlite` — `terms`·`surfaces`·`texts`+FTS5·`hits`)에 넣고, 표기별 고른 뜻 수와 동점 목록을 보인다. 화면 범위는 Blade 의 `scope="…"` 로 짐작, 번역 그룹 하나를 한 페이지로 본다 |
+| `popup-index.php build\|report\|doubt\|compare\|query\|senses [언어\|all] […]` | **뜻 색인** — 모든 번역 문장(glossary 빼고)에서 용어가 잡힌 자리·문맥으로 고른 뜻·점수·예전 결과(첫 후보)·다른 용어의 근거(`evidence`)·실제 팝업 자리(`shown`)를 SQLite(`storage/app/popup-index/<언어>.sqlite` — `terms`·`surfaces`·`texts`+FTS5·`hits`·`contexts`)에 넣고, 표기별 고른 뜻 수와 동점 목록을 보인다. `report` 는 17개 언어 비교, `doubt` 는 근거 없이 감싼 일반 낱말, `compare` 는 같은 키에서 en 이 거절한 뜻을 감싼 다른 언어의 자리. 화면 범위는 Blade 의 `scope="…"`, PHP 가 정하는 그룹은 `DYNAMIC_SCOPES`(쉘 강의 → shell)로 짐작, 번역 그룹 하나를 한 페이지로 본다 |
 | `popup-check.php` | 사전 완결성 검사 — 필수·선택 필드 17개 언어, 자리표시자, 관련 용어, Blade 의 죽은 참조, 표기 충돌. 선택 필드를 더하면 스크립트의 `POPUP_OPTIONAL`(과 `add-terms.php` 의 `TERM_FIELDS`)에도 더한다 |

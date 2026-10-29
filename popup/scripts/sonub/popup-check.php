@@ -26,6 +26,7 @@ use App\Content\Glossary;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Lang;
 
+ini_set('memory_limit', '1G'); // 17개 언어의 번역 그룹을 모두 읽는다 — 기본 한도면 아무 말 없이 멈춘다
 $root = getcwd(); // 저장소 루트(컨테이너의 /app) — run.sh 가 표준 입력으로 넘겨 실행한다
 require $root.'/vendor/autoload.php';
 $app = require $root.'/bootstrap/app.php';
@@ -156,6 +157,14 @@ foreach ($terms as $id => $spec) {
         foreach ($spec[$field] ?? [] as $k) {
             if (! Lang::has($k, 'en', false)) {
                 $problems[] = "없는 번역 키: {$id} 의 {$field} → {$k}";
+            }
+            // 자리표시자가 있는 짧은 번역문('Bölüm :number')은 같은 말로 시작하는 다른 글에 걸리기 쉽다
+            foreach ($locales as $locale) {
+                $raw = Lang::get($k, [], $locale);
+                if (is_string($raw) && preg_match('/:[a-z_]+/i', $raw) && mb_strlen(trim(preg_replace('/:[a-z_]+/i', '', $raw))) < 12) {
+                    $warnings[] = "자리표시자가 있는 짧은 번역 키: {$id} 의 {$field} → {$k} ({$locale} '{$raw}') — 같은 말로 시작하는 다른 글에 걸리지 않는지 색인에서 확인";
+                    break;
+                }
             }
         }
     }

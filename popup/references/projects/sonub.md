@@ -80,7 +80,7 @@ SONUB 은 왕초보를 가르친다. 설명 없이 지나간 "토큰" 한 낱말
    bash $POPUP/scripts/sonub/run.sh popup-index.php senses en        # 뜻이 여럿인 표기 → 후보와 문맥 신호
    bash $POPUP/scripts/sonub/run.sh popup-index.php lookalike tr 400 # 용어가 드문 그룹(예약·채팅·알림·한국어 과정)에 홀로 뜬 용어 — en 원문에 없는 뜻이 먼저
    bash $POPUP/scripts/sonub/run.sh popup-index.php lookalike tr 400 all  # 모든 그룹에서 — en 원문의 같은 키에 없는 뜻만(번역에서 생긴 낱말, 언어마다 100~160곳)
-   bash $POPUP/scripts/sonub/run.sh popup-index.php pages en 60      # 실제 화면(page-crawl.py 가 저장한 HTML)의 팝업을 page_hits 에 넣고 — ① 색인에 없는 뜻 ② 같은 표기가 화면마다 뜬 뜻들(【】가 팝업 자리)
+   bash $POPUP/scripts/sonub/run.sh popup-index.php pages en 60      # 실제 화면(page-crawl.py 가 저장한 HTML)의 팝업을 page_hits 에 넣고 — ① 색인에 없는 뜻 ② 같은 표기가 화면마다 뜬 뜻들(【】가 팝업 자리) · page-crawl.py 는 시작할 때 지난 HTML 을 지운다(옮긴 주소 /lab/* → /claude-code/* 의 옛 화면이 남아 지금 없는 틀린 뜻을 보고했다)
    bash $POPUP/scripts/sonub/run.sh popup-index.php cut ja           # 낱말 가운데서 끝난 표기 — 「パラメータ」ー(장음 별칭을 더한다)·「ホーム」ページ(홈페이지가 홈 폴더로 — avoid)
    cp storage/app/popup-index/*.sqlite storage/app/popup-index-old/  # 사전을 고치기 전 사본(저장소 안 — run.sh 는 컨테이너라 /tmp 가 안 보인다)
    bash $POPUP/scripts/sonub/run.sh popup-index.php diff tr storage/app/popup-index-old/tr.sqlite  # 고친 뒤 — 사라진·바뀐·새로 뜬 팝업
@@ -155,7 +155,7 @@ SONUB 은 왕초보를 가르친다. 설명 없이 지나간 "토큰" 한 낱말
 ## 검증
 
 ```bash
-# 1) 사전 — 17개 언어 필드·선택 필드 일치·자리표시자·관련 용어·죽은 참조·문맥 신호(cues·shares)·같은 표기의 cues 유무 (문제 있으면 종료 코드 1)
+# 1) 사전 — 17개 언어 필드·선택 필드 일치·자리표시자·관련 용어·죽은 참조·문맥 신호(cues·shares·borrow)·같은 표기의 cues 유무 (문제 있으면 종료 코드 1)
 bash $POPUP/scripts/sonub/run.sh popup-check.php
 
 # 1-2) 뜻 색인 — 고친 낱말의 모든 자리가 그 문장의 뜻인지(예전과 다른 뜻·감싸지 않음·동점·근거 없는 팝업)

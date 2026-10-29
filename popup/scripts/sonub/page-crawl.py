@@ -22,6 +22,10 @@ locale = sys.argv[1] if len(sys.argv) > 1 else 'ko'
 limit = int(sys.argv[2]) if len(sys.argv) > 2 else 600
 out = os.path.join('storage/app/popup-pages', locale)
 os.makedirs(os.path.join(out, 'html'), exist_ok=True)
+# 지난 수집본을 지운다 — 없어지거나 옮긴 주소(301)의 옛 화면이 남으면 pages 점검이 지금 없는 뜻을 보고한다
+for old in os.listdir(os.path.join(out, 'html')):
+    if old.endswith('.html'):
+        os.remove(os.path.join(out, 'html', old))
 
 # 로그인·개인 상태·끝없이 늘어나는 글 목록은 뺀다 — 교재·안내 화면의 낱말을 보는 일이라서
 SKIP = re.compile(r'^/[a-z-]+/(?:login|me|talk|forum|board|class/|student/|school/|teacher/|org/|vibe-coding/(?:p|s|u|run)/|vibe/|exam/sign-in|search|suggest|game/)'

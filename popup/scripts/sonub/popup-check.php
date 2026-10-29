@@ -141,6 +141,15 @@ foreach ($terms as $id => $spec) {
             $problems[] = "없는 용어의 표기를 빌림: {$id} 의 shares → {$owner}";
         }
     }
+    // borrow 는 shares 가 있을 때만 뜻이 있고, 주인 표기와 같은 소문자로 적는다
+    if (isset($spec['borrow']) && empty($spec['shares'])) {
+        $problems[] = "shares 없는 borrow: {$id}";
+    }
+    foreach ($spec['borrow'] ?? [] as $text) {
+        if ($text !== mb_strtolower($text)) {
+            $problems[] = "borrow 표기는 소문자로: {$id} → {$text}";
+        }
+    }
     // avoid 정규식은 resolve() 처럼 '/…/iu' 로 감싸 컴파일된다 — 틀리면 그 화면 전체가 오류로 멈춘다
     foreach ($spec['avoid'] ?? [] as $locale => $patterns) {
         if ($locale !== '*' && ! in_array($locale, $locales, true)) {
@@ -216,7 +225,7 @@ $termsEnd = strpos($source, "\n    ];", (int) strpos($source, 'const TERMS'));
 preg_match_all("/^        '([a-z0-9-]+)' => \\[/m", substr($source, 0, $termsEnd ?: strlen($source)), $entries, PREG_OFFSET_CAPTURE);
 foreach ($entries[1] as $n => [$entryId, $at]) {
     $body = substr($source, $at, ($entries[0][$n + 1][1] ?? $termsEnd) - $at);
-    foreach (['aliases', 'exact', 'scope', 'context', 'cues', 'shares', 'avoid', 'except', 'keys', 'related', 'href'] as $field) {
+    foreach (['aliases', 'exact', 'scope', 'context', 'cues', 'shares', 'borrow', 'avoid', 'except', 'keys', 'related', 'href'] as $field) {
         if (preg_match_all("/'{$field}' => /", $body) > 1) {
             $problems[] = "같은 필드를 두 번 씀(뒤의 것만 남는다): {$entryId} 의 {$field}";
         }

@@ -210,7 +210,7 @@ laravel 스킬의 팝업을 분석해 SONUB 에 가져올 것과 가져오지 �
 | `add-terms.php <입력.json> [--dry-run] [--overwrite]` | 팝업 내용(용어 필드·문구 키·이미 있는 용어의 언어별 별칭 `aliases`)을 17개 언어 파일에 한 번에 넣는다 — 17개 언어·필드·빈 값·자리표시자·기존 값 덮기를 검사하고, 하나라도 어기면 아무 파일도 쓰지 않는다. 입력 JSON 은 컨테이너가 읽는 저장소 안(`storage/app/`)에 두고 `/app/storage/app/…` 로 준다. 입력 형식은 sonub/content.md "넣는 절차" |
 | `popup-context.php <그룹> <언어> <범위\|-> <id,…>` | 용어가 잡힌 자리를 앞뒤 문맥과 함께 — 흔한 낱말이 다른 뜻에 잡히는지(오탐) 가린다 |
 | `popup-counts.php <그룹> <범위\|-> <id 앞머리,…> [언어…]` | 언어마다 잡힘 횟수 — 한 언어에서만 유난히 많은 용어(오탐 의심)와 안 잡히는 용어(표기가 본문과 다름)를 본다 |
-| `popup-plain.php [언어] [최소 글자]` | **평문 문단 찾기** — Blade 가 팝업 부품 없이 `<p>{{ __('…') }}</p>` 처럼 그대로 찍는 문단인데 사전 용어가 든 곳(파일:줄·키·잡힌 용어). 학습 내용이면 `<x-glossary.text>` 로 바꾸고 그 파일의 scope·group·exclude 를 그대로 단다. 알림 종·관리 화면·진행 메시지는 그대로 둔다. 감싼 문장을 HTML 그대로 찾던 테스트는 `withoutGlossary()` 로 본다(2026-10-29 — /tool-master·/lab·DeepSeek·OpenRouter·MoE 출처 등 30곳을 감쌈) |
+| `popup-plain.php [언어] [최소 글자]` | **평문 문단 찾기** — Blade 가 팝업 부품 없이 `<p>{{ __('…') }}</p>` 처럼 그대로 찍는 문단인데 사전 용어가 든 곳(파일:줄·키·잡힌 용어). 학습 내용이면 `<x-glossary.text>` 로 바꾸고 그 파일의 scope·group·exclude 를 그대로 단다. 알림 종·관리 화면·진행 메시지는 그대로 둔다. 감싼 문장을 HTML 그대로 찾던 테스트는 `withoutGlossary()` 로 본다(2026-10-29 — /tool-master·/lab·DeepSeek·OpenRouter·MoE 출처 등 34곳을 감쌈) |
 | `translate/verify.php` · `translate/merge-parts.py` · `translate/combine.py` | 여러 언어를 번역 작업자에게 나눠 맡길 때 — 작업 파일 검사(en 과 대조)·조각 합치기·17개를 add-terms 입력으로 묶기. 지침 틀은 [sonub/translate-brief.md](sonub/translate-brief.md) |
 | `translate/verify-group.php <폴더> <언어…>` | 번역 그룹 하나(예: `shell_advanced`)를 통째로 맡길 때의 작업 파일 검사 |
 | `translate/vocab.php <언어> [id 정규식]` | 그 언어의 사전 표기·별칭 목록 — 번역 작업자가 본문 낱말을 사전 표기와 맞추게 한다(같아야 팝업이 붙는다) |

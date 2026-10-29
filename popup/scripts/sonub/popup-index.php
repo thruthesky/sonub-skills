@@ -52,7 +52,7 @@ $terms = (new ReflectionClassConstant(Glossary::class, 'TERMS'))->getValue();
  */
 const DYNAMIC_SCOPES = ['shdeep' => 'shell', 'shpat' => 'shell', 'shchain' => 'shell', 'shfig' => 'shell', 'shell_advanced' => 'shell', 'shell_regex' => 'shell'];
 
-/** 표기가 든 문장 — 앞뒤 문장 경계까지. 표기는 【】로 보인다. */
+/** 표기가 든 문장 — 앞뒤 문장 경계까지. 표기는 【】로 보인다. 표기 바로 앞 공백은 남겨 낱말 가운데서 시작한 표기(웹브라우저·메타데이터)와 구별한다. */
 function sentence_around(string $text, int $offset, string $surface): string
 {
     $before = substr($text, 0, $offset);
@@ -60,7 +60,7 @@ function sentence_around(string $text, int $offset, string $surface): string
     $start = preg_match('/^.*[.!?。！？।؟۔\n]\s*/su', $before, $m) ? strlen($m[0]) : 0;
     $end = preg_match('/[.!?。！？।؟۔](?=\s|$)|\n/u', $after, $m, PREG_OFFSET_CAPTURE) ? $m[0][1] + strlen($m[0][0]) : strlen($after);
 
-    return trim(substr($before, $start)).'【'.$surface.'】'.rtrim(substr($after, 0, $end));
+    return ltrim(substr($before, $start)).'【'.$surface.'】'.rtrim(substr($after, 0, $end));
 }
 
 if ($command === 'senses') {

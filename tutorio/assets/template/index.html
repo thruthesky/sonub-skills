@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="{{LANG}}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{TITLE}} — tutorial</title>
+    <!-- tutorio project: scenes are HTML (webmovie), the words are real text. One file plays as 16:9 and 9:16 (orientation media query). -->
+    <link rel="stylesheet" href="kit/webmovie.css">
+    <link rel="stylesheet" href="movie.css">
+    <script src="kit/webmovie.js"></script>
+    <script src="movie.js"></script>
+</head>
+<body>
+<main class="tut">
+    <p class="tut-brand">Your Brand</p>
+
+    <section class="tut-movie" data-webmovie-player data-webmovie-power="bold" aria-label="{{TITLE}}"
+             data-label-play="Play" data-label-pause="Pause" data-label-replay="Replay" data-label-scene="Scene">
+
+        <!-- 1. Title: what you will be able to do -->
+        <section id="intro" class="webmovie-scene tut-plain" data-webmovie-hold="6000" data-webmovie-exit="zoom">
+            <span class="tut-blob webmovie-ambient" aria-hidden="true"></span>
+            <div class="tut-copy">
+                <p class="tut-kicker" data-webmovie="drop-in">Tutorial · 1 minute</p>
+                <h1 data-webmovie="mask" data-webmovie-delay="300">{{TITLE}}</h1>
+                <ul class="tut-learn" data-webmovie="stagger" data-webmovie-delay="2200" data-webmovie-stagger="700">
+                    <li>Create an account</li>
+                    <li>Install the tool</li>
+                    <li>Run your first project</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- 2. A screen step: the cursor goes to the real button, clicks, and the focus ring stays on it.
+             data-tut-to="<selector inside the stage>" aims it automatically (movie.js); for a screenshot use the
+             --x/--y/--w/--h that capture.mjs prints. --at = when the cursor starts moving (s from scene start). -->
+        <section id="step-1" class="webmovie-scene" data-webmovie-hold="7000" data-webmovie-exit="side">
+            <div class="tut-copy">
+                <p class="tut-step" data-webmovie="drop-in">Step 1</p>
+                <h2 data-webmovie="whip" data-webmovie-delay="200">Create your account</h2>
+                <p class="tut-lead" data-webmovie="words" data-webmovie-delay="1200">Type your email, then press <mark>Sign up</mark>.</p>
+            </div>
+            <div class="tut-stage tut-zoom" data-tut-zoom-to="#signup" style="--zat: 3.6s">
+                <figure class="tut-window" data-webmovie="settle">
+                    <div class="tut-bar" aria-hidden="true"><i></i><i></i><i></i><span>example.com/signup</span></div>
+                    <div class="tut-page">
+                        <p class="tut-page-title">Create account</p>
+                        <p class="tut-field"><span class="tut-label">Email</span><span class="tut-input"><span data-webmovie="typewriter" data-webmovie-delay="2700">you@example.com</span></span></p>
+                        <p class="tut-field"><span class="tut-label">Password</span><span class="tut-input" data-webmovie="typewriter" data-webmovie-delay="3500">••••••••</span></p>
+                        <p><span id="signup" class="tut-btn">Sign up</span></p>
+                    </div>
+                </figure>
+                <span class="tut-focus" data-tut-to="#signup" style="--at: 4.9s" aria-hidden="true"></span>
+                <span class="tut-cursor" data-tut-to="#signup" style="--at: 4s" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 2l16 11-7 1.2 4.3 7.3-3 1.7-4.3-7.4L4 21z"/></svg><i class="tut-ripple"></i></span>
+            </div>
+        </section>
+
+        <!-- 3. A command: typed like a terminal, then the result appears -->
+        <section id="step-2" class="webmovie-scene" data-webmovie-hold="6500" data-webmovie-exit="side">
+            <div class="tut-copy">
+                <p class="tut-step" data-webmovie="drop-in">Step 2</p>
+                <h2 data-webmovie="whip" data-webmovie-delay="200">Install the tool</h2>
+                <p class="tut-lead" data-webmovie="words" data-webmovie-delay="1200">Open a terminal and run one command.</p>
+            </div>
+            <div class="tut-stage">
+                <figure class="tut-term" data-webmovie="settle">
+                    <div class="tut-bar" aria-hidden="true"><i></i><i></i><i></i><span>Terminal</span></div>
+                    <pre><code><span class="tut-prompt" aria-hidden="true">$ </span><span data-webmovie="typewriter" data-webmovie-delay="1800">npm install -g example-cli</span></code>
+<samp data-webmovie="fade-up" data-webmovie-delay="4200">✓ added 1 package in 2s</samp></pre>
+                </figure>
+            </div>
+        </section>
+
+        <!-- 4. A tip or a warning -->
+        <section id="tip" class="webmovie-scene tut-plain" data-webmovie-hold="5000" data-webmovie-exit="drop">
+            <div class="tut-copy">
+                <aside class="tut-callout" data-webmovie="drop-in">
+                    <svg class="tut-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21h6v-1.5H9zm3-19a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
+                    <p class="tut-callout-title">Tip</p>
+                    <p data-webmovie="words" data-webmovie-delay="900">Use the same email on every device — your projects follow you.</p>
+                </aside>
+            </div>
+        </section>
+
+        <!-- 5. Recap -->
+        <section id="recap" class="webmovie-scene tut-plain" data-webmovie-hold="5500" data-webmovie-exit="up">
+            <div class="tut-copy">
+                <h2 data-webmovie="flip">You did it</h2>
+                <ul class="tut-checks" data-webmovie="stagger" data-webmovie-delay="1000" data-webmovie-stagger="800">
+                    <li>Account created</li>
+                    <li>Tool installed</li>
+                    <li>Ready for your first project</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- 6. Next step -->
+        <section id="outro" class="webmovie-scene tut-plain" data-webmovie-hold="5000">
+            <span class="tut-blob webmovie-ambient" aria-hidden="true"></span>
+            <div class="tut-copy">
+                <h2 data-webmovie="bounce">Next: build your first page</h2>
+                <p class="tut-url" data-webmovie="blast" data-webmovie-burst="16" data-webmovie-delay="2400">example.com/start</p>
+            </div>
+        </section>
+    </section>
+</main>
+</body>
+</html>

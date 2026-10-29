@@ -1,0 +1,16 @@
+{
+    "name": "{{NAME}}",
+    "lang": "{{LANG}}",
+    "engine": "auto",
+    "voice": "F1",
+    "speed": 1.05,
+    "pad": 0.9,
+    "scenes": [
+        { "id": "intro", "text": "{{TITLE}}. In one minute you will create an account, install the tool, and run your first project." },
+        { "id": "step-1", "text": "Step one. Create your account. Type your email and a password, then press Sign up." },
+        { "id": "step-2", "text": "Step two. Open a terminal and run this one command to install the tool." },
+        { "id": "tip", "text": "Tip. Use the same email on every device, and your projects follow you." },
+        { "id": "recap", "text": "That's it. Your account is ready, the tool is installed, and you are ready for your first project." },
+        { "id": "outro", "text": "Next, build your first page. Go to example dot com slash start." }
+    ]
+}

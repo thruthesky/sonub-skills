@@ -121,7 +121,7 @@ foreach ($input['keys'] ?? [] as $key => $byLocale) {
     $additions[$key] = $byLocale;
 }
 // 이미 있는 용어의 그 언어만의 표기 — 더하기만 한다(기존 별칭을 빼는 값이면 --overwrite 없이는 멈춘다)
-$aliasSplit = fn (string $v) => preg_split('/\s*[,，、]\s*/u', trim($v), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+$aliasSplit = fn (string $v) => preg_split('/\s*(?:[，、]|(?<!\d),|,(?!\d))\s*/u', trim($v), -1, PREG_SPLIT_NO_EMPTY) ?: []; // 숫자 사이 쉼표(44,100Hz)는 나누지 않는다 — Glossary::surfaces 와 같게
 $aliasOnly = [];
 foreach ($input['aliases'] ?? [] as $id => $byLocale) {
     if (! Glossary::has($id)) {

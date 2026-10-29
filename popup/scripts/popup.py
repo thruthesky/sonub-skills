@@ -176,7 +176,7 @@ def surfaces(data, tid, locale):
         add(m.group(1), exact_all)
     for a in term.get('aliases') or []:
         add(a, exact_all or a in exact_set)
-    for a in re.split(r'[,،、，]', t.get('aliases') or ''):
+    for a in re.split(r'[،、，]|(?<!\d),|,(?!\d)', t.get('aliases') or ''):
         add(a, exact_all)
     for a in exact_set:
         add(a, True)

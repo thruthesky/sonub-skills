@@ -82,6 +82,11 @@ SONUB 은 왕초보를 가르친다. 설명 없이 지나간 "토큰" 한 낱말
    고친 뒤 다시 만들어 **예전과 다른 뜻**(`chosen <> legacy`)·**감싸지 않음**(`chosen is null`)·**동점**(`margin < 10`)·**근거 없는 팝업**(`shown = 1 and evidence = 0` = `doubt`) 네 목록을 읽는다. en 과 ko·ja 처럼 언어 둘 이상 — 언어마다 낱말의 뜻 갈래가 다르다(ko "모델"·"코드", ja "コード").
    한 문장이 틀렸으면 그 **번역 키**를 `except`·`keys` 에 넣어 17개 언어를 함께 고친다. 여러 문장에 되풀이되는 일상 구절("pay attention")만 언어별 `avoid` 정규식으로. 순서: en 을 `doubt` 로 다 읽고 고친 뒤 → 다른 언어는 `compare <언어>` 로 en 과 어긋난 곳을 본다(en 의 `avoid` 는 다른 언어에 통하지 않으니 그 문장은 키로) → 그 언어의 `doubt` 에서 그 언어만의 뜻 갈래("학습"·"프로그램")를 본다.
    `avoid` 를 넣은 뒤에는 **너무 넓지 않은지** 감싸지 않은 목록(`chosen is null`)을 꼭 읽는다 — "attention to" 를 막았다가 "use attention to mix in information"(모델의 어텐션)까지 빠졌다.
+   ja·zh 는 띄어 쓰지 않아 짧은 표기가 다른 낱말 속에서 잡힌다(ポート ← パスポート·レポート, パス ← パスワード, コード ← レコード, リンター ← プリンター, 库 ← 知识库, 云 ← 多云) — 표기 앞뒤에 가타카나·한자가 붙은 자리를 낱말째 묶어 읽고, 다른 낱말이면 그 언어의 `avoid` 에 그 낱말을 넣는다. 가타카나 표기 전체에 경계를 걸지 않는다(시험해 보니 シェルスクリプト·エージェントスキル 같은 정상 합성어 300여 곳이 빠졌다).
+   ```bash
+   sqlite3 -separator $'\t' storage/app/popup-index/ja.sqlite "select chosen, sentence from hits where chosen is not null" | python3 -c 'import re,sys,collections as C; K="[\u30A1-\u30FA\u30FC-\u30FF]"; c=C.Counter((t, m.group(1)+"["+m.group(2)+"]"+m.group(3)) for t,s in (l.rstrip("\n").split("\t",1) for l in sys.stdin) for m in [re.search("("+K+"*)【([^】]+)】("+K+"*)", s)] if m and (m.group(1) or m.group(3))); [print(t,w,n) for (t,w),n in sorted(c.items())]'
+   ```
+   `Glossary` 의 함정 셋: ① `\p{Hangul}`·`\p{Katakana}` 는 PCRE2 가 Script_Extensions 로 읽어 「 、 〈 까지 넣는다 — 경계는 글자 범위로(`Glossary::HANGUL`) ② 별칭 목록은 숫자 사이 쉼표에서 나누지 않는다("44,100Hz" 를 나눠 "16" 이 헤르츠가 됐다) ③ 번역이 없는 언어는 화면에 en 문장이 나오므로 `except`·`keys` 도 대체 언어 문장으로 맞춘다.
 5. **내용을 쓴다** — 필드·문체·길이·17개 언어 절차는 [sonub/content.md](sonub/content.md)(범용 원칙은 [../content.md](../content.md)). 이미 있는 용어면 새로 만들지 말고 감싸기만 한다. 예시(`example`)는 가능하면 넣고, 더 깊은 내용은 `href` 로 SONUB 의 그 화면에 잇는다. 17개 언어는 JSON 하나에 모아 `add-terms.php` 로 넣는다(손으로 17개 파일을 열다 한 언어를 빠뜨리지 않게). 넣은 직후 `popup-check.php` 로 빠진 언어·자리표시자·죽은 참조(관련 용어·Blade 의 id)·표기 충돌을 검사한다 — 종료 코드 1 이면 고친 뒤 다시.
    ```bash
    # 입력은 컨테이너가 읽는 저장소 안에 둔다(storage/app/). --dry-run 으로 먼저 본다

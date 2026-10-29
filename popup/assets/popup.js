@@ -187,7 +187,7 @@
 		var bracket = /^(.+?)\s*[(（]/.exec(t.term || '');
 		if (bracket) add(bracket[1], exact);
 		(term.aliases || []).forEach(function (a) { add(a, exact || exactSet.indexOf(a) >= 0); });
-		String(t.aliases || '').split(/[,،、，]/).forEach(function (a) { add(a, exact); });
+		String(t.aliases || '').split(/[،、，]|(?<!\d),|,(?!\d)/).forEach(function (a) { add(a, exact); });
 		exactSet.forEach(function (a) { add(a, true); });
 		return list;
 	}

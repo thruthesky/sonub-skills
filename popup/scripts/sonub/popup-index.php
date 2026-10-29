@@ -76,6 +76,54 @@ function group_excludes(): array
 
 const DYNAMIC_SCOPES = ['aicourse' => 'learn-ai', 'shdeep' => 'shell', 'shpat' => 'shell', 'shchain' => 'shell', 'shfig' => 'shell', 'shell_advanced' => 'shell', 'shell_regex' => 'shell'];
 
+/**
+ * 키마다 화면이 PHP 로 정하는 범위 — Blade 글자로는 알 수 없는 것. 없으면 null(그룹 짐작을 쓴다).
+ * AI 코딩 도구 화면(aitools.<앞머리>_*)은 '<도구 slug>,+shell'(aitools/level·guide.blade.php), 쉘 강의의 단원 글은 ShellCourse::glossaryScope(단원)
+ * — 이것이 없을 때 색인은 sh_devtools 를 'shell' 로만 보아, 화면(shell,git,claude-code)에서 일반 낱말 tool 이 Claude Code 도구로 뜨는 것을 놓쳤다
+ */
+function key_scope(string $key): ?string
+{
+    static $tools = null, $lessons = null;
+    $tools ??= array_column(array_map(fn ($slug, $tool) => ['prefix' => $tool['prefix'] ?? null, 'slug' => $slug],
+        array_keys($all = (new ReflectionClassConstant(App\Content\AiTools::class, 'TOOLS'))->getValue()), $all), 'slug', 'prefix');
+    $lessons ??= array_keys((new ReflectionClassConstant(App\Content\ShellCourse::class, 'GLOSSARY_SCOPES'))->getValue());
+    if (preg_match('/^aitools\.([a-z]+)_/', $key, $m) && isset($tools[$m[1]])) {
+        return $tools[$m[1]].',+shell';
+    }
+    if (preg_match('/^(?:shell|shdeep|shpat|shchain|shfig|shell_advanced)\.(?:.*?)\b('.implode('|', $lessons).')(?![a-z])/', $key, $m)) {
+        return App\Content\ShellCourse::glossaryScope($m[1]);
+    }
+
+    return null;
+}
+
+/**
+ * 화면이 감싸는 조각 — x-ui.rich-text 는 여러 줄 번역을 문단·목록(App\Support\RichText::blocks)으로 나눠 조각마다 뜻을 고른다.
+ * 색인도 같은 조각으로 고르고, 오프셋은 원문 기준([조각 시작 바이트, 조각])으로 돌려준다. 여러 줄 문단처럼 원문에 그대로 없는 조각이 있으면 통째로 본다.
+ *
+ * @return list<array{int, string}>
+ */
+function rich_pieces(string $text): array
+{
+    if (! preg_match('/\R\s*(?:\R|- )/u', $text)) {
+        return [[0, $text]];
+    }
+    $out = [];
+    $cursor = 0;
+    foreach (App\Support\RichText::blocks($text) as $block) {
+        foreach ($block['type'] === 'list' ? $block['items'] : [$block['text']] as $piece) {
+            $at = strpos($text, $piece, $cursor);
+            if ($at === false) {
+                return [[0, $text]];
+            }
+            $out[] = [$at, $piece];
+            $cursor = $at + strlen($piece);
+        }
+    }
+
+    return $out ?: [[0, $text]];
+}
+
 /** 표기가 든 문장 — 앞뒤 문장 경계까지. 표기는 【】로 보인다. 표기 바로 앞 공백은 남겨 낱말 가운데서 시작한 표기(웹브라우저·메타데이터)와 구별한다. */
 function sentence_around(string $text, int $offset, string $surface): string
 {
@@ -259,6 +307,69 @@ if ($command === 'cut') {
     exit(0);
 }
 
+if ($command === 'pages') {
+    // 실제로 그려진 화면(page-crawl.py 가 저장한 HTML)의 팝업 단추를 page_hits 에 넣고 색인과 맞댄다 — 색인은 번역 그룹 하나를 한 페이지로 짐작하지만
+    // 화면은 여러 그룹·Blade 글자·화면 범위를 섞으니, 화면에서 실제로 고른 뜻이 다를 수 있다
+    $limit = (int) ($argv[3] ?? 40);
+    $html = "{$root}/storage/app/popup-pages/{$locale}/html";
+    if (! is_file($file) || ! is_dir($html)) {
+        fwrite(STDERR, "색인·화면이 없습니다 — 먼저 build {$locale} 와 python3 \$POPUP/scripts/sonub/page-crawl.py {$locale}\n");
+        exit(2);
+    }
+    $db = new PDO("sqlite:{$file}");
+    $db->exec('DROP TABLE IF EXISTS page_hits');
+    $db->exec('CREATE TABLE page_hits (page TEXT, term TEXT, surface TEXT, block TEXT)');
+    $db->exec('CREATE INDEX page_hits_term ON page_hits(term, surface)');
+    $insert = $db->prepare('INSERT INTO page_hits VALUES (?, ?, ?, ?)');
+    $db->beginTransaction();
+    $pages = 0;
+    foreach (glob("{$html}/*.html") as $path) {
+        $dom = new DOMDocument;
+        @$dom->loadHTML('<?xml encoding="utf-8"?>'.file_get_contents($path), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $pages++;
+        foreach ((new DOMXPath($dom))->query('//button[contains(concat(" ", @class, " "), " glossary-term ")][@data-term]') as $button) {
+            $block = $button->parentNode;
+            while ($block instanceof DOMElement && ! in_array($block->nodeName, ['p', 'li', 'td', 'th', 'dd', 'dt', 'h1', 'h2', 'h3', 'h4', 'figcaption', 'blockquote', 'div', 'span'], true)) {
+                $block = $block->parentNode;
+            }
+            // 팝업 자리를 【】로 표시하고 그 앞뒤 글만 남긴다 — 문단이 길어도 어느 낱말인지 보이게
+            $surface = trim($button->textContent);
+            $mark = $dom->createTextNode('【'.$surface.'】');
+            $button->parentNode->replaceChild($mark, $button);
+            $text = trim(preg_replace('/\s+/u', ' ', $block?->textContent ?? ''));
+            $mark->parentNode->replaceChild($button, $mark);
+            $at = mb_strpos($text, '【'.$surface.'】') ?: 0;
+            $insert->execute([basename($path, '.html'), $button->getAttribute('data-term'), $surface, mb_substr($text, max(0, $at - 70), 160)]);
+        }
+    }
+    $db->commit();
+    $total = (int) $db->query('SELECT count(*) FROM page_hits')->fetchColumn();
+    echo "화면 {$pages}개 · 팝업 {$total}개를 page_hits 에 넣었다\n\n";
+    // ① 화면에만 있는 뜻 — 번역 문장 색인은 이 표기를 이 뜻으로 고른 적이 없다(Blade 글자·화면 범위·탭이 섞여 달라진 곳)
+    echo "① 색인에 없는 뜻 — 화면에서 이 표기가 이 뜻으로 떴지만 번역 문장 색인은 그렇게 고른 적이 없다\n";
+    $rows = $db->query('SELECT p.term, p.surface, count(*) n, count(DISTINCT p.page) pages, min(p.page) page, min(p.block) block FROM page_hits p
+        WHERE p.surface <> \'\' AND NOT EXISTS (SELECT 1 FROM hits h WHERE h.chosen = p.term AND lower(h.surface) = lower(p.surface))
+        GROUP BY p.term, lower(p.surface) ORDER BY pages DESC, n DESC LIMIT '.max(1, $limit));
+    $n = 0;
+    foreach ($rows as $row) {
+        $n++;
+        printf("   %-20s %-18s 화면 %2d · 예: %s\n      %s\n", $row['term'], $row['surface'], $row['pages'], $row['page'], mb_strimwidth($row['block'], 0, 140, '…'));
+    }
+    echo $n === 0 ? "   없음\n" : '';
+    // ② 같은 표기, 화면마다 다른 뜻 — 뜻이 둘 이상 뜬 표기만. 문단을 읽고 그 화면의 뜻이 맞는지 본다
+    echo "\n② 같은 표기가 화면에서 뜬 뜻들(뜻이 둘 이상인 표기)\n";
+    $multi = $db->query('SELECT lower(surface) s, group_concat(DISTINCT term) terms FROM page_hits WHERE surface <> \'\' GROUP BY lower(surface) HAVING count(DISTINCT term) > 1 ORDER BY count(*) DESC LIMIT '.max(1, $limit));
+    $example = $db->prepare('SELECT term, count(*) n, min(page) page, min(block) block FROM page_hits WHERE lower(surface) = ? GROUP BY term ORDER BY n DESC');
+    foreach ($multi as $row) {
+        echo "   '{$row['s']}'\n";
+        $example->execute([$row['s']]);
+        foreach ($example as $e) {
+            printf("      %-20s %3d곳  %s · %s\n", $e['term'], $e['n'], $e['page'], mb_strimwidth($e['block'], 0, 110, '…'));
+        }
+    }
+    exit(0);
+}
+
 if ($command === 'doubt') {
     $limit = (int) ($argv[3] ?? 40);
     if (! is_file($file)) {
@@ -412,7 +523,7 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
                 continue;
             }
             $key = "{$group}.{$key}";
-            $keyScope = $keyScopes[$key] ?? $scope;
+            $keyScope = $keyScopes[$key] ?? key_scope($key) ?? $scope;
             $excluded = array_flip($groupExcluded);
             foreach ($excludeRules as [$rule, $ids]) {
                 if (preg_match($rule, $key)) {
@@ -422,7 +533,13 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
             $stats['texts']++;
             $insertText->execute([$key, $group, $keyScope, $text]);
             $insertFts->execute([$key, $text]);
-            foreach (Glossary::resolve($text, $locale, $keyScope, $page) as $hit) {
+            $hits = [];
+            foreach (rich_pieces($text) as [$at, $piece]) {
+                foreach (Glossary::resolve($piece, $locale, $keyScope, $page) as $hit) {
+                    $hits[] = ['offset' => $hit['offset'] + $at] + $hit;
+                }
+            }
+            foreach ($hits as $hit) {
                 if ($hit['term'] !== null && isset($excluded[$hit['term']])) {
                     $stats['excluded']++;   // 화면이 :exclude 로 감싸지 않는 뜻 — 기록하지 않는다
 

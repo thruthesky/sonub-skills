@@ -54,6 +54,15 @@ $terms = (new ReflectionClassConstant(Glossary::class, 'TERMS'))->getValue();
  * AI 과정(aicourse)은 /learn/ai 의 learn-ai — 챕터 글(aicourse.<챕터>_*)은 아래 $keyScopes 가 챕터마다 AiCourse::glossaryScope() 로 덮는다.
  * 여기 적은 그룹은 Blade 에서 짐작한 값보다 앞선다(다른 화면이 그 그룹 글 하나를 빌려 쓴 scope 로 그룹 전체를 짐작하지 않게).
  */
+/**
+ * 화면이 감싸지 않는 용어(<x-glossary.text :exclude="…">) — PHP 상수로 넘겨 Blade 글자로는 그룹을 알 수 없는 것. 색인은 이 용어를 고른 자리를 기록하지 않는다(화면에 없다).
+ * 영어 교재(englesson·english)는 EnglishCourse::GLOSSARY_EXCLUDE, AI 해부학(aiint)은 AiInternals::GLOSSARY_EXCLUDE. 그 밖은 Blade 의 :exclude 글자·상수·$변수로 짐작한다.
+ */
+function group_excludes(): array
+{
+    return ['englesson' => App\Content\EnglishCourse::GLOSSARY_EXCLUDE, 'english' => App\Content\EnglishCourse::GLOSSARY_EXCLUDE, 'aiint' => App\Content\AiInternals::GLOSSARY_EXCLUDE];
+}
+
 const DYNAMIC_SCOPES = ['aicourse' => 'learn-ai', 'shdeep' => 'shell', 'shpat' => 'shell', 'shchain' => 'shell', 'shfig' => 'shell', 'shell_advanced' => 'shell', 'shell_regex' => 'shell'];
 
 /** 표기가 든 문장 — 앞뒤 문장 경계까지. 표기는 【】로 보인다. 표기 바로 앞 공백은 남겨 낱말 가운데서 시작한 표기(웹브라우저·메타데이터)와 구별한다. */
@@ -179,6 +188,9 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
     $file = "{$dir}/{$locale}.sqlite";
     // build — 번역 그룹마다 화면 범위를 짐작한다
     $groupScopes = [];
+    $excludeRules = [];
+    // 수업 화면 <x-glossary.lesson-text> 가 고정한 제외 목록
+    $lessonExclude = preg_match('/:exclude="\\[([^\\]]*)\\]"/', (string) @file_get_contents($root.'/resources/views/components/glossary/lesson-text.blade.php'), $lx) && preg_match_all("/'([a-z0-9-]+)'/", $lx[1], $lids) ? $lids[1] : [];
     $views = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root.'/resources/views', FilesystemIterator::SKIP_DOTS));
     foreach ($views as $view) {
         if (! str_ends_with($view->getFilename(), '.blade.php')) {
@@ -188,7 +200,22 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
         // :scope="$scope" — 같은 파일에서 글자로 정한 값($scope = 'learn-ai,claude-code';)이면 그 값으로 읽는다(harness·mcp 화면)
         preg_match_all("/\\$([a-zA-Z_]+)\\s*=\\s*'([a-z0-9,+-]+)'\\s*;/", implode('', $lines), $vars, PREG_SET_ORDER);
         $literal = array_column($vars, 2, 1);
+        // :exclude="$exclude" — 같은 파일의 $exclude = 클래스::상수; 로 읽는다
+        preg_match_all('/\\$([a-zA-Z_]+)\\s*=\\s*\\\\?(?:App\\\\Content\\\\)?([A-Z][A-Za-z]+)::([A-Z_]+)\\s*;/', implode('', $lines), $consts, PREG_SET_ORDER);
+        $constVars = [];
+        foreach ($consts as [, $var, $class, $const]) {
+            $constVars[$var] = [$class, $const];
+        }
         foreach ($lines as $line) {
+            $exclude = null;
+            if (str_contains($line, '<x-glossary.lesson-text')) {
+                $exclude = $lessonExclude;
+            } elseif (preg_match('/:exclude="\\\\?(?:App\\\\Content\\\\)?([A-Z][A-Za-z]+)::([A-Z_]+)"/', $line, $x) || (preg_match('/:exclude="\\$([a-zA-Z_]+)"/', $line, $v) && isset($constVars[$v[1]]) && ($x = [null, ...$constVars[$v[1]]]))) {
+                $exclude = defined("App\\Content\\{$x[1]}::{$x[2]}") ? constant("App\\Content\\{$x[1]}::{$x[2]}") : null;
+            } elseif (preg_match('/:exclude="\\[([^\\]]*)\\]"/', $line, $x)) {
+                preg_match_all("/'([a-z0-9-]+)'/", $x[1], $ids);
+                $exclude = $ids[1];
+            }
             // 머리 카드(<x-ui.page-header glossary="learn-ai">)의 glossary 값도 화면 범위다. 표의 <th scope="col|row"> 는 HTML 속성이라 뺀다
             // 수업 화면의 <x-glossary.lesson-text> 는 scope="lesson" 을 고정한 <x-glossary.text> 다(components/glossary/lesson-text.blade.php)
             $value = str_contains($line, '<x-glossary.lesson-text') ? 'lesson'
@@ -199,6 +226,12 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
                 foreach ($g[1] as $group) {
                     $groupScopes[$group][$value] = ($groupScopes[$group][$value] ?? 0) + 1;
                 }
+            }
+            // 제외는 그 줄이 그리는 글에만 — :text="__('shdeep.'.$key.'_challenge')" 는 키 꼴 ^shdeep\..+_challenge$ 로 적는다
+            if ($exclude !== null && $exclude !== [] && preg_match("/:text=\"__\\(('[^']*'(?:\\s*\\.\\s*(?:\\$[A-Za-z_]+(?:\\[[^\\]]*\\])*|'[^']*'))*)/", $line, $t)) {
+                preg_match_all("/'([^']*)'|(\\$[A-Za-z_]+(?:\\[[^\\]]*\\])*)/", $t[1], $parts, PREG_SET_ORDER);
+                $pattern = implode('', array_map(fn ($part) => isset($part[2]) ? '.+' : preg_quote($part[1], '/'), $parts));
+                $excludeRules[] = ['/^'.$pattern.'$/', $exclude];
             }
         }
     }
@@ -248,7 +281,7 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
     $insertText = $db->prepare('INSERT INTO texts VALUES (?, ?, ?, ?)');
     $insertFts = $db->prepare('INSERT INTO texts_fts VALUES (?, ?)');
     $insertHit = $db->prepare('INSERT INTO hits VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-    $stats = ['texts' => 0, 'hits' => 0, 'ambiguous' => 0, 'changed' => 0, 'dropped' => 0];
+    $stats = ['texts' => 0, 'hits' => 0, 'excluded' => 0, 'ambiguous' => 0, 'changed' => 0, 'dropped' => 0];
     $review = [];
     foreach (glob("{$root}/lang/{$locale}/*.php") as $path) {
         $group = basename($path, '.php');
@@ -259,6 +292,7 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
         arsort($scopes);
         // Blade 에 scope 가 없으면 PHP 가 정하는 화면 범위(DYNAMIC_SCOPES), 그다음 그룹 이름이 화면 이름인지 본다(git 은 Git::inline 이 PHP 에서 scope 'git' 을 넘긴다)
         $scope = DYNAMIC_SCOPES[$group] ?? array_key_first($scopes) ?? (isset($scopeNames[$group]) ? $group : null);
+        $groupExcluded = group_excludes()[$group] ?? [];
         $page = ['ids' => [], 'topics' => []];
         $shownIds = [];
         foreach (Arr::dot((array) require $path) as $key => $text) {
@@ -267,10 +301,20 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
             }
             $key = "{$group}.{$key}";
             $keyScope = $keyScopes[$key] ?? $scope;
+            $excluded = array_flip($groupExcluded);
+            foreach ($excludeRules as [$rule, $ids]) {
+                if (preg_match($rule, $key)) {
+                    $excluded += array_flip($ids);
+                }
+            }
             $stats['texts']++;
             $insertText->execute([$key, $group, $keyScope, $text]);
             $insertFts->execute([$key, $text]);
             foreach (Glossary::resolve($text, $locale, $keyScope, $page) as $hit) {
+                if ($hit['term'] !== null && isset($excluded[$hit['term']])) {
+                    $stats['excluded']++;   // 화면이 :exclude 로 감싸지 않는 뜻 — 기록하지 않는다
+                    continue;
+                }
                 $stats['hits']++;
                 $ids = array_keys($hit['candidates']);
                 $legacy = $ids[0];
@@ -305,7 +349,7 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
     sum(evidence = 0) bare FROM hits GROUP BY lower(surface), chosen, scope, grp;
     CREATE INDEX contexts_surface ON contexts(surface);');
 
-    printf("색인 %s — 문장 %d · 잡힌 자리 %d · 뜻이 여럿/근거 필요 %d (예전과 다른 뜻 %d · 근거 없어 감싸지 않음 %d)\n", substr($file, strlen($root) + 1), $stats['texts'], $stats['hits'], $stats['ambiguous'], $stats['changed'], $stats['dropped']);
+    printf("색인 %s — 문장 %d · 잡힌 자리 %d · 뜻이 여럿/근거 필요 %d (예전과 다른 뜻 %d · 근거 없어 감싸지 않음 %d) · 화면이 제외한 자리 %d\n", substr($file, strlen($root) + 1), $stats['texts'], $stats['hits'], $stats['ambiguous'], $stats['changed'], $stats['dropped'], $stats['excluded']);
     if ($quiet) {
         return;
     }

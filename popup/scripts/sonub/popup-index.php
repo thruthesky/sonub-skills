@@ -220,27 +220,42 @@ if ($command === 'cut') {
     }
     $db = new PDO("sqlite:{$file}");
     $found = [];
-    foreach ($db->query('SELECT h.key, h.surface, h.offset, h.chosen, t.text FROM hits h JOIN texts t ON t.key = h.key WHERE h.chosen IS NOT NULL') as $row) {
-        $next = mb_substr(substr($row['text'], $row['offset'] + strlen($row['surface'])), 0, 1);
+    // 띄어 쓰지 않는 zh·ja 는 ICU 사전 낱말 경계로도 본다 — zh 「测试运行」 속 「试运行」(시험 실행이 아님)·「钩子命令」 속 「子命令」·「运行时间」 속 「运行时」.
+    // ICU 도 틀리게 나눌 때가 있어(智能体和|子智能体) 읽고 정한다
+    $icu = in_array($locale, ['zh', 'ja'], true) && class_exists(IntlBreakIterator::class);
+    $bounds = [];
+    foreach ($db->query('SELECT h.key, h.surface, h.offset, h.chosen, t.text FROM hits h JOIN texts t ON t.key = h.key WHERE h.chosen IS NOT NULL ORDER BY h.key') as $row) {
+        $start = (int) $row['offset'];
+        $end = $start + strlen($row['surface']);
+        $next = mb_substr(substr($row['text'], $end), 0, 1);
         $last = mb_substr($row['surface'], -1);
+        $prev = mb_substr(substr($row['text'], 0, $start), -1);
+        if ($icu && ! isset($bounds[$row['key']])) {
+            $it = IntlBreakIterator::createWordInstance($locale);
+            $it->setText($row['text']);
+            $bounds = [$row['key'] => array_flip(iterator_to_array($it))];
+        }
         $kind = match (true) {
-            $next === 'ー' && preg_match('/[\x{30A1}-\x{30FA}]$/u', $last) => 'ー',
+            $next === 'ー' && preg_match('/[\x{30A1}-\x{30FA}]$/u', $last) === 1 => 'ー',
+            // 뒤에 결합 부호(th 모음·성조, hi·bn 모음 기호)가 붙거나 앞이 th 앞 모음(เ แ โ ใ ไ)이면 음절 가운데서 잘렸다
+            preg_match('/^\p{M}$/u', $next) === 1, preg_match('/^[\x{0E40}-\x{0E44}]$/u', $prev) === 1 => '음절',
+            $icu && (! isset($bounds[$row['key']][$start]) || ! isset($bounds[$row['key']][$end])) => '경계',
             preg_match('/^[\x{30A1}-\x{30FA}\x{30FC}]$/u', $next) && preg_match('/[\x{30A1}-\x{30FA}\x{30FC}]$/u', $last) => '가타카나',
             preg_match('/^\p{L}$/u', $next) && preg_match('/^[\p{Latin}\p{Cyrillic}]$/u', $last) && preg_match('/^[\p{Latin}\p{Cyrillic}]$/u', $next) => '글자',
             default => null,
         };
         if ($kind !== null) {
-            $f = &$found["{$kind}|{$row['surface']}{$next}|{$row['chosen']}"];
+            $f = &$found["{$kind}|".($kind === '경계' ? $prev.'['.$row['surface'].']'.$next : $row['surface'].$next)."|{$row['chosen']}"];
             $f = ['n' => ($f['n'] ?? 0) + 1, 'key' => $f['key'] ?? $row['key']];
             unset($f);
         }
     }
-    uksort($found, fn ($a, $b) => [! str_starts_with($a, 'ー'), str_starts_with($a, '가타카나'), -$found[$a]['n']] <=> [! str_starts_with($b, 'ー'), str_starts_with($b, '가타카나'), -$found[$b]['n']]);
+    uksort($found, fn ($a, $b) => [preg_match('/^(가타카나|경계)/u', $a), -$found[$a]['n']] <=> [preg_match('/^(가타카나|경계)/u', $b), -$found[$b]['n']]);
     foreach ($found as $k => $f) {
         [$kind, $word, $id] = explode('|', $k);
-        printf("%-8s %-24s %-18s %3d곳  예: %s\n", $kind, $word.'…', $id, $f['n'], $f['key']);
+        printf("%-8s %-24s %-18s %3d곳  예: %s\n", $kind, $word.($kind === '경계' ? '' : '…'), $id, $f['n'], $f['key']);
     }
-    echo $found === [] ? "없음\n" : count($found)."가지 — 「ー」·글자는 그 언어 <id>_aliases 에 긴 표기를, 가타카나는 복합어인지 읽고 정한다\n";
+    echo $found === [] ? "없음\n" : count($found)."가지 — 「ー」·글자는 그 언어 <id>_aliases 에 긴 표기를, 가타카나·경계는 복합어인지 다른 낱말 속인지 읽고 정한다(다른 낱말이면 avoid)\n";
     exit(0);
 }
 

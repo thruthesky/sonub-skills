@@ -107,13 +107,19 @@ function key_scope(string $key): ?string
  *
  * @return list<array{int, string}>
  */
+/** 용어 상세 본문(x-widget.glossary.term-body)을 그리는 용어 — 용어 상세 화면(/glossary/<이름>)과 하네스 화면의 용어 탭(/harness/built-in 등, Harness::term) */
+function detail_ids(): array
+{
+    return array_values(array_unique([...array_values(Glossary::detailSlugs()), ...array_filter(array_map([App\Content\Harness::class, 'term'], App\Content\Harness::tabKeys()))]));
+}
+
 /** 용어 상세 글의 키(glossary-detail.cc_auto_memory_use2)가 설명하는 용어 id — 키 앞머리가 그 id(밑줄로 바꾼 것)다. 공통 글(lead)은 null */
 function detail_term(string $key): ?string
 {
     static $prefixes = null;
     if ($prefixes === null) {
         $prefixes = [];
-        foreach (Glossary::detailSlugs() as $id) {
+        foreach (detail_ids() as $id) {
             $prefixes[str_replace('-', '_', $id).'_'] = $id;
         }
         uksort($prefixes, fn (string $a, string $b) => strlen($b) <=> strlen($a));
@@ -615,10 +621,14 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
         // 팝업 글 자체(glossary)는 본문에서 감싸지 않는다 — 다만 쉘 강의 단원 머리(shell/partials/lesson)는 단원 메뉴 용어(ShellCourse::lessonTerm)의
         // '쉽게 말하면'(glossary.menu_shell_<단원>_easy)을 그 단원 범위로 감싼다. 넣기 전에는 16단원의 LEGO 비유 'any model'(LEGO 모형)이
         // 15개 언어에서 AI 모델로 뜬 것을 화면 대조로만 찾았다(2026-10-30)
-        $lessonEasy = [];
+        // 용어 상세 화면(term-body)도 그 용어의 '쉽게 말하면'(<id>_easy)과 예의 설명(<id>_example)을 감싼다 — 범위 없이, 그 용어 자신은 빼고
+        $lessonEasy = $ownDetail = [];
         if ($group === 'glossary') {
             foreach (array_column(App\Content\ShellCourse::lessons(), 'key') as $lesson) {
                 $lessonEasy[str_replace('-', '_', App\Content\ShellCourse::lessonTerm($lesson)).'_easy'] = $lesson;
+            }
+            foreach (detail_ids() as $id) {
+                $ownDetail[str_replace('-', '_', $id).'_easy'] = $ownDetail[str_replace('-', '_', $id).'_example'] = $id;
             }
         }
         // 용어 상세(/glossary/<이름>)의 글은 화면에서 감싼다 — 화면 범위 없이, `코드` 조각은 빼고, 그 용어 자신은 빼고(x-widget.glossary.term-body)
@@ -635,10 +645,10 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
                 continue;
             }
             if ($group === 'glossary') {
-                if (! isset($lessonEasy[$key])) {
+                if (! isset($lessonEasy[$key]) && ! isset($ownDetail[$key])) {
                     continue;
                 }
-                [$page, $shownIds] = [['ids' => [], 'topics' => []], []];   // 단원 머리마다 따로 감싼다(group shell-<단원>-intro)
+                [$page, $shownIds] = [['ids' => [], 'topics' => []], []];   // 단원 머리·용어 상세마다 따로 감싼다(group shell-<단원>-intro · glossary-detail-<id>)
             }
             $key = "{$group}.{$key}";
             $keyScope = isset($lessonEasy[substr($key, 9)]) ? App\Content\ShellCourse::glossaryScope($lessonEasy[substr($key, 9)]) : ($keyScopes[$key] ?? key_scope($key) ?? $scope);
@@ -647,6 +657,11 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
                 if (preg_match($rule, $key)) {
                     $excluded += array_flip($ids);
                 }
+            }
+            $ownSelf = $group === 'glossary' ? ($ownDetail[substr($key, 9)] ?? null) : null;
+            if ($ownSelf !== null) {
+                $keyScope = null;
+                $excluded[$ownSelf] = true;
             }
             if ($detail && ($self = detail_term($key)) !== null) {
                 $excluded[$self] = true;
@@ -659,7 +674,7 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
             $insertText->execute([$key, $group, $keyScope, $text]);
             $insertFts->execute([$key, $text]);
             $hits = [];
-            foreach ($detail ? detail_pieces($text) : rich_pieces($text) as [$at, $piece]) {
+            foreach ($detail || $ownSelf !== null ? detail_pieces($text) : rich_pieces($text) as [$at, $piece]) {
                 foreach (Glossary::resolve($piece, $locale, $keyScope, $page) as $hit) {
                     $hits[] = ['offset' => $hit['offset'] + $at] + $hit;
                 }

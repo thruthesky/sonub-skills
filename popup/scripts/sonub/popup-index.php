@@ -103,6 +103,46 @@ function key_scope(string $key): ?string
  *
  * @return list<array{int, string}>
  */
+/** 용어 상세 글의 키(glossary-detail.cc_auto_memory_use2)가 설명하는 용어 id — 키 앞머리가 그 id(밑줄로 바꾼 것)다. 공통 글(lead)은 null */
+function detail_term(string $key): ?string
+{
+    static $prefixes = null;
+    if ($prefixes === null) {
+        $prefixes = [];
+        foreach (Glossary::detailSlugs() as $id) {
+            $prefixes[str_replace('-', '_', $id).'_'] = $id;
+        }
+        uksort($prefixes, fn (string $a, string $b) => strlen($b) <=> strlen($a));
+    }
+    $rest = substr($key, strlen('glossary-detail.'));
+    foreach ($prefixes as $prefix => $id) {
+        if (str_starts_with($rest, $prefix)) {
+            return $id;
+        }
+    }
+
+    return null;
+}
+
+/** 용어 상세 글을 화면처럼 나눈다 — `코드` 조각은 감싸지 않으므로 글 조각만 [원문 안 바이트 위치, 조각](GlossaryDetail::pieces) */
+function detail_pieces(string $text): array
+{
+    $out = [];
+    $cursor = 0;
+    foreach (App\Content\GlossaryDetail::pieces($text) as $piece) {
+        $at = strpos($text, $piece['text'], $cursor);
+        if ($at === false) {
+            return [[0, $text]];
+        }
+        $cursor = $at + strlen($piece['text']);
+        if (! $piece['code']) {
+            $out[] = [$at, $piece['text']];
+        }
+    }
+
+    return $out;
+}
+
 function rich_pieces(string $text): array
 {
     if (! preg_match('/\R\s*(?:\R|- )/u', $text)) {
@@ -508,9 +548,11 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
     $review = [];
     foreach (glob("{$root}/lang/{$locale}/*.php") as $path) {
         $group = basename($path, '.php');
-        if (in_array($group, ['glossary', 'glossary-detail'], true)) {
+        if ($group === 'glossary') {
             continue;   // 팝업 글 자체 — 본문에서 감싸지 않는다
         }
+        // 용어 상세(/glossary/<이름>)의 글은 화면에서 감싼다 — 화면 범위 없이, `코드` 조각은 빼고, 그 용어 자신은 빼고(x-widget.glossary.term-body)
+        $detail = $group === 'glossary-detail';
         $scopes = $groupScopes[$group] ?? [];
         arsort($scopes);
         // Blade 에 scope 가 없으면 PHP 가 정하는 화면 범위(DYNAMIC_SCOPES), 그다음 그룹 이름이 화면 이름인지 본다(git 은 Git::inline 이 PHP 에서 scope 'git' 을 넘긴다)
@@ -530,11 +572,18 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
                     $excluded += array_flip($ids);
                 }
             }
+            if ($detail && ($self = detail_term($key)) !== null) {
+                $excluded[$self] = true;
+                // 용어 하나가 한 화면 — 페이지 문맥과 '첫 자리만 팝업'을 용어마다 새로 센다
+                if ($self !== ($detailPage ?? null)) {
+                    [$detailPage, $page, $shownIds] = [$self, ['ids' => [], 'topics' => []], []];
+                }
+            }
             $stats['texts']++;
             $insertText->execute([$key, $group, $keyScope, $text]);
             $insertFts->execute([$key, $text]);
             $hits = [];
-            foreach (rich_pieces($text) as [$at, $piece]) {
+            foreach ($detail ? detail_pieces($text) : rich_pieces($text) as [$at, $piece]) {
                 foreach (Glossary::resolve($piece, $locale, $keyScope, $page) as $hit) {
                     $hits[] = ['offset' => $hit['offset'] + $at] + $hit;
                 }

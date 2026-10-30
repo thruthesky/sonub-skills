@@ -94,6 +94,18 @@
       "license": "MIT",
       "homepage": "https://sonub.com/skills",
       "repository": "https://github.com/thruthesky/sonub-skills"
+    },
+    {
+      "name": "wizard",
+      "description": "한 화면 한 단계 위저드·세로 체크리스트 스테퍼를 예쁘고 과하게 움직이게. Beautiful, heavily animated onboarding wizards and checklists.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./wizard"
+      ],
+      "license": "MIT",
+      "homepage": "https://sonub.com/skills",
+      "repository": "https://github.com/thruthesky/sonub-skills"
     }
   ]
 }

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wizard kit — demo</title>
+<link rel="stylesheet" href="wizard.css">
+<script src="wizard.js"></script>
+<script>
+    // demo only: ?dir=rtl · ?power=calm|bold|wild · ?transition=slide|cube|flip|zoom|drop|warp|swing
+    const q = new URLSearchParams(location.search);
+    if (q.get('dir') === 'rtl') document.documentElement.dir = 'rtl';
+    document.addEventListener('DOMContentLoaded', () => {
+        if (q.get('power')) document.body.dataset.wizardPower = q.get('power');
+        if (q.get('transition')) document.querySelectorAll('[data-wizard="steps"]').forEach((w) => (w.dataset.wizardTransition = q.get('transition')));
+    });
+</script>
+<style>
+    body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: #1f1f1f; background: #faf9fb; }
+    .demo { max-inline-size: 72rem; margin: 0 auto; padding: 2rem 1.25rem 8rem; display: grid; gap: 4rem; }
+    .demo > header h1 { margin: 0 0 0.3rem; font-size: 2rem; }
+    .demo > header p { margin: 0; color: #666; }
+    .demo-label { margin: 0 0 1rem; font: 700 0.8rem/1 system-ui; letter-spacing: 0.1em; text-transform: uppercase; color: #7c3aed; }
+    .demo-switch { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-block-start: 1rem; }
+    .demo-switch a { padding: 0.3rem 0.7rem; border-radius: 99px; background: #ede9fe; color: #5b21b6; text-decoration: none; font-size: 0.85rem; }
+    .demo-stack { background: #fff; padding: 1.5rem clamp(1rem, 3vw, 2.5rem); border-radius: 1rem; }
+</style>
+</head>
+<body>
+<main class="demo">
+    <header>
+        <h1>wizard kit</h1>
+        <p>Checklists and one-step wizards — every state is HTML, every change is loud, then still.</p>
+        <nav class="demo-switch" aria-label="Demo options">
+            <a href="?transition=slide">slide</a><a href="?transition=cube">cube</a><a href="?transition=flip">flip</a>
+            <a href="?transition=zoom">zoom</a><a href="?transition=drop">drop</a><a href="?transition=warp">warp</a><a href="?transition=swing">swing</a>
+            <a href="?power=calm">calm</a><a href="?power=bold">bold</a><a href="?power=wild">wild</a><a href="?dir=rtl">RTL</a>
+        </nav>
+    </header>
+
+    <!-- 1. Plain task sections stacked on a page (like a store console's "Release your app") -->
+    <section aria-labelledby="release-title">
+        <p class="demo-label">1 · Plain sections · .wizard-stack + .wizard-plain</p>
+        <div class="wizard-stack demo-stack">
+            <h2 class="wizard-stack-title" id="release-title">Release your app</h2>
+
+            <section class="wizard wizard-plain" data-wizard="checklist" data-wizard-save="demo-open-testing"
+                     aria-labelledby="open-title" data-label-progress="{done} of {total} complete" data-label-expand="View tasks" data-label-collapse="Hide tasks">
+                <figure class="wizard-art" aria-hidden="true"><span class="wizard-art-tile">🧪</span></figure>
+                <header class="wizard-head">
+                    <h3 class="wizard-title" id="open-title">Let anyone sign up to test your app</h3>
+                    <p class="wizard-sub">With open testing, anyone can join your tests. Testers can give feedback without it affecting your public rating.</p>
+                </header>
+                <h4 class="wizard-group-title">Set up your open test track</h4>
+                <ol class="wizard-list">
+                    <li class="wizard-item" data-wizard-item id="open-countries" data-done>
+                        <span class="wizard-marker" aria-hidden="true"></span>
+                        <div class="wizard-item-body"><h5 class="wizard-item-title">Select countries and regions</h5></div>
+                    </li>
+                </ol>
+                <h4 class="wizard-group-title">Create and roll out a release</h4>
+                <ol class="wizard-list">
+                    <li class="wizard-item" data-wizard-item id="open-release">
+                        <span class="wizard-marker" aria-hidden="true"></span>
+                        <div class="wizard-item-body">
+                            <h5 class="wizard-item-title"><a class="wizard-link" href="#open-release" data-wizard-done>Create a new release</a></h5>
+                            <p class="wizard-item-desc">Upload a build and write what is new. (Demo: clicking marks it done.)</p>
+                        </div>
+                    </li>
+                    <li class="wizard-item" data-wizard-item id="open-preview" data-locked>
+                        <span class="wizard-marker" aria-hidden="true"></span>
+                        <div class="wizard-item-body">
+                            <h5 class="wizard-item-title"><a class="wizard-link" href="#open-preview" data-wizard-done>Preview and confirm the release</a></h5>
+                        </div>
+                    </li>
+                    <li class="wizard-item" data-wizard-item id="open-send" data-locked>
+                        <span class="wizard-marker" aria-hidden="true"></span>
+                        <div class="wizard-item-body">
+                            <h5 class="wizard-item-title"><a class="wizard-link" href="#open-send" data-wizard-done>Send the release for review</a></h5>
+                        </div>
+                    </li>
+                </ol>
+            </section>
+
+            <section class="wizard wizard-plain" data-wizard="checklist" data-wizard-collapsed aria-labelledby="pre-title"
+                     data-label-progress="{done} of {total} complete" data-label-expand="View tasks" data-label-collapse="Hide tasks">
+                <figure class="wizard-art" aria-hidden="true"><span class="wizard-art-tile">📣</span></figure>
+                <header class="wizard-head">
+                    <h3 class="wizard-title" id="pre-title">Build excitement with pre-registration</h3>
+                    <p class="wizard-sub">Publish your store listing before launch so users can register their interest. When you launch, everyone who registered gets a notification.</p>
+                </header>
+                <ol class="wizard-list">
+                    <li class="wizard-item" data-wizard-item id="pre-listing"><span class="wizard-marker" aria-hidden="true"></span>
+                        <div class="wizard-item-body"><h5 class="wizard-item-title"><a class="wizard-link" href="#pre-listing" data-wizard-done>Complete your store listing</a></h5></div></li>
+                    <li class="wizard-item" data-wizard-item id="pre-countries" data-locked><span class="wizard-marker" aria-hidden="true"></span>
+                        <div class="wizard-item-body"><h5 class="wizard-item-title"><a class="wizard-link" href="#pre-countries" data-wizard-done>Choose countries</a></h5></div></li>
+                    <li class="wizard-item" data-wizard-item id="pre-start" data-locked><span class="wizard-marker" aria-hidden="true"></span>
+                        <div class="wizard-item-body"><h5 class="wizard-item-title"><a class="wizard-link" href="#pre-start" data-wizard-done>Start pre-registration</a></h5></div></li>
+                </ol>
+            </section>
+
+            <section class="wizard wizard-plain" data-wizard="checklist" aria-labelledby="prod-title"
+                     data-label-progress="{done} of {total} complete" data-label-expand="View tasks" data-label-collapse="Hide tasks">
+                <figure class="wizard-art" aria-hidden="true"><span class="wizard-art-tile">🚀</span></figure>
+                <header class="wizard-head">
+                    <h3 class="wizard-title" id="prod-title">Create and publish a release</h3>
+                    <p class="wizard-sub">Publish your app to real users by releasing it to your production track.</p>
+                </header>
+                <div class="wizard-note" role="status">
+                    <span class="wizard-note-icon" aria-hidden="true">✓</span>
+                    <p class="wizard-note-title">Congratulations! Your app has been granted production access</p>
+                    <p>Production is where you make your app available to everyone. You can now also use open testing. <a href="#open-title">Learn more about testing</a></p>
+                </div>
+                <ol class="wizard-list">
+                    <li class="wizard-item" data-wizard-item id="prod-countries" data-done><span class="wizard-marker" aria-hidden="true"></span>
+                        <div class="wizard-item-body"><h5 class="wizard-item-title">Select countries and regions</h5></div></li>
+                    <li class="wizard-item" data-wizard-item id="prod-new" data-done><span class="wizard-marker" aria-hidden="true"></span>
+                        <div class="wizard-item-body"><h5 class="wizard-item-title">Create a new release</h5></div></li>
+                    <li class="wizard-item" data-wizard-item id="prod-preview" data-done><span class="wizard-marker" aria-hidden="true"></span>
+                        <div class="wizard-item-body"><h5 class="wizard-item-title">Preview and confirm the release</h5></div></li>
+                    <li class="wizard-item" data-wizard-item id="prod-review" data-done><span class="wizard-marker" aria-hidden="true"></span>
+                        <div class="wizard-item-body"><h5 class="wizard-item-title">Send the release for review</h5></div></li>
+                    <li class="wizard-item" data-wizard-item id="prod-rollout"><span class="wizard-marker" aria-hidden="true"></span>
+                        <div class="wizard-item-body">
+                            <h5 class="wizard-item-title"><a class="wizard-link" href="#prod-rollout" data-wizard-done>Roll out to production</a></h5>
+                            <p class="wizard-item-desc">The last step — press it to see the celebration.</p>
+                        </div></li>
+                </ol>
+                <div class="wizard-banner" data-wizard-complete hidden>
+                    <span class="wizard-trophy" aria-hidden="true">🏆</span>
+                    <strong>Your app is live!</strong>
+                    <span>Everyone can install it now.</span>
+                </div>
+            </section>
+        </div>
+    </section>
+
+    <!-- 2. Card checklist: vertical stepper with progress -->
+    <section>
+        <p class="demo-label">2 · Card checklist · vertical stepper with progress</p>
+        <section class="wizard wizard-checklist wizard-tilt" data-wizard="checklist" data-wizard-save="demo-onboarding" aria-labelledby="ob-title"
+                 data-label-progress="{done} / {total} done" data-label-next-task="Next: {title}">
+            <header class="wizard-head">
+                <p class="wizard-eyebrow">Getting started</p>
+                <h2 class="wizard-title" id="ob-title">Finish setup, <mark>get a free lesson</mark></h2>
+                <p class="wizard-sub">Five short tasks. Your progress is saved to your account.</p>
+            </header>
+            <div class="wizard-banner" data-wizard-complete hidden>
+                <span class="wizard-trophy" aria-hidden="true">🎉</span>
+                <strong>All set — your free lesson is unlocked!</strong>
+                <a class="wizard-btn wizard-btn-small" href="#book">Book it now</a>
+            </div>
+            <h3 class="wizard-group-title">Your profile</h3>
+            <ol class="wizard-list">
+                <li class="wizard-item" data-wizard-item id="ob-email" data-done>
+                    <span class="wizard-marker" aria-hidden="true"></span>
+                    <div class="wizard-item-body"><h4 class="wizard-item-title">Verify your email</h4></div>
+                </li>
+                <li class="wizard-item" data-wizard-item id="ob-photo">
+                    <span class="wizard-marker" aria-hidden="true"></span>
+                    <div class="wizard-item-body">
+                        <h4 class="wizard-item-title">Add a profile photo <span class="wizard-tag">1 min</span></h4>
+                        <p class="wizard-item-desc">Teachers answer faces faster than names.</p>
+                        <div class="wizard-item-actions">
+                            <button type="button" class="wizard-btn wizard-btn-small" data-wizard-done>Upload photo <span class="wizard-arrow" aria-hidden="true">→</span></button>
+                        </div>
+                    </div>
+                </li>
+                <li class="wizard-item" data-wizard-item id="ob-bio" data-optional>
+                    <span class="wizard-marker" aria-hidden="true"></span>
+                    <div class="wizard-item-body">
+                        <h4 class="wizard-item-title">Write a short bio <span class="wizard-tag">Optional</span></h4>
+                        <p class="wizard-item-desc">Two sentences about what you want to learn.</p>
+                        <div class="wizard-item-actions">
+                            <button type="button" class="wizard-btn wizard-btn-small" data-wizard-done>Write bio</button>
+                            <button type="button" class="wizard-text-btn" data-wizard-skip>Skip</button>
+                        </div>
+                    </div>
+                </li>
+            </ol>
+            <h3 class="wizard-group-title">Before your first lesson</h3>
+            <ol class="wizard-list">
+                <li class="wizard-item" data-wizard-item id="ob-rules">
+                    <span class="wizard-marker" aria-hidden="true"></span>
+                    <div class="wizard-item-body">
+                        <h4 class="wizard-item-title">Read the lesson rules</h4>
+                        <p class="wizard-item-desc">Cancel at least 3 hours before. Be on time.</p>
+                        <div class="wizard-item-actions"><label class="wizard-ack"><input type="checkbox" data-wizard-ack> I have read the rules</label></div>
+                    </div>
+                </li>
+                <li class="wizard-item" data-wizard-item id="ob-test" data-locked>
+                    <span class="wizard-marker" aria-hidden="true"></span>
+                    <div class="wizard-item-body">
+                        <h4 class="wizard-item-title">Test your camera and microphone</h4>
+                        <p class="wizard-item-desc">Unlocks after the steps above.</p>
+                        <div class="wizard-item-actions"><button type="button" class="wizard-btn wizard-btn-small" data-wizard-done>Start test</button></div>
+                    </div>
+                </li>
+            </ol>
+        </section>
+    </section>
+
+    <!-- 3. One-step wizard: one step per screen, horizontal rail -->
+    <section>
+        <p class="demo-label">3 · One-step wizard · horizontal rail</p>
+        <form class="wizard" data-wizard="steps" data-wizard-transition="slide" aria-label="Create your account" novalidate
+              data-label-step="Step {n} of {total}: {title}" data-label-progress="{percent}%">
+            <header class="wizard-head">
+                <h2 class="wizard-title">Create your <mark>account</mark></h2>
+                <p class="wizard-sub">Three quick steps, then you can book your first lesson.</p>
+            </header>
+            <section class="wizard-step" data-wizard-step id="step-name" data-wizard-title="Name">
+                <span class="wizard-icon" aria-hidden="true">👋</span>
+                <h3 class="wizard-step-title">What should we call you?</h3>
+                <p class="wizard-step-lead">Your nickname is shown to teachers and classmates.</p>
+                <label class="wizard-field">Nickname <input name="nick" required minlength="2" autocomplete="nickname"><span class="wizard-hint">2 letters or more.</span></label>
+            </section>
+            <section class="wizard-step" data-wizard-step id="step-goal" data-wizard-title="Goal">
+                <span class="wizard-icon" aria-hidden="true">🎯</span>
+                <h3 class="wizard-step-title">What is your goal?</h3>
+                <fieldset class="wizard-choices">
+                    <legend class="wizard-sr">Goal</legend>
+                    <label class="wizard-choice"><input type="radio" name="goal" value="talk" required><span class="wizard-choice-icon" aria-hidden="true">💬</span><span class="wizard-choice-title">Speak with confidence</span><span class="wizard-choice-desc">Daily conversation</span></label>
+                    <label class="wizard-choice"><input type="radio" name="goal" value="exam"><span class="wizard-choice-icon" aria-hidden="true">📝</span><span class="wizard-choice-title">Pass an exam</span><span class="wizard-choice-desc">Scores and deadlines</span></label>
+                    <label class="wizard-choice"><input type="radio" name="goal" value="work"><span class="wizard-choice-icon" aria-hidden="true">💼</span><span class="wizard-choice-title">Use it at work</span><span class="wizard-choice-desc">Meetings and email</span></label>
+                </fieldset>
+            </section>
+            <section class="wizard-step" data-wizard-step id="step-time" data-wizard-title="Schedule">
+                <span class="wizard-icon" aria-hidden="true">⏰</span>
+                <h3 class="wizard-step-title">When do you study?</h3>
+                <label class="wizard-field">Preferred time
+                    <select name="time"><option>Morning</option><option>Afternoon</option><option>Evening</option></select>
+                </label>
+            </section>
+            <section class="wizard-step wizard-finale" data-wizard-step data-wizard-finale id="step-done">
+                <span class="wizard-trophy" aria-hidden="true">🏆</span>
+                <h3 class="wizard-step-title wizard-finale-title">You are all set!</h3>
+                <p class="wizard-step-lead">Your account is ready. Let us find your first teacher.</p>
+                <a class="wizard-btn wizard-tilt" href="#teachers" data-wizard-cta>Find a teacher <span class="wizard-arrow" aria-hidden="true">→</span></a>
+            </section>
+        </form>
+    </section>
+
+    <!-- 4. One-step wizard with a vertical side rail -->
+    <section>
+        <p class="demo-label">4 · One-step wizard · side rail (.wizard-side) · cube</p>
+        <form class="wizard wizard-side" data-wizard="steps" data-wizard-transition="cube" data-wizard-free aria-label="Teacher profile" novalidate>
+            <header class="wizard-head">
+                <h2 class="wizard-title">Set up your teacher profile</h2>
+                <p class="wizard-sub">Jump between steps in any order.</p>
+            </header>
+            <section class="wizard-step" data-wizard-step data-wizard-title="About you"><h3 class="wizard-step-title">About you</h3><label class="wizard-field">Headline <input name="headline"></label></section>
+            <section class="wizard-step" data-wizard-step data-wizard-title="Subjects"><h3 class="wizard-step-title">Subjects you teach</h3><label class="wizard-field">Subjects <input name="subjects"></label></section>
+            <section class="wizard-step" data-wizard-step data-wizard-title="Prices"><h3 class="wizard-step-title">Your prices</h3><label class="wizard-field">Price per lesson (USD) <input name="price" type="number" min="1"></label></section>
+            <section class="wizard-step" data-wizard-step data-wizard-title="Schedule"><h3 class="wizard-step-title">Your schedule</h3><p class="wizard-step-lead">Pick the hours students can book.</p></section>
+            <section class="wizard-step wizard-finale" data-wizard-step data-wizard-finale><span class="wizard-trophy" aria-hidden="true">🎓</span><h3 class="wizard-step-title wizard-finale-title">Profile published</h3></section>
+        </form>
+    </section>
+
+    <!-- 5. Tiles checklist -->
+    <section>
+        <p class="demo-label">5 · Tiles · .wizard-tiles</p>
+        <section class="wizard wizard-tiles" data-wizard="checklist" aria-label="Explore the site" data-label-progress="{done} / {total}">
+            <header class="wizard-head"><h2 class="wizard-title">Explore in any order</h2></header>
+            <ol class="wizard-list">
+                <li class="wizard-item" data-wizard-item id="t-1" data-done><span class="wizard-marker" aria-hidden="true"></span><div class="wizard-item-body"><h3 class="wizard-item-title">Watch the intro</h3></div></li>
+                <li class="wizard-item" data-wizard-item id="t-2" data-optional><span class="wizard-marker" aria-hidden="true"></span><div class="wizard-item-body"><h3 class="wizard-item-title">Try the AI tutor</h3><div class="wizard-item-actions"><button type="button" class="wizard-btn wizard-btn-small" data-wizard-done>Try</button></div></div></li>
+                <li class="wizard-item" data-wizard-item id="t-3" data-optional><span class="wizard-marker" aria-hidden="true"></span><div class="wizard-item-body"><h3 class="wizard-item-title">Join a free class</h3><div class="wizard-item-actions"><button type="button" class="wizard-btn wizard-btn-small" data-wizard-done>Join</button></div></div></li>
+                <li class="wizard-item" data-wizard-item id="t-4" data-optional><span class="wizard-marker" aria-hidden="true"></span><div class="wizard-item-body"><h3 class="wizard-item-title">Invite a friend</h3><div class="wizard-item-actions"><button type="button" class="wizard-btn wizard-btn-small" data-wizard-done>Invite</button></div></div></li>
+            </ol>
+        </section>
+    </section>
+</main>
+
+<!-- 6. Dock: a floating checklist in the corner, collapsed to its peek -->
+<aside class="wizard wizard-dock" data-wizard="checklist" data-wizard-collapsed aria-label="Quick start" data-label-progress="{done} / {total}">
+    <header class="wizard-head"><h2 class="wizard-title">Quick start</h2></header>
+    <ol class="wizard-list">
+        <li class="wizard-item" data-wizard-item id="d-1" data-done><span class="wizard-marker" aria-hidden="true"></span><div class="wizard-item-body"><h3 class="wizard-item-title">Sign in</h3></div></li>
+        <li class="wizard-item" data-wizard-item id="d-2"><span class="wizard-marker" aria-hidden="true"></span><div class="wizard-item-body"><h3 class="wizard-item-title">Pick a course</h3><div class="wizard-item-actions"><button type="button" class="wizard-btn wizard-btn-small" data-wizard-done>Pick</button></div></div></li>
+        <li class="wizard-item" data-wizard-item id="d-3"><span class="wizard-marker" aria-hidden="true"></span><div class="wizard-item-body"><h3 class="wizard-item-title">Finish lesson 1</h3><div class="wizard-item-actions"><button type="button" class="wizard-btn wizard-btn-small" data-wizard-done>Done</button></div></div></li>
+    </ol>
+</aside>
+</body>
+</html>

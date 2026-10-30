@@ -1,0 +1,700 @@
+/*! wizard.css — pair with wizard.js. MIT. https://sonub.com/skills
+ *
+ * One-step wizards  [data-wizard="steps"]      — one step per screen, rail + progress, loud step transitions.
+ * Checklist steppers [data-wizard="checklist"] — vertical checklist with progress, check-off fireworks.
+ * Looks: card (default) · .wizard-plain (flat task section, art at inline-start) · .wizard-tiles · .wizard-side · .wizard-dock · .wizard-stack.
+ *
+ * The final frame is the plain HTML: every state (done · current · locked · skipped) is styled from attributes the
+ * server writes, so the page reads correctly without JS. Everything that moves sits inside
+ * @media screen and (prefers-reduced-motion: no-preference). Motion is loud ON PURPOSE (power "wild" by default)
+ * and short: every effect stops by itself. Contract and numbers: references/code.md · references/motion.md.
+ */
+
+:root {
+    --wizard-ease-punch: cubic-bezier(0.18, 1.32, 0.32, 1);   /* fast start, ~8 % overshoot — the default entrance */
+    --wizard-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);  /* bigger overshoot — pops, hovers */
+    --wizard-ease-expo: cubic-bezier(0.16, 1, 0.3, 1);        /* fills, lines */
+    --wizard-ease-in: cubic-bezier(0.64, 0, 0.78, 0);         /* exits */
+    --wizard-ease-inout: cubic-bezier(0.65, 0, 0.35, 1);      /* sweeps */
+}
+
+/* Registered so they interpolate (a plain custom property jumps). --wizard-p = progress 0…1, inherited by bar, ring, peek. */
+@property --wizard-p { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --wizard-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+
+/* ───────────────────────── Tokens (override in your own CSS, never edit this file) ───────────────────────── */
+.wizard {
+    --wizard-accent: #7c3aed;
+    --wizard-accent-2: #ec4899;
+    --wizard-ok: #10b981;
+    --wizard-ok-ink: #fff;
+    --wizard-bad: #ef4444;
+    --wizard-gold: #f59e0b;
+    --wizard-surface: Canvas;
+    --wizard-muted: color-mix(in srgb, currentColor 58%, transparent);
+    --wizard-line: color-mix(in srgb, currentColor 14%, transparent);
+    --wizard-soft: color-mix(in srgb, var(--wizard-accent) 9%, transparent);
+    --wizard-radius: 1.25rem;
+    --wizard-dot: 2.25rem;                         /* marker / rail dot size */
+    --wizard-gap: 1.25rem;                         /* space between checklist items */
+    --wizard-burst: var(--wizard-accent), var(--wizard-gold), var(--wizard-ok), #fff;           /* spark colors */
+    --wizard-confetti: #7c3aed, #ec4899, #f59e0b, #10b981, #3b82f6, #facc15, #f43f5e;          /* confetti colors */
+    --wizard-k: 2.4;                               /* power: calm 1 · bold 1.6 · wild 2.4 (default — the brief is "excessive") */
+    --wizard-dir: 1;                               /* step direction × reading direction (set by JS) */
+    --wizard-sx: 1;                                /* screen x for inline-start → inline-end: 1 LTR, −1 RTL */
+    --wizard-start: left;
+
+    position: relative;
+    isolation: isolate;
+    max-inline-size: 46rem;
+    margin-inline: auto;
+    padding: clamp(1.25rem, 3.2vw, 2.25rem);
+    border: 1px solid var(--wizard-line);
+    border-radius: var(--wizard-radius);
+    background: var(--wizard-surface);
+    box-shadow: 0 34px 70px -38px color-mix(in srgb, var(--wizard-accent) 55%, transparent), 0 10px 24px -16px rgb(0 0 0 / 0.28);
+    overflow: clip;
+    overflow-clip-margin: 6px;
+}
+[data-wizard-power="calm"] { --wizard-k: 1; }
+[data-wizard-power="bold"] { --wizard-k: 1.6; }
+[data-wizard-power="wild"] { --wizard-k: 2.4; }
+.wizard-rtl { --wizard-sx: -1; --wizard-start: right; }
+
+/* Aurora backdrop (static tint; flares on entrance and completion) and a border light (runs on entrance and completion). */
+.wizard::before {
+    content: ""; position: absolute; inset: -35%; z-index: -1; pointer-events: none;
+    background:
+        radial-gradient(38% 32% at 18% 14%, color-mix(in srgb, var(--wizard-accent) 22%, transparent), transparent 70%),
+        radial-gradient(32% 28% at 86% 8%, color-mix(in srgb, var(--wizard-accent-2) 18%, transparent), transparent 70%),
+        radial-gradient(42% 36% at 72% 96%, color-mix(in srgb, var(--wizard-ok) 14%, transparent), transparent 70%);
+    opacity: 0.6;
+}
+.wizard::after {
+    content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; border-radius: inherit; padding: 2px;
+    background: conic-gradient(from var(--wizard-angle), transparent 0 62%, var(--wizard-accent), var(--wizard-accent-2), var(--wizard-gold), transparent);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+    opacity: 0;
+}
+
+.wizard-sr { position: absolute !important; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ───────────────────────── Header ───────────────────────── */
+.wizard-head { display: grid; gap: 0.4rem; margin-block-end: 1.25rem; transform-origin: var(--wizard-start) center; }
+.wizard-head > * { margin: 0; }
+.wizard-eyebrow { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--wizard-accent); }
+.wizard-title { font-size: clamp(1.35rem, 1.05rem + 1.3vw, 2rem); line-height: 1.15; letter-spacing: -0.02em; font-weight: 800; transform-origin: var(--wizard-start) center; }
+.wizard-title mark, .wizard-hl {
+    background: linear-gradient(90deg, var(--wizard-accent), var(--wizard-accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.wizard-sub { color: var(--wizard-muted); line-height: 1.55; max-inline-size: 60ch; }
+
+/* ───────────────────────── Buttons ───────────────────────── */
+.wizard-btn {
+    position: relative; isolation: isolate; overflow: hidden;
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5em;
+    min-block-size: 2.75rem; padding: 0.65em 1.3em; border: 0; border-radius: 999px;
+    font: inherit; font-weight: 750; line-height: 1.1; text-decoration: none; cursor: pointer;
+    color: #fff; background: linear-gradient(135deg, var(--wizard-accent), var(--wizard-accent-2));
+    box-shadow: 0 12px 26px -14px var(--wizard-accent);
+}
+.wizard-btn-ghost { color: inherit; background: transparent; box-shadow: inset 0 0 0 1.5px var(--wizard-line); }
+.wizard-btn-small { min-block-size: 2.25rem; padding: 0.45em 1em; font-size: 0.9rem; }
+.wizard-btn:focus-visible, .wizard-dot:focus-visible, .wizard-toggle:focus-visible, .wizard-peek:focus-visible, .wizard-link:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--wizard-accent) 55%, transparent); outline-offset: 3px;
+}
+.wizard-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.wizard-btn::after {   /* sheen (plays on hover, see motion) */
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / 0.4) 50%, transparent 65%) 150% 0 / 250% 100% no-repeat;
+}
+.wizard-arrow { display: inline-block; }
+.wizard-rtl .wizard-arrow { scale: -1 1; }
+.wizard-link { color: inherit; font-weight: 650; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3em; }
+.wizard-link::after { content: "›"; font-size: 1.15em; line-height: 1; }
+.wizard-rtl .wizard-link::after { content: "‹"; }
+.wizard-link:hover { color: var(--wizard-accent); }
+.wizard-text-btn { border: 0; background: none; padding: 0.25rem 0.1rem; font: inherit; font-size: 0.88rem; color: var(--wizard-muted); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ───────────────────────── Progress (generated by wizard.js unless authored) ───────────────────────── */
+.wizard-meter { display: flex; align-items: center; gap: 0.75rem; margin-block: 0 1.4rem; }
+.wizard-progress { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.85rem; }
+.wizard-progress-track {
+    position: relative; block-size: 0.7rem; border-radius: 999px; container-type: inline-size;
+    background: color-mix(in srgb, var(--wizard-accent) 13%, transparent);
+}
+.wizard-progress-fill {
+    position: absolute; inset: 0; border-radius: inherit;
+    background: repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.22) 0 0.5rem, transparent 0.5rem 1rem), linear-gradient(90deg, var(--wizard-accent), var(--wizard-accent-2));
+    clip-path: inset(0 calc((1 - var(--wizard-p)) * 100%) 0 0 round 999px);
+}
+.wizard-rtl .wizard-progress-fill { clip-path: inset(0 0 0 calc((1 - var(--wizard-p)) * 100%) round 999px); }
+.wizard-progress-head {   /* the comet at the end of the fill */
+    position: absolute; inset-block-start: 50%; inset-inline-start: 0; inline-size: 1.1rem; aspect-ratio: 1;
+    margin-block-start: -0.55rem; margin-inline-start: -0.55rem; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fff, var(--wizard-accent-2) 62%);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--wizard-accent-2) 22%, transparent), 0 0 16px 3px color-mix(in srgb, var(--wizard-accent-2) 55%, transparent);
+    translate: calc(var(--wizard-p) * 100cqw * var(--wizard-sx)) 0;
+}
+.wizard-progress-text { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 0.92rem; white-space: nowrap; display: inline-block; }
+
+/* collapse toggle (checklists) and the collapsed peek card */
+.wizard-toggle {
+    display: inline-flex; align-items: center; gap: 0.4rem; flex: none;
+    min-block-size: 2.25rem; min-inline-size: 2.25rem; padding: 0 0.55rem; border: 0; border-radius: 999px;
+    background: transparent; color: inherit; font: inherit; font-weight: 650; cursor: pointer;
+}
+.wizard-toggle:hover { background: var(--wizard-soft); }
+.wizard-toggle-text { display: none; }
+.wizard-chev { inline-size: 0.55rem; block-size: 0.55rem; border: solid currentColor; border-width: 2px 2px 0 0; rotate: -45deg; translate: 0 20%; transition: rotate 380ms var(--wizard-ease-spring); }
+.wizard-collapsed .wizard-chev { rotate: 135deg; translate: 0 -20%; }
+.wizard-collapsed .wizard-progress, .wizard-collapsed .wizard-head .wizard-sub { display: none; }
+.wizard-collapsed .wizard-meter { margin-block-end: 0; }
+.wizard-collapsed .wizard-toggle-text { display: inline; }
+.wizard-peek {
+    display: none; align-items: center; gap: 0.85rem; inline-size: 100%; margin-block: 0.25rem 0;
+    padding: 0.7rem 0.9rem; border: 0; border-radius: 1rem; background: var(--wizard-soft); color: inherit; font: inherit; text-align: start; cursor: pointer;
+}
+.wizard-collapsed .wizard-peek { display: flex; }
+.wizard-peek-text { font-weight: 650; }
+.wizard-ring {
+    flex: none; inline-size: 2.75rem; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center;
+    background: conic-gradient(var(--wizard-accent) calc(var(--wizard-p) * 360deg), var(--wizard-line) 0);
+}
+.wizard-ring::before { content: ""; grid-area: 1 / 1; inline-size: 74%; aspect-ratio: 1; border-radius: 50%; background: var(--wizard-surface); }
+.wizard-ring > span { grid-area: 1 / 1; position: relative; font-size: 0.7rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* ───────────────────────── One-step wizard: rail + stage + nav ───────────────────────── */
+.wizard-rail { display: flex; list-style: none; margin: 0 0 1.5rem; padding: 0; counter-reset: wizard-rail; }
+.wizard-rail > li { counter-increment: wizard-rail; position: relative; flex: 1 1 0; min-inline-size: 0; display: grid; justify-items: center; align-content: start; gap: 0.45rem; text-align: center; }
+.wizard-rail > li:not(:first-child)::before, .wizard-rail > li:not(:first-child)::after {
+    content: ""; position: absolute; block-size: 4px; border-radius: 4px;
+    inset-block-start: calc(var(--wizard-dot) / 2 - 2px); inset-inline-end: calc(50% + var(--wizard-dot) / 2 + 6px);
+    inline-size: calc(100% - var(--wizard-dot) - 12px); background: var(--wizard-line);
+}
+.wizard-rail > li:not(:first-child)::after { background: linear-gradient(90deg, var(--wizard-ok), var(--wizard-accent)); scale: 0 1; transform-origin: left; }
+.wizard-rtl .wizard-rail > li::after { transform-origin: right; background: linear-gradient(270deg, var(--wizard-ok), var(--wizard-accent)); }
+.wizard-rail > li:is(.is-done, .is-current)::after { scale: 1 1; }
+.wizard-dot {
+    position: relative; z-index: 1; display: grid; place-items: center; inline-size: var(--wizard-dot); block-size: var(--wizard-dot); padding: 0;
+    border: 2px solid var(--wizard-line); border-radius: 50%; background: var(--wizard-surface); color: var(--wizard-muted);
+    font: inherit; font-size: 0.85rem; font-weight: 800; cursor: default;
+}
+.wizard-dot::before { content: counter(wizard-rail); }
+.wizard-dot::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 3px solid var(--wizard-accent); opacity: 0; pointer-events: none; }
+.is-open > .wizard-dot { cursor: pointer; }
+.is-current > .wizard-dot {
+    border-color: transparent; color: #fff; scale: 1.16;
+    background: linear-gradient(135deg, var(--wizard-accent), var(--wizard-accent-2));
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--wizard-accent) 18%, transparent), 0 10px 22px -8px var(--wizard-accent);
+}
+.is-done > .wizard-dot { border-color: var(--wizard-ok); background: var(--wizard-ok); color: var(--wizard-ok-ink); }
+.is-done > .wizard-dot::before, .wizard-item[data-done] .wizard-marker::before {   /* a drawn check (two borders, rotated) */
+    content: ""; inline-size: 28%; block-size: 52%; border: solid currentColor; border-width: 0 3px 3px 0; rotate: 45deg; translate: 0 -12%;
+}
+.wizard-rail-label { font-size: 0.78rem; font-weight: 600; line-height: 1.25; color: var(--wizard-muted); overflow-wrap: anywhere; padding-inline: 0.2rem; }
+.is-current > .wizard-rail-label { color: inherit; font-weight: 800; }
+@media (max-width: 40rem) { .wizard-rail-label { display: none; } }
+
+.wizard-stage { display: grid; grid-template-columns: minmax(0, 1fr); perspective: 1600px; container-type: inline-size; }
+.wizard-step { min-inline-size: 0; }
+.wizard-step > :first-child { margin-block-start: 0; }
+.wizard-step > :last-child { margin-block-end: 0; }
+.wizard:not(.wizard-on) .wizard-step + .wizard-step { margin-block-start: 2rem; padding-block-start: 2rem; border-block-start: 1px dashed var(--wizard-line); }  /* no JS: one long form */
+.wizard-on .wizard-step { grid-area: 1 / 1; }
+.wizard-on .wizard-step:not(.wizard-current, .wizard-leaving) { display: none; }
+.wizard-leaving { pointer-events: none; z-index: 0; }
+.wizard-step [tabindex="-1"]:focus { outline: none; }
+.wizard-entering { z-index: 1; }
+.wizard-step-title { font-size: clamp(1.2rem, 1rem + 0.9vw, 1.6rem); line-height: 1.2; letter-spacing: -0.015em; margin-block: 0 0.4rem; transform-origin: var(--wizard-start) center; }
+.wizard-step-lead { color: var(--wizard-muted); margin-block: 0 1rem; line-height: 1.55; }
+.wizard-icon {
+    display: inline-grid; place-items: center; inline-size: 3.4rem; aspect-ratio: 1; border-radius: 1.1rem; margin-block-end: 0.9rem; font-size: 1.7rem;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--wizard-accent) 18%, transparent), color-mix(in srgb, var(--wizard-accent-2) 18%, transparent));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wizard-accent) 22%, transparent);
+}
+.wizard-nav { display: flex; align-items: center; gap: 0.75rem; margin-block-start: 1.6rem; }
+.wizard-nav [data-wizard-next] { margin-inline-start: auto; }
+.wizard-nav [hidden] { display: none; }
+
+/* fields and choice cards */
+.wizard-field { display: grid; gap: 0.4rem; margin-block: 1rem; font-weight: 650; }
+.wizard-field :is(input, select, textarea) {
+    font: inherit; font-weight: 400; color: inherit; min-block-size: 2.9rem; padding: 0.75rem 1rem;
+    border: 1.5px solid var(--wizard-line); border-radius: 0.9rem; background: color-mix(in srgb, currentColor 3%, transparent);
+}
+.wizard-field :is(input, select, textarea):focus-visible { outline: none; border-color: var(--wizard-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--wizard-accent) 22%, transparent); }
+.wizard-field :user-invalid { border-color: var(--wizard-bad); }
+.wizard-hint { font-weight: 400; font-size: 0.85rem; color: var(--wizard-muted); }
+.wizard-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: 0.75rem; margin: 1rem 0; padding: 0; border: 0; }
+.wizard-choices > legend { font-weight: 650; margin-block-end: 0.5rem; padding: 0; }
+.wizard-choice {
+    position: relative; display: grid; gap: 0.3rem; align-content: start; padding: 1rem 1rem 1.05rem; cursor: pointer;
+    border: 1.5px solid var(--wizard-line); border-radius: 1.1rem; background: color-mix(in srgb, currentColor 2%, transparent);
+}
+.wizard-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.wizard-choice-icon { font-size: 1.6rem; line-height: 1; }
+.wizard-choice-title { font-weight: 750; }
+.wizard-choice-desc { font-size: 0.86rem; color: var(--wizard-muted); }
+.wizard-choice:has(:checked) {
+    border-color: var(--wizard-accent); background: var(--wizard-soft);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--wizard-accent) 14%, transparent), 0 14px 28px -18px var(--wizard-accent);
+}
+.wizard-choice:has(:focus-visible) { outline: 3px solid color-mix(in srgb, var(--wizard-accent) 55%, transparent); outline-offset: 2px; }
+.wizard-choice::after {
+    content: "✓"; position: absolute; inset-block-start: 0.6rem; inset-inline-end: 0.6rem; display: grid; place-items: center;
+    inline-size: 1.4rem; aspect-ratio: 1; border-radius: 50%; font-size: 0.8rem; font-weight: 900; color: #fff; background: var(--wizard-accent); scale: 0;
+}
+.wizard-choice:has(:checked)::after { scale: 1; }
+
+/* finale (last step) and the completion banner */
+.wizard-finale { text-align: center; display: grid; justify-items: center; gap: 0.6rem; }
+.wizard-trophy { display: inline-block; font-size: clamp(3rem, 2rem + 4vw, 4.5rem); line-height: 1; filter: drop-shadow(0 12px 18px rgb(0 0 0 / 0.18)); }
+.wizard-banner {
+    position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.35rem 0.9rem; align-items: center;
+    margin-block: 0 1.25rem; padding: 1rem 1.15rem; border-radius: 1rem;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--wizard-ok) 16%, transparent), color-mix(in srgb, var(--wizard-accent) 12%, transparent));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wizard-ok) 30%, transparent);
+}
+.wizard-banner > .wizard-trophy { grid-row: span 3; font-size: 2.6rem; }
+.wizard-banner > :not(.wizard-trophy) { margin: 0; }
+.wizard-banner[hidden] { display: none; }
+
+/* notice box (an info / success message inside a section — e.g. "Congratulations! Access granted") */
+.wizard-note {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.4rem 0.85rem; margin-block: 0 1.25rem; padding: 1rem 1.15rem;
+    border-radius: 0.9rem; background: color-mix(in srgb, currentColor 4%, transparent);
+}
+.wizard-note > :not(.wizard-note-icon) { grid-column: 2; margin: 0; }
+.wizard-note-icon {
+    grid-row: span 2; display: grid; place-items: center; inline-size: 1.7rem; aspect-ratio: 1; border-radius: 50%;
+    border: 2px solid var(--wizard-ok); color: var(--wizard-ok); font-size: 0.85rem; font-weight: 900;
+}
+.wizard-note-title { font-weight: 750; }
+
+/* ───────────────────────── Checklist: list, items, markers ───────────────────────── */
+.wizard-checklist { counter-reset: wizard-item; }
+.wizard-group-title { margin: 1.4rem 0 0.7rem; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--wizard-muted); }
+.wizard-group-title:first-child { margin-block-start: 0; }
+.wizard-list { list-style: none; margin: 0; padding: 0; }
+.wizard-item {
+    counter-increment: wizard-item; position: relative; display: grid; grid-template-columns: var(--wizard-dot) minmax(0, 1fr);
+    column-gap: 1rem; padding-block-end: var(--wizard-gap); transition: opacity 420ms ease;
+}
+.wizard-item:last-child { padding-block-end: 0; }
+.wizard-item:not(:last-child)::before, .wizard-item:not(:last-child)::after {   /* connector to the next marker: track + fill */
+    content: ""; position: absolute; inset-inline-start: calc(var(--wizard-dot) / 2 - 1.5px); inset-block: calc(var(--wizard-dot) + 5px) 5px;
+    inline-size: 3px; border-radius: 3px; background: var(--wizard-line);
+}
+.wizard-item:not(:last-child)::after {
+    background: linear-gradient(var(--wizard-ok), var(--wizard-ok) 78%, #fff); box-shadow: 0 0 10px color-mix(in srgb, var(--wizard-ok) 60%, transparent);
+    scale: 1 0; transform-origin: top;
+}
+.wizard-item[data-done]:not(:last-child)::after { scale: 1 1; }
+.wizard-marker {
+    position: relative; z-index: 1; display: grid; place-items: center; inline-size: var(--wizard-dot); block-size: var(--wizard-dot);
+    border: 2px solid var(--wizard-line); border-radius: 50%; background: var(--wizard-surface); color: var(--wizard-muted);
+    font-size: 0.85rem; font-weight: 800;
+}
+.wizard-marker::before { content: counter(wizard-item); }
+.wizard-marker::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 3px solid var(--wizard-ok); opacity: 0; pointer-events: none; }
+.wizard-item[data-done] .wizard-marker { border-color: var(--wizard-ok); background: var(--wizard-ok); color: var(--wizard-ok-ink); box-shadow: 0 6px 16px -6px var(--wizard-ok); }
+.wizard-item[aria-current="step"] .wizard-marker {
+    border: 3px solid var(--wizard-accent); color: var(--wizard-accent); background: var(--wizard-surface);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--wizard-accent) 16%, transparent);
+}
+.wizard-item[aria-current="step"] .wizard-marker::after { border-color: var(--wizard-accent); }
+.wizard-item[data-skipped] .wizard-marker { border-style: dashed; }
+.wizard-item[data-skipped] .wizard-marker::before { content: "—"; }
+.wizard-item[data-locked] .wizard-marker::before {   /* lock: body */
+    content: ""; inline-size: 36%; block-size: 28%; border-radius: 2px; background: currentColor; translate: 0 22%;
+}
+.wizard-item[data-locked] .wizard-marker::after {    /* lock: shackle */
+    inset: 26% auto auto 50%; inline-size: 24%; block-size: 26%; margin-inline-start: -12%; translate: 0 0;
+    border: 2.5px solid currentColor; border-block-end: 0; border-radius: 99px 99px 0 0; opacity: 1;
+}
+.wizard-item-body { min-inline-size: 0; padding-block-start: 0.4rem; }
+.wizard-item-title {
+    display: inline; margin: 0; font-size: 1rem; font-weight: 700; line-height: 1.4;
+    background: linear-gradient(currentColor, currentColor) no-repeat 0 58% / 0% 2px;   /* strike-through, drawn when done */
+}
+.wizard-rtl .wizard-item-title { background-position-x: 100%; }
+.wizard-item[data-done] .wizard-item-title { background-size: 100% 2px; color: var(--wizard-muted); font-weight: 600; }
+.wizard-item[data-skipped] .wizard-item-title { color: var(--wizard-muted); font-style: italic; }
+.wizard-item-desc { margin: 0.3rem 0 0; color: var(--wizard-muted); font-size: 0.92rem; line-height: 1.5; }
+.wizard-tag { display: inline-block; margin-inline-start: 0.4rem; padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 750; vertical-align: 0.12em; background: var(--wizard-soft); color: var(--wizard-accent); }
+.wizard-item-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin-block-start: 0.75rem; }
+.wizard-item[data-done] :is(.wizard-item-desc, .wizard-item-actions), .wizard-item[data-locked] .wizard-item-actions, .wizard-item[data-skipped] .wizard-item-actions { display: none; }
+.wizard-item[data-locked] .wizard-item-title { color: var(--wizard-muted); }
+.wizard-item[data-done] .wizard-link { color: inherit; pointer-events: none; }
+.wizard-item[data-locked] .wizard-link { color: inherit; pointer-events: none; }
+.wizard-item[data-locked] .wizard-link::after { display: none; }
+.wizard-item[data-done] .wizard-link::after, .wizard-item[data-done] .wizard-tag { display: none; }
+.wizard-item[aria-current="step"] .wizard-item-body {   /* the current task is a lit card */
+    margin-block-start: -0.35rem; padding: 0.8rem 1rem 0.95rem; border-radius: 1rem;
+    background: var(--wizard-soft); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--wizard-accent) 24%, transparent);
+}
+.wizard-ack { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.92rem; font-weight: 600; cursor: pointer; }
+.wizard-ack input { inline-size: 1.15rem; block-size: 1.15rem; accent-color: var(--wizard-ok); }
+.wizard-item[data-done] .wizard-ack { display: inline-flex; margin-block-start: 0.4rem; color: var(--wizard-muted); }
+.wizard-item[data-done] .wizard-item-actions:has(.wizard-ack) { display: flex; }
+.wizard-item[data-done] .wizard-item-actions:has(.wizard-ack) > :not(.wizard-ack) { display: none; }
+.wizard-panel[hidden] { display: none; }
+
+/* ───────────────────────── Look: plain task section (flat, art at inline-start, thin list) ─────────────────────────
+   A section of a long settings/release page: illustration · title · description · thin bar "1 of 4 complete" ⌃ ·
+   group titles · small icons (✓ strike · ○ current with › link · lock) on a 1px line · "View tasks ⌄" when collapsed. */
+.wizard-plain {
+    --wizard-dot: 1.35rem; --wizard-gap: 1.6rem; --wizard-ok: #188038; --wizard-accent: #1a73e8; --wizard-accent-2: #1a73e8;
+    max-inline-size: none; padding: 2.5rem 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; overflow: visible;
+}
+.wizard-plain::before { inset: 0; opacity: 0; border-radius: 1rem; }
+.wizard-plain::after { display: none; }
+.wizard-plain.wizard-has-art { display: grid; grid-template-columns: minmax(6rem, 12rem) minmax(0, 1fr); column-gap: clamp(1.5rem, 5vw, 5rem); align-items: start; }
+.wizard-plain.wizard-has-art > :not(.wizard-art) { grid-column: 2; }
+.wizard-art { grid-column: 1; grid-row: 1 / span 20; inline-size: 100%; max-inline-size: 12rem; margin: 0; }
+.wizard-art img { display: block; inline-size: 100%; block-size: auto; }
+.wizard-art-tile { display: grid; place-items: center; aspect-ratio: 1; border-radius: 1.5rem; font-size: clamp(3rem, 2rem + 4vw, 5rem); background: color-mix(in srgb, var(--wizard-accent) 8%, transparent); }
+@media (max-width: 40rem) {
+    .wizard-plain.wizard-has-art { grid-template-columns: minmax(0, 1fr); }
+    .wizard-plain.wizard-has-art > :is(*, :not(.wizard-art)) { grid-column: 1; }
+    .wizard-art { grid-row: auto; max-inline-size: 6rem; margin-block-end: 1rem; }
+}
+.wizard-plain .wizard-title { font-size: 1.35rem; font-weight: 600; letter-spacing: 0; }
+.wizard-plain .wizard-sub { max-inline-size: none; font-size: 1rem; }
+.wizard-plain .wizard-meter { max-inline-size: 36rem; gap: 0.25rem; margin-block-end: 1.75rem; }
+.wizard-plain .wizard-progress { flex: 0 1 auto; grid-template-columns: minmax(8rem, 21rem) auto; gap: 1.25rem; }
+.wizard-plain .wizard-progress-track { block-size: 0.5rem; background: color-mix(in srgb, var(--wizard-ok) 22%, transparent); }
+.wizard-plain .wizard-progress-fill { background: var(--wizard-ok); }
+.wizard-plain .wizard-progress-head { inline-size: 0.8rem; margin-block-start: -0.4rem; margin-inline-start: -0.4rem; background: radial-gradient(circle at 35% 35%, #fff, var(--wizard-ok) 62%); box-shadow: 0 0 12px 2px color-mix(in srgb, var(--wizard-ok) 60%, transparent); opacity: 0; }
+.wizard-plain .wizard-progress-text { font-weight: 500; font-size: 1rem; color: var(--wizard-muted); }
+.wizard-plain.wizard-collapsed .wizard-meter { margin-block-start: 0.5rem; }
+.wizard-plain.wizard-collapsed .wizard-head .wizard-sub { display: block; }
+.wizard-plain .wizard-peek { display: none; }
+.wizard-plain .wizard-group-title { margin: 1.6rem 0 1.1rem; font-size: 1rem; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--wizard-muted); }
+.wizard-plain .wizard-group-title:first-child { margin-block-start: 0; }
+.wizard-plain .wizard-item { column-gap: 1.75rem; }
+.wizard-plain .wizard-item:not(:last-child)::before, .wizard-plain .wizard-item:not(:last-child)::after {
+    inline-size: 1px; inset-inline-start: calc(var(--wizard-dot) / 2 - 0.5px); inset-block: calc(var(--wizard-dot) + 0.45rem) 0.2rem;
+}
+.wizard-plain .wizard-item:not(:last-child)::after { background: var(--wizard-ok); box-shadow: none; }
+.wizard-plain .wizard-marker { border: 0; background: transparent; box-shadow: none; color: var(--wizard-muted); font-size: 0; }
+.wizard-plain .wizard-marker::before { content: ""; inline-size: 0.6rem; aspect-ratio: 1; border: 1.5px solid currentColor; border-radius: 50%; }
+.wizard-plain .wizard-item[data-done] .wizard-marker { background: transparent; box-shadow: none; color: var(--wizard-ok); }
+.wizard-plain .wizard-item[data-done] .wizard-marker::before { inline-size: 0.38rem; block-size: 0.78rem; aspect-ratio: auto; border-radius: 0; border-width: 0 2px 2px 0; }
+.wizard-plain .wizard-item[aria-current="step"] .wizard-marker { border: 0; box-shadow: none; color: inherit; }
+.wizard-plain .wizard-item[aria-current="step"] .wizard-marker::before { inline-size: 0.7rem; border-width: 2.5px; }
+.wizard-plain .wizard-item[data-locked] .wizard-marker { color: inherit; }
+.wizard-plain .wizard-item[data-locked] .wizard-marker::before { inline-size: 0.8rem; block-size: 0.62rem; aspect-ratio: auto; border: 1.5px solid currentColor; border-radius: 2px; background: radial-gradient(circle, currentColor 0 1.5px, transparent 2px); translate: 0 26%; }
+.wizard-plain .wizard-item[data-locked] .wizard-marker::after { inset: 8% auto auto 50%; inline-size: 0.46rem; block-size: 0.5rem; margin-inline-start: -0.23rem; border-width: 1.5px; }
+.wizard-plain .wizard-item-body { padding-block-start: 0; }
+.wizard-plain .wizard-item-title { font-weight: 400; font-size: 1.02rem; color: inherit; }
+.wizard-plain .wizard-item[data-done] .wizard-item-title { background-size: 100% 1.5px; color: inherit; font-weight: 400; }
+.wizard-plain .wizard-item[aria-current="step"] .wizard-item-body { margin: 0; padding: 0; background: none; box-shadow: none; }
+.wizard-plain .wizard-item:not([aria-current="step"]) .wizard-item-desc { display: none; }
+.wizard-plain .wizard-note-title { font-weight: 600; }
+.wizard-plain .wizard-banner { background: color-mix(in srgb, currentColor 4%, transparent); box-shadow: none; }
+
+/* several plain sections on one page (e.g. "Release your app"), divided by lines */
+.wizard-stack > .wizard-plain + .wizard-plain { border-block-start: 1px solid var(--wizard-line, color-mix(in srgb, currentColor 14%, transparent)); }
+.wizard-stack-title { margin: 0; font-size: clamp(1.6rem, 1.2rem + 1.5vw, 2.25rem); font-weight: 400; }
+
+/* ───────────────────────── Look: tiles (items as cards in a grid) ───────────────────────── */
+.wizard-tiles .wizard-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr)); gap: 0.9rem; }
+.wizard-tiles .wizard-item { grid-template-columns: minmax(0, 1fr); row-gap: 0.7rem; padding: 1rem; border-radius: 1.1rem; box-shadow: inset 0 0 0 1.5px var(--wizard-line); background: color-mix(in srgb, currentColor 2%, transparent); }
+.wizard-tiles .wizard-item::before, .wizard-tiles .wizard-item::after { display: none; }
+.wizard-tiles .wizard-item[aria-current="step"] { box-shadow: inset 0 0 0 2px var(--wizard-accent), 0 16px 30px -20px var(--wizard-accent); background: var(--wizard-soft); }
+.wizard-tiles .wizard-item[aria-current="step"] .wizard-item-body { margin: 0; padding: 0; background: none; box-shadow: none; }
+.wizard-tiles .wizard-item[data-done] { background: color-mix(in srgb, var(--wizard-ok) 8%, transparent); }
+
+/* ───────────────────────── Look: side rail (one-step wizard with a vertical stepper at inline-start) ───────────────────────── */
+@media (min-width: 52rem) {
+    .wizard-side { max-inline-size: 64rem; }
+    .wizard-side.wizard-on { display: grid; grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr); column-gap: 2.5rem; grid-template-areas: "head head" "rail meter" "rail stage" "rail nav"; align-content: start; }
+    .wizard-side .wizard-head { grid-area: head; }
+    .wizard-side .wizard-rail { grid-area: rail; flex-direction: column; align-self: start; margin: 0; padding: 1rem; border-radius: 1rem; background: color-mix(in srgb, currentColor 3%, transparent); }
+    .wizard-side .wizard-meter { grid-area: meter; }
+    .wizard-side .wizard-stage { grid-area: stage; }
+    .wizard-side .wizard-nav { grid-area: nav; }
+    .wizard-side .wizard-rail > li { flex: none; grid-template-columns: var(--wizard-dot) minmax(0, 1fr); justify-items: start; align-items: center; column-gap: 0.75rem; text-align: start; padding-block-end: 1.5rem; }
+    .wizard-side .wizard-rail > li:last-child { padding-block-end: 0; }
+    .wizard-side .wizard-rail > li:not(:first-child)::before, .wizard-side .wizard-rail > li:not(:first-child)::after {
+        inline-size: 4px; block-size: calc(1.5rem - 10px); inset-block-start: calc(-1.5rem + 5px); inset-inline-end: auto; inset-inline-start: calc(var(--wizard-dot) / 2 - 2px);
+    }
+    .wizard-side .wizard-rail > li:not(:first-child)::after { scale: 1 0; transform-origin: top; background: linear-gradient(var(--wizard-ok), var(--wizard-accent)); }
+    .wizard-side .wizard-rail > li:is(.is-done, .is-current)::after { scale: 1 1; }
+    .wizard-side .wizard-rail-label { display: block; font-size: 0.9rem; }
+}
+
+/* ───────────────────────── Look: dock (a floating checklist in the inline-end corner) ───────────────────────── */
+.wizard-dock { position: fixed; inset-block-end: 1rem; inset-inline-end: 1rem; z-index: 60; inline-size: min(24rem, calc(100vw - 2rem)); max-block-size: calc(100vh - 2rem); overflow: auto; padding: 1.1rem; }
+.wizard-dock .wizard-title { font-size: 1.15rem; }
+.wizard-dock.wizard-collapsed { inline-size: auto; padding: 0.4rem; border-radius: 999px; }
+.wizard-dock.wizard-collapsed :is(.wizard-head, .wizard-meter) { display: none; }
+.wizard-dock.wizard-collapsed .wizard-peek { margin: 0; border-radius: 999px; }
+
+/* tilt (pointer-follow 3D) — for cards without inputs: finale, banner, dock, a checklist card */
+.wizard-tilt { transform: perspective(1200px) rotateX(calc(var(--wizard-ty, 0) * -5deg)) rotateY(calc(var(--wizard-tx, 0) * 6deg)); }
+
+/* ───────────────────────── Effects layer (sparks, confetti) — fixed, above everything, removed after ≤ 3.4 s ───────────────────────── */
+.wizard-fx { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; overflow: hidden; }
+.wizard-sparks, .wizard-confetti { position: absolute; inline-size: 0; block-size: 0; }
+.wizard-sparks > i, .wizard-confetti > i { position: absolute; left: 0; top: 0; inline-size: var(--sz, 8px); block-size: var(--sz, 8px); margin: calc(var(--sz, 8px) / -2) 0 0 calc(var(--sz, 8px) / -2); background: var(--c, currentColor); }
+.wizard-sparks > i { border-radius: 50%; animation: wizard-spark var(--life, 800ms) cubic-bezier(0.12, 0.8, 0.3, 1) both; }
+.wizard-sparks > i:nth-child(3n) { border-radius: 2px; rotate: 45deg; }
+.wizard-sparks > i:nth-child(4n) { inline-size: calc(var(--sz, 8px) * 0.45); block-size: calc(var(--sz, 8px) * 2.4); border-radius: 99px; rotate: var(--ang, 0deg); }
+.wizard-confetti > i { block-size: calc(var(--sz, 8px) * 0.45); border-radius: 2px; animation: wizard-confetti var(--life, 2400ms) linear var(--delay, 0ms) both, wizard-flutter 520ms linear var(--delay, 0ms) infinite; }
+.wizard-confetti > i:nth-child(5n) { block-size: var(--sz, 8px); border-radius: 50%; }
+.wizard-confetti > i:nth-child(7n) { inline-size: calc(var(--sz, 8px) * 0.4); block-size: calc(var(--sz, 8px) * 1.6); }
+
+@media (forced-colors: active) {
+    .wizard-progress-fill { background: Highlight; }
+    .wizard-title mark, .wizard-hl { color: CanvasText; background: none; }
+    .wizard::before, .wizard::after, .wizard-fx { display: none; }
+}
+@media print {
+    .wizard-on .wizard-step { display: block !important; }
+    .wizard-panel { display: block !important; }
+    .wizard-nav, .wizard-toggle, .wizard-peek, .wizard-fx { display: none !important; }
+}
+
+/* ═════════════════════════ MOTION — loud, short, then still. Nothing below runs with reduced motion. ═════════════════════════ */
+@media screen and (prefers-reduced-motion: no-preference) {
+    /* before wizard.js has prepared the element: hidden one frame; fail-safe shows it after 3 s if the script died */
+    .wizard-js [data-wizard]:not(.wizard-on) { opacity: 0; animation: wizard-failsafe 1ms 3s forwards; }
+    .wizard-wait { opacity: 0; }
+
+    /* step transitions — pick with data-wizard-transition (slide · cube · flip · zoom · drop · warp · swing) */
+    .wizard { --wizard-out: wizard-slide-out; --wizard-in: wizard-slide-in; --wizard-out-dur: 420ms; --wizard-in-dur: 860ms; --wizard-in-delay: 90ms; --wizard-origin: 50% 50%; }
+    [data-wizard-transition="cube"] { --wizard-out: wizard-cube-out; --wizard-in: wizard-cube-in; --wizard-out-dur: 760ms; --wizard-in-dur: 900ms; --wizard-in-delay: 0ms; --wizard-origin: 50% 50% -50cqw; }
+    [data-wizard-transition="flip"] { --wizard-out: wizard-flip-out; --wizard-in: wizard-flip-in; --wizard-out-dur: 340ms; --wizard-in-dur: 760ms; --wizard-in-delay: 330ms; }
+    [data-wizard-transition="zoom"] { --wizard-out: wizard-zoom-out; --wizard-in: wizard-zoom-in; --wizard-out-dur: 420ms; --wizard-in-dur: 820ms; --wizard-in-delay: 160ms; }
+    [data-wizard-transition="drop"] { --wizard-out: wizard-drop-out; --wizard-in: wizard-drop-in; --wizard-out-dur: 460ms; --wizard-in-dur: 1050ms; --wizard-in-delay: 120ms; --wizard-origin: 50% 100%; }
+    [data-wizard-transition="warp"] { --wizard-out: wizard-warp-out; --wizard-in: wizard-warp-in; --wizard-out-dur: 380ms; --wizard-in-dur: 780ms; --wizard-in-delay: 120ms; }
+    [data-wizard-transition="swing"] { --wizard-out: wizard-swing-out; --wizard-in: wizard-swing-in; --wizard-out-dur: 420ms; --wizard-in-dur: 1300ms; --wizard-in-delay: 200ms; --wizard-origin: 50% 0; }
+    .wizard-leaving { transform-origin: var(--wizard-origin); animation: var(--wizard-out) var(--wizard-out-dur) var(--wizard-ease-in) both; }
+    .wizard-entering { transform-origin: var(--wizard-origin); animation: var(--wizard-in) var(--wizard-in-dur) linear var(--wizard-in-delay) both; }
+    .wizard-entering > * { animation: wizard-piece 820ms var(--wizard-ease-punch) calc(var(--wizard-in-delay) + 200ms + var(--i, 0) * 75ms) both; }
+    .wizard-entering > .wizard-step-title, .wizard-entering > .wizard-finale-title { animation: wizard-headline 1000ms linear calc(var(--wizard-in-delay) + 140ms) both; }
+    .wizard-entering > .wizard-icon { animation: wizard-blast 900ms linear calc(var(--wizard-in-delay) + 80ms) both; }
+    .wizard-entering .wizard-choice { animation: wizard-item-in 820ms linear calc(var(--wizard-in-delay) + 320ms + var(--i, 0) * 90ms) both; }
+    .wizard-entering .wizard-trophy { animation: wizard-trophy 1500ms linear calc(var(--wizard-in-delay) + 250ms) both; }
+
+    /* entrance of the whole wizard when it comes into view (≤ ~2 s) */
+    .wizard-intro { animation: wizard-card-in 950ms var(--wizard-ease-punch) both; }
+    .wizard-plain.wizard-intro { animation-name: wizard-rise; }
+    .wizard-intro .wizard-eyebrow { animation: wizard-rise 700ms var(--wizard-ease-punch) 120ms both; }
+    .wizard-intro .wizard-title { animation: wizard-headline 1050ms linear 160ms both; }
+    .wizard-intro .wizard-sub { animation: wizard-rise 800ms var(--wizard-ease-punch) 360ms both; }
+    .wizard-intro .wizard-meter { animation: wizard-rise 700ms var(--wizard-ease-punch) 440ms both; }
+    .wizard-intro .wizard-art { animation: wizard-drop-in 1150ms linear 120ms both; transform-origin: 50% 100%; }
+    .wizard-intro .wizard-note, .wizard-intro .wizard-banner:not([hidden]) { animation: wizard-blast 900ms linear 520ms both; }
+    .wizard-intro .wizard-rail > li { animation: wizard-pop 700ms var(--wizard-ease-spring) calc(480ms + var(--i, 0) * var(--wizard-stagger, 110ms)) both; }
+    .wizard-intro .wizard-rail > li::after { transition: none; }
+    .wizard-intro .wizard-group-title { animation: wizard-rise 650ms var(--wizard-ease-punch) calc(480ms + var(--i, 0) * var(--wizard-stagger, 110ms)) both; }
+    .wizard-intro .wizard-current > *, .wizard-reveal .wizard-current > * { animation: wizard-piece 820ms var(--wizard-ease-punch) calc(620ms + var(--i, 0) * 80ms) both; }
+    :is(.wizard-intro, .wizard-reveal) .wizard-item { animation: wizard-item-in 860ms linear calc(500ms + var(--i, 0) * var(--wizard-stagger, 110ms)) both; }
+    :is(.wizard-intro, .wizard-reveal) .wizard-item[data-done]:not(:last-child)::after { animation: wizard-fill-down 700ms var(--wizard-ease-expo) calc(800ms + var(--i, 0) * var(--wizard-stagger, 110ms)) both; }
+    .wizard-reveal .wizard-group-title { animation: wizard-rise 600ms var(--wizard-ease-punch) both; }
+    .wizard-flare::before { animation: wizard-aurora 4.2s var(--wizard-ease-inout) both; }
+    .wizard-glow::after { animation: wizard-border 4.2s linear both; }
+
+    /* progress: the value glides with overshoot; on each change stripes run, the comet flares, the number punches */
+    .wizard { transition: --wizard-p 1100ms var(--wizard-ease-punch); }
+    .wizard-bump .wizard-progress-fill { animation: wizard-stripes 700ms linear 3; }
+    .wizard-bump .wizard-progress-head { animation: wizard-flare 1000ms var(--wizard-ease-punch) 200ms both; }
+    .wizard-plain.wizard-bump .wizard-progress-head { animation: wizard-flare-plain 1100ms var(--wizard-ease-punch) 150ms both; }
+    .wizard-bump .wizard-progress-text { animation: wizard-punch 520ms linear 900ms both; }
+    .wizard-bump .wizard-ring { animation: wizard-cue-hop 900ms linear 400ms both; }
+
+    /* rail */
+    .wizard-rail > li::after { transition: scale 800ms var(--wizard-ease-punch) 120ms; }
+    .wizard-dot { transition: scale 420ms var(--wizard-ease-spring), background-color 300ms, border-color 300ms, color 300ms, box-shadow 300ms; }
+    .is-open > .wizard-dot:hover { scale: 1.12; }
+    .is-current > .wizard-dot::after { animation: wizard-ring 1.7s ease-out 900ms 3; }
+    .wizard-dot.wizard-stamped { animation: wizard-stamp 820ms linear both; }
+    .wizard-dot.wizard-stamped::before { animation: wizard-check-draw 420ms ease-out 200ms both; }
+
+    /* invalid step / field */
+    .wizard-shake { animation: wizard-shake 600ms linear; }
+    .wizard-error { animation: wizard-wobble 700ms linear; }
+
+    /* check-off: anticipation → stamp + check draws + shockwave + sparks → title strike → item nudges → connector fills down */
+    .wizard-checking .wizard-marker { animation: wizard-stamp 820ms linear both; }
+    .wizard-checking .wizard-marker::before { animation: wizard-check-draw 460ms ease-out 230ms both; }
+    .wizard-checking .wizard-marker::after { animation: wizard-shock 850ms ease-out 180ms both; }
+    .wizard-checking .wizard-item-title { animation: wizard-strike 650ms var(--wizard-ease-inout) 320ms both; }
+    .wizard-checking { animation: wizard-nudge 850ms linear 150ms both; }
+    .wizard-checking:not(:last-child)::after { animation: wizard-fill-down 650ms var(--wizard-ease-expo) 480ms both; }
+    .wizard-tiles .wizard-checking { animation: wizard-cue-jelly 900ms linear 120ms both; }
+    /* the next task arrives: its marker pops, its card jumps in, then its button gets turns of attention (beacon) */
+    .wizard-arrive .wizard-marker { animation: wizard-pop 760ms var(--wizard-ease-spring) 680ms both; }
+    .wizard-arrive .wizard-item-body { animation: wizard-arrive 950ms linear 720ms both; }
+    .wizard-arrive[aria-current="step"] .wizard-marker::after { animation: wizard-ring 1.7s ease-out 1500ms 3; }
+    .wizard-unlocking .wizard-marker { animation: wizard-unlock 900ms linear both; }
+    .wizard-skipping .wizard-marker { animation: wizard-skip 760ms linear both; }
+    .wizard-skipping .wizard-item-body { animation: wizard-nudge 760ms linear both; }
+    .wizard-unchecking .wizard-marker { animation: wizard-cue-jelly 700ms linear both; }
+    .wizard-item:not([data-done], [data-locked]):hover .wizard-marker { animation: wizard-cue-jelly 760ms linear; }
+
+    /* completion */
+    .wizard-celebrate { animation: wizard-blast 1000ms linear both; }
+    .wizard-celebrate .wizard-trophy { animation: wizard-trophy 1500ms linear 180ms both; }
+    .wizard-celebrate .wizard-note-icon { animation: wizard-stamp 820ms linear 300ms both; }
+    .wizard-note.wizard-celebrate { animation-name: wizard-drop-in; transform-origin: 50% 100%; }
+    .wizard-complete .wizard-art { animation: wizard-cue-hop 1000ms linear 400ms 2; }
+
+    /* attention cues (the beacon picks them in turn on the current call to action) */
+    .wizard-cue-pop { animation: wizard-cue-pop 950ms linear both; }
+    .wizard-cue-tada { animation: wizard-cue-tada 1000ms linear both; }
+    .wizard-cue-jelly { animation: wizard-cue-jelly 950ms linear both; }
+    .wizard-cue-hop { animation: wizard-cue-hop 950ms linear both; }
+    .wizard-cue-glow { animation: wizard-cue-glow 1100ms linear both; }
+    .wizard-cue-glow.wizard-btn::after, .wizard-cue-pop.wizard-btn::after { animation: wizard-shine 900ms var(--wizard-ease-inout) 150ms; }
+
+    /* hover · press (CSS only) */
+    .wizard-btn { transition: translate 260ms var(--wizard-ease-spring), scale 220ms var(--wizard-ease-spring), box-shadow 260ms; }
+    .wizard-btn:is(:hover, :focus-visible):not([disabled]) { translate: 0 -3px; scale: 1.04; box-shadow: 0 18px 34px -14px var(--wizard-accent); }
+    .wizard-btn:active:not([disabled]) { scale: 0.93; translate: 0 0; }
+    .wizard-btn:is(:hover, :focus-visible)::after { animation: wizard-shine 900ms var(--wizard-ease-inout); }
+    .wizard-btn:is(:hover, :focus-visible) .wizard-arrow { translate: calc(0.35em * var(--wizard-sx)) 0; }
+    .wizard-arrow { transition: translate 220ms var(--wizard-ease-spring); }
+    .wizard-link::after { transition: translate 220ms var(--wizard-ease-spring); }
+    .wizard-link:is(:hover, :focus-visible)::after { translate: calc(0.3em * var(--wizard-sx)) 0; }
+    .wizard-choice { transition: translate 260ms var(--wizard-ease-spring), border-color 200ms, background-color 200ms, box-shadow 260ms; }
+    .wizard-choice:hover { translate: 0 -3px; }
+    .wizard-choice:has(:checked) { animation: wizard-cue-jelly 760ms linear; }
+    .wizard-choice::after { transition: scale 420ms var(--wizard-ease-spring); }
+    .wizard-tiles .wizard-item { transition: translate 260ms var(--wizard-ease-spring), box-shadow 260ms, opacity 420ms; }
+    .wizard-tiles .wizard-item:not([data-locked]):hover { translate: 0 -4px; }
+    .wizard-toggle:active { scale: 0.9; }
+    .wizard-peek { transition: translate 240ms var(--wizard-ease-spring); }
+    .wizard-peek:hover { translate: 0 -2px; }
+    @media (hover: hover) { .wizard-tilt { transition: transform 420ms var(--wizard-ease-spring); } }
+}
+
+/* ───────────────────────── Keyframes ───────────────────────── */
+@keyframes wizard-failsafe { to { opacity: 1; } }
+@keyframes wizard-card-in {
+    0% { opacity: 0; translate: 0 calc(28px * var(--wizard-k)); scale: 0.9; rotate: x 12deg; filter: blur(8px); }
+    60% { opacity: 1; translate: 0 -6px; scale: 1.015; rotate: x -2deg; filter: blur(0); }
+    100% { opacity: 1; translate: 0 0; scale: 1; rotate: x 0deg; filter: blur(0); }
+}
+@keyframes wizard-rise { from { opacity: 0; translate: 0 calc(16px * var(--wizard-k)); filter: blur(3px); } }
+@keyframes wizard-piece { from { opacity: 0; translate: 0 calc(20px * var(--wizard-k)); scale: 0.94; filter: blur(calc(2px * var(--wizard-k))); } }
+@keyframes wizard-headline {   /* huge and blurred → hits smaller → overshoots → settles (smash, lighter) */
+    0% { opacity: 0; scale: calc(1 + 0.42 * var(--wizard-k)); rotate: -4deg; filter: blur(calc(4px * var(--wizard-k))); }
+    36% { opacity: 1; scale: 0.9; rotate: 1deg; filter: blur(0); }
+    54% { scale: 1.06; rotate: -0.6deg; }
+    72% { scale: 0.98; rotate: 0deg; }
+    100% { opacity: 1; scale: 1; rotate: 0deg; filter: blur(0); }
+}
+@keyframes wizard-blast { 0% { opacity: 0; scale: 0.1; rotate: -12deg; } 45% { opacity: 1; scale: 1.18; rotate: 4deg; } 65% { scale: 0.94; rotate: -1deg; } 82% { scale: 1.03; rotate: 0deg; } 100% { opacity: 1; scale: 1; rotate: 0deg; } }
+@keyframes wizard-pop { 0% { opacity: 0; scale: 0.2; } 55% { opacity: 1; scale: 1.28; } 76% { scale: 0.92; } 100% { opacity: 1; scale: 1; } }
+@keyframes wizard-item-in {   /* from alternating sides (--side ±1), tilted and blurred → overshoot → squash → settle */
+    0% { opacity: 0; translate: calc(38px * var(--wizard-k) * var(--side, 1) * var(--wizard-sx)) 0; rotate: calc(5deg * var(--side, 1)); scale: 0.9; filter: blur(4px); }
+    50% { opacity: 1; translate: calc(-6px * var(--side, 1) * var(--wizard-sx)) 0; rotate: calc(-1deg * var(--side, 1)); scale: 1.02 0.98; filter: blur(0); }
+    72% { translate: calc(2px * var(--side, 1) * var(--wizard-sx)) 0; rotate: 0deg; scale: 0.995 1.005; }
+    100% { opacity: 1; translate: 0 0; rotate: 0deg; scale: 1; filter: blur(0); }
+}
+@keyframes wizard-drop-in {   /* falls, squashes on the ground, bounces twice */
+    0% { opacity: 0; translate: 0 calc(-28% * var(--wizard-k)); scale: 0.92 1.12; }
+    12% { opacity: 1; }
+    48% { translate: 0 0; scale: 1.14 0.84; }
+    62% { translate: 0 -8%; scale: 0.95 1.05; }
+    76% { translate: 0 0; scale: 1.05 0.95; }
+    88% { translate: 0 -2%; scale: 1; }
+    100% { opacity: 1; translate: 0 0; scale: 1; }
+}
+@keyframes wizard-fill-down { from { scale: 1 0; } to { scale: 1 1; } }
+
+/* step transitions (--wizard-dir: +1 forward, −1 back, already × reading direction) */
+@keyframes wizard-slide-out { to { opacity: 0; translate: calc(-12% * var(--wizard-k) * var(--wizard-dir)) 0; scale: 0.9; rotate: y calc(-14deg * var(--wizard-dir)); filter: blur(calc(2px * var(--wizard-k))); } }
+@keyframes wizard-slide-in {
+    0% { opacity: 0; translate: calc(14% * var(--wizard-k) * var(--wizard-dir)) 0; scale: 1.08 0.94; rotate: y calc(12deg * var(--wizard-dir)); filter: blur(calc(3px * var(--wizard-k))); }
+    50% { opacity: 1; translate: calc(-2.5% * var(--wizard-dir)) 0; scale: 0.97 1.03; rotate: y 0deg; filter: blur(0); }
+    72% { translate: calc(1% * var(--wizard-dir)) 0; scale: 1.01 0.99; }
+    100% { opacity: 1; translate: 0 0; scale: 1; rotate: y 0deg; filter: blur(0); }
+}
+@keyframes wizard-cube-out { to { opacity: 0.25; rotate: y calc(-90deg * var(--wizard-dir)); filter: brightness(0.7); } }
+@keyframes wizard-cube-in {
+    0% { opacity: 0.25; rotate: y calc(90deg * var(--wizard-dir)); filter: brightness(0.7); }
+    70% { opacity: 1; rotate: y calc(-6deg * var(--wizard-dir)); filter: brightness(1); }
+    86% { rotate: y calc(2deg * var(--wizard-dir)); }
+    100% { opacity: 1; rotate: y 0deg; filter: brightness(1); }
+}
+@keyframes wizard-flip-out { to { opacity: 0.4; rotate: y calc(-90deg * var(--wizard-dir)); scale: 0.92; } }
+@keyframes wizard-flip-in {
+    0% { opacity: 0.4; rotate: y calc(90deg * var(--wizard-dir)); scale: 0.92; }
+    55% { opacity: 1; rotate: y calc(-16deg * var(--wizard-dir)); scale: 1.03; }
+    78% { rotate: y calc(6deg * var(--wizard-dir)); scale: 0.99; }
+    100% { opacity: 1; rotate: y 0deg; scale: 1; }
+}
+@keyframes wizard-zoom-out { to { opacity: 0; scale: calc(1 + 0.2 * var(--wizard-k)); filter: blur(calc(4px * var(--wizard-k))); } }
+@keyframes wizard-zoom-in {
+    0% { opacity: 0; scale: calc(1 - 0.22 * var(--wizard-k)); filter: blur(6px); }
+    55% { opacity: 1; scale: 1.06; filter: blur(0); }
+    76% { scale: 0.98; }
+    100% { opacity: 1; scale: 1; filter: blur(0); }
+}
+@keyframes wizard-drop-out { to { opacity: 0; translate: 0 calc(12% * var(--wizard-k)); rotate: calc(7deg * var(--wizard-dir)); } }
+@keyframes wizard-warp-out { to { opacity: 0; translate: calc(-25% * var(--wizard-k) * var(--wizard-dir)) 0; scale: 1.6 0.72; filter: blur(14px); } }
+@keyframes wizard-warp-in {
+    0% { opacity: 0; translate: calc(25% * var(--wizard-k) * var(--wizard-dir)) 0; scale: 1.6 0.74; filter: blur(12px); }
+    45% { opacity: 1; translate: calc(-5% * var(--wizard-dir)) 0; scale: 0.9 1.08; filter: blur(0); }
+    66% { translate: calc(1.5% * var(--wizard-dir)) 0; scale: 1.04 0.97; }
+    100% { opacity: 1; translate: 0 0; scale: 1; filter: blur(0); }
+}
+@keyframes wizard-swing-out { to { opacity: 0; rotate: x 75deg; } }
+@keyframes wizard-swing-in {   /* hangs from the top edge: −80° → 22° → −10° → 4° → 0 */
+    0% { opacity: 0; rotate: x -80deg; } 18% { opacity: 1; } 42% { rotate: x 22deg; } 62% { rotate: x -10deg; } 80% { rotate: x 4deg; } 100% { opacity: 1; rotate: x 0deg; }
+}
+
+/* check-off, rail, states */
+@keyframes wizard-stamp { 0% { scale: 1; } 14% { scale: 0.7; rotate: 0deg; } 40% { scale: calc(1 + 0.2 * var(--wizard-k)); rotate: -14deg; } 58% { scale: 0.9; rotate: 4deg; } 76% { scale: 1.06; rotate: -1deg; } 100% { scale: 1; rotate: 0deg; } }
+@keyframes wizard-check-draw { 0% { clip-path: inset(82% 100% 0 0); } 45% { clip-path: inset(82% 0 0 0); } 100% { clip-path: inset(0 0 0 0); } }
+@keyframes wizard-shock { 0% { opacity: 0.95; scale: 1; border-width: 4px; } 100% { opacity: 0; scale: calc(1.6 + 0.5 * var(--wizard-k)); border-width: 1px; } }
+@keyframes wizard-ring { 0% { opacity: 0.85; scale: 1; } 100% { opacity: 0; scale: 1.9; } }
+@keyframes wizard-strike { from { background-size: 0% 2px; } }
+@keyframes wizard-nudge { 0% { translate: 0 0; } 30% { translate: calc(9px * var(--wizard-k) * var(--wizard-sx)) 0; } 55% { translate: calc(-3px * var(--wizard-sx)) 0; } 75% { translate: calc(1px * var(--wizard-sx)) 0; } 100% { translate: 0 0; } }
+@keyframes wizard-arrive { 0% { opacity: 0.35; translate: 0 calc(14px * var(--wizard-k)); scale: 0.95; } 45% { opacity: 1; translate: 0 -5px; scale: 1.025; } 70% { translate: 0 1px; scale: 0.995; } 100% { opacity: 1; translate: 0 0; scale: 1; } }
+@keyframes wizard-unlock { 0% { rotate: 0deg; } 12% { rotate: -16deg; } 24% { rotate: 14deg; } 36% { rotate: -10deg; } 48% { rotate: 6deg; scale: 1; } 60% { rotate: 0deg; scale: 0.6; } 80% { scale: 1.25; } 100% { scale: 1; rotate: 0deg; } }
+@keyframes wizard-skip { 0% { rotate: 0deg; scale: 1; } 40% { rotate: calc(200deg * var(--wizard-sx)); scale: 0.55; } 75% { rotate: calc(370deg * var(--wizard-sx)); scale: 1.12; } 100% { rotate: calc(360deg * var(--wizard-sx)); scale: 1; } }
+@keyframes wizard-shake { 0%, 100% { translate: 0 0; rotate: 0deg; } 12% { translate: calc(-5px * var(--wizard-k)) 0; rotate: -0.6deg; } 26% { translate: calc(4px * var(--wizard-k)) 0; rotate: 0.5deg; } 40% { translate: calc(-3px * var(--wizard-k)) 0; } 56% { translate: calc(2px * var(--wizard-k)) 0; } 72% { translate: -1px 0; } }
+@keyframes wizard-wobble { 0%, 100% { translate: 0 0; } 15% { translate: -10px 0; } 30% { translate: 8px 0; } 45% { translate: -6px 0; } 60% { translate: 4px 0; } 75% { translate: -2px 0; } }
+
+/* progress */
+@keyframes wizard-stripes { from { background-position: 0 0, 0 0; } to { background-position: 1.4142rem 0, 0 0; } }
+@keyframes wizard-flare { 0% { scale: 1; } 35% { scale: 2.1; box-shadow: 0 0 0 8px color-mix(in srgb, var(--wizard-accent-2) 25%, transparent), 0 0 34px 12px var(--wizard-accent-2); } 100% { scale: 1; } }
+@keyframes wizard-flare-plain { 0% { opacity: 0; scale: 0.4; } 30% { opacity: 1; scale: 2; } 100% { opacity: 0; scale: 1; } }
+@keyframes wizard-punch { 0% { scale: 1; } 32% { scale: 1.3; text-shadow: 0 0 0.35em currentColor; } 56% { scale: 0.94; } 76% { scale: 1.05; text-shadow: none; } 100% { scale: 1; } }
+
+/* completion and ambience (each runs once, ≤ 5 s) */
+@keyframes wizard-trophy { 0% { opacity: 0; scale: 0.1; rotate: -30deg; } 32% { opacity: 1; scale: 1.4; rotate: 12deg; } 46% { scale: 0.88; rotate: -6deg; } 60% { scale: 1.1; translate: 0 -22%; rotate: 3deg; } 74% { scale: 0.96; translate: 0 0; } 86% { translate: 0 -6%; } 100% { opacity: 1; scale: 1; rotate: 0deg; translate: 0 0; } }
+@keyframes wizard-aurora { 0% { opacity: 0.6; rotate: 0deg; scale: 1; } 40% { opacity: 1; rotate: 28deg; scale: 1.28; } 100% { opacity: 0.6; rotate: 0deg; scale: 1; } }
+@keyframes wizard-border { 0% { opacity: 0; --wizard-angle: 0deg; } 8%, 80% { opacity: 1; } 100% { opacity: 0; --wizard-angle: 1080deg; } }
+@keyframes wizard-shine { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+
+/* attention cues (from webmovie's spotlight) */
+@keyframes wizard-cue-pop { 0% { scale: 1; } 22% { scale: 1.24; rotate: -3deg; } 42% { scale: 0.93; rotate: 2deg; } 62% { scale: 1.07; rotate: -1deg; } 80% { scale: 0.99; rotate: 0deg; } 100% { scale: 1; rotate: 0deg; } }
+@keyframes wizard-cue-tada { 0% { scale: 1; rotate: 0deg; } 10%, 20% { scale: 0.92; rotate: -4deg; } 30%, 50%, 70% { scale: 1.16; rotate: 4deg; } 40%, 60% { scale: 1.16; rotate: -4deg; } 85% { scale: 1.02; rotate: 0deg; } 100% { scale: 1; rotate: 0deg; } }
+@keyframes wizard-cue-jelly { 0% { scale: 1; } 25% { scale: 1.25 0.78; } 40% { scale: 0.8 1.2; } 55% { scale: 1.12 0.9; } 70% { scale: 0.95 1.05; } 85% { scale: 1.03 0.98; } 100% { scale: 1; } }
+@keyframes wizard-cue-hop { 0% { translate: 0 0; scale: 1; } 15% { scale: 1.1 0.88; } 40% { translate: 0 -38%; scale: 0.94 1.08; } 62% { translate: 0 0; scale: 1.12 0.88; } 78% { translate: 0 -8%; scale: 1; } 100% { translate: 0 0; scale: 1; } }
+@keyframes wizard-cue-glow {
+    0% { scale: 1; box-shadow: 0 0 0 0 color-mix(in srgb, var(--wizard-accent) 70%, transparent); }
+    30% { scale: 1.1; box-shadow: 0 0 0 0.4em color-mix(in srgb, var(--wizard-accent) 32%, transparent), 0 0 1.4em color-mix(in srgb, var(--wizard-accent-2) 55%, transparent); }
+    70% { scale: 1.02; box-shadow: 0 0 0 0.9em transparent, 0 0 0.6em color-mix(in srgb, var(--wizard-accent-2) 25%, transparent); }
+    100% { scale: 1; box-shadow: 0 0 0 0 transparent; }
+}
+
+/* particles */
+@keyframes wizard-spark { 0% { opacity: 1; translate: 0 0; scale: 1.3; } 70% { opacity: 1; } 100% { opacity: 0; translate: var(--tx) var(--ty); scale: 0.2; } }
+@keyframes wizard-confetti {   /* a ballistic arc: up and out, then falling, spinning */
+    0% { opacity: 1; translate: 0 0; rotate: 0deg; scale: 0.5; }
+    16% { translate: calc(var(--tx) * 0.55) calc(var(--ty) * 0.85); scale: 1; }
+    30% { translate: calc(var(--tx) * 0.78) var(--ty); }
+    62% { opacity: 1; translate: calc(var(--tx) * 0.92) calc(var(--ty) + var(--fall) * 0.45); }
+    100% { opacity: 0; translate: var(--tx) calc(var(--ty) + var(--fall)); rotate: var(--spin); scale: 0.9; }
+}
+@keyframes wizard-flutter { 0% { transform: rotateX(0deg) rotateY(0deg); } 50% { transform: rotateX(180deg) rotateY(60deg); } 100% { transform: rotateX(360deg) rotateY(0deg); } }

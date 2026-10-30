@@ -21,6 +21,7 @@ npx skills update                           # 여기서 설치한 스킬을 최�
 /plugin install infographics --marketplace thruthesky/sonub-skills
 /plugin install linkify --marketplace thruthesky/sonub-skills
 /plugin install webmovie --marketplace thruthesky/sonub-skills
+/plugin install wizard --marketplace thruthesky/sonub-skills
 ```
 
 - 플러그인 이름은 스킬 이름과 같다. 다만 claude-skill 은 `cc-coach` 다(`claude-` 로 시작하는 이름은 Anthropic 이 막는다). 부를 때는 `/gp:gp`·`/cc-coach:claude-skill` 처럼 `/플러그인:스킬`.
@@ -36,6 +37,7 @@ npx skills update                           # 여기서 설치한 스킬을 최�
 | [infographics](infographics/SKILL.md) | 원문 분석 → 정보 구성안 → 배치 설계 → 제작 → 검수·수정. 그림(Codex)과 선(곡선·직선·대각선·꺾은선, ig-lines.js)이 필수인 알찬 인포그래픽 · **webmovie 스킬 필수**(없으면 오류로 멈춤, 기존 인포그래픽은 손댈 때마다 webmovie 로 올림) |
 | [linkify](linkify/SKILL.md) | 페이지의 단원·챕터·소제목·단락을 누르면 주소가 `…#단원` 으로 바뀌고 클립보드에 복사된다. 그 링크를 열면 그 자리로 스크롤 |
 | [webmovie](webmovie/SKILL.md) | HTML 로 만드는 무비 — 동영상 파일 대신 진짜 HTML 장면을 영상처럼 재생한다(재생기·장면 전환·카메라·재생/일시 정지). 제목·숫자·차트·그림·단추는 CSS(필요할 때만 순수 JS) 연출로 움직이고, 글자는 끝까지 텍스트라 SEO·번역·수정이 쉽다. 검사 스크립트(check.mjs) 포함 |
+| [wizard](wizard/SKILL.md) | 한 화면에 한 단계씩 보여 주는 위저드와 진행률이 있는 세로 체크리스트 스테퍼(카드·평평한 작업 섹션·타일·도크)를 예쁘게 디자인하고, 3D 단계 전환·도장 찍듯 체크·불꽃·넘쳤다 돌아오는 진행 막대·색종이로 과하게 움직인다. 그대로 넣는 wizard.css/js(빌드 없음)·검사 스크립트(check.mjs) 포함 |
 
 - 설치 안내 화면: https://sonub.com/skills · 목록: https://sonub.com/.well-known/agent-skills/index.json
 - 목록·압축(tar.gz)·digest 는 빌드 없이 요청 때 만든다 — [app/Services/SkillCatalog.php](../app/Services/SkillCatalog.php). 파일을 고쳐 배포하면 그대로 새 버전이다(버전 번호를 올리지 않는다).

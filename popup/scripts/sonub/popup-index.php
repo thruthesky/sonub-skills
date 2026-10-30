@@ -18,6 +18,7 @@
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php shadow [언어=en]           # 범위 있는 용어가 범위 없는 용어의 이름 표기를 가진 곳 — 그 화면에서 정확한 용어가 늘 진다(색인 없이 사전만 본다)
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php leaks [언어=en|all]          # except 에 넣었는데 아직 그 뜻이 뜨는 자리 — 화면이 따로 감싸는 짧은 목록 조각(키로 못 알아봄)
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php pairs [언어|all] [기준=en]   # 같은 키에서 기준 언어와 엇갈린 비슷한 뜻 짝(en 하위 명령 ↔ 그 언어 명령) — 그 언어 꼴이 긴 용어 표기에 없다
+ *   bash $POPUP/scripts/sonub/run.sh popup-index.php checks [all]                # 언어별 남은 점검 거리 한 줄 — 그 언어만의 근거 약한 뜻(0~1·2, 2 는 한두 언어에서만 뜬 짝)·en 과 다른 비김·새는 except
  *
  * 데이터베이스: storage/app/popup-index/<언어>.sqlite (git 에 안 들어간다). sqlite3 로 직접 물어도 된다 —
  *   terms(id, category, term, short, scope, context, cues)   사전 — 용어마다 표기·한 줄 뜻·문맥 신호
@@ -59,9 +60,9 @@ $app->make(Kernel::class)->bootstrap();
 $command = $argv[1] ?? 'build';
 $locale = $argv[2] ?? 'en';
 $dir = $root.'/storage/app/popup-index';
-if (! in_array($locale, [...array_keys(config('locales.locales')), ...(in_array($command, ['build', 'leaks', 'pairs'], true) ? ['all'] : [])], true)) {
+if (! in_array($locale, [...array_keys(config('locales.locales')), ...(in_array($command, ['build', 'leaks', 'pairs', 'checks'], true) ? ['all'] : [])], true)) {
     // 셸 변수가 안 나뉘어 "ar runner" 같은 값이 오면 그 이름의 빈 데이터베이스를 만들던 것을 막는다
-    fwrite(STDERR, "모르는 언어 '{$locale}' — config/locales.php 의 17개 언어 중 하나(build·leaks·pairs 는 all 도)\n");
+    fwrite(STDERR, "모르는 언어 '{$locale}' — config/locales.php 의 17개 언어 중 하나(build·leaks·pairs·checks 는 all 도)\n");
     exit(2);
 }
 @mkdir($dir, 0775, true);
@@ -260,6 +261,47 @@ if ($command === 'shadow') {
         }
     }
     echo "{$found}개 — 그 범위 화면에서 이름 주인이 아닌 범위 용어가 뜬다. 범위 용어가 그 낱낱 뜻을 묶은 것뿐이면 그 표기를 범위 용어에서 뺀다(related 로)\n";
+    exit(0);
+}
+
+if ($command === 'checks') {
+    // 다시 점검할 때 어디부터 볼지 — 언어마다 en 에 없는 그 언어만의 뜻 중 근거가 약한 자리(weak01: 근거 0~1, weak2: 근거 2 이면서 같은 키·같은 뜻이 두 언어 이하),
+    // en 이 안 고른 뜻으로 비긴 자리(tie: margin 0), except 에 넣었는데 뜨는 자리(leak). 0 이 아닌 칸을 sonub.md 의 질의·leaks 로 읽는다
+    $locales = array_keys(config('locales.locales'));
+    $own = []; // "키|뜻" → 그 뜻을 띄운 언어 수(근거 2, en 에 없는 것)
+    $dbs = [];
+    foreach ($locales as $l) {
+        if ($l === 'en' || ! is_file("{$dir}/{$l}.sqlite")) {
+            continue;
+        }
+        $dbs[$l] = $db = new PDO("sqlite:{$dir}/{$l}.sqlite");
+        $db->exec("ATTACH DATABASE '{$dir}/en.sqlite' AS base");
+        foreach ($db->query("SELECT DISTINCT key, chosen FROM hits h WHERE shown = 1 AND evidence = 2 AND chosen IS NOT NULL AND chosen NOT LIKE 'lesson-%'
+            AND NOT EXISTS (SELECT 1 FROM base.hits x WHERE x.key = h.key AND x.chosen = h.chosen)")->fetchAll(PDO::FETCH_NUM) as [$k, $c]) {
+            $own["{$k}|{$c}"] = ($own["{$k}|{$c}"] ?? 0) + 1;
+        }
+    }
+    $only = "AND NOT EXISTS (SELECT 1 FROM base.hits x WHERE x.key = h.key AND x.chosen = h.chosen) AND chosen NOT LIKE 'lesson-%'";
+    printf("%-3s %7s %7s %5s %5s\n", '', 'weak01', 'weak2', 'tie', 'leak');
+    foreach ($dbs as $l => $db) {
+        $weak01 = (int) $db->query("SELECT COUNT(*) FROM hits h WHERE shown = 1 AND evidence <= 1 AND chosen IS NOT NULL {$only}")->fetchColumn();
+        $weak2 = 0;
+        foreach ($db->query("SELECT key, chosen FROM hits h WHERE shown = 1 AND evidence = 2 AND chosen IS NOT NULL {$only}")->fetchAll(PDO::FETCH_NUM) as [$k, $c]) {
+            $weak2 += ($own["{$k}|{$c}"] ?? 0) <= 2 ? 1 : 0;
+        }
+        $tie = (int) $db->query("SELECT COUNT(*) FROM hits h WHERE shown = 1 AND margin = 0 AND chosen IS NOT NULL {$only}
+            AND EXISTS (SELECT 1 FROM base.hits x WHERE x.key = h.key AND x.shown = 1)")->fetchColumn();
+        $leak = 0;
+        $q = $db->prepare('SELECT COUNT(*) FROM hits WHERE shown = 1 AND chosen = ? AND key = ?');
+        foreach ($terms as $id => $spec) {
+            foreach ($spec['except'] ?? [] as $key) {
+                $q->execute([$id, $key]);
+                $leak += (int) $q->fetchColumn();
+            }
+        }
+        printf("%-3s %7d %7d %5d %5d\n", $l, $weak01, $weak2, $tie, $leak);
+    }
+    echo "weak01·weak2 는 다 읽으면 맞는 뜻만 남는다(번역이 다른 낱말을 쓴 곳) — 고친 뒤에 줄었는지 보는 값이다. tie·leak 은 0 이어야 한다\n";
     exit(0);
 }
 

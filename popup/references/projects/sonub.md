@@ -82,6 +82,7 @@ SONUB 은 왕초보를 가르친다. 설명 없이 지나간 "토큰" 한 낱말
    # leaks 는 색인이 Glossary.php·lang/<언어>/glossary.php 보다 오래되면 알린다 — 고친 뒤 build 없이 보면 방금 넣은 except 가 '새는 자리'로 보인다(68곳이 다 이것이었다). avoid 는 매치가 표기 전체를 덮어야 하므로 ar·ur·hi·th 처럼 결합 부호가 붙는 글은 \p{L} 대신 [\p{L}\p{M}] 로 — ar 「منفّذًا」(실행된)의 「ًا」가 \p{L} 에 안 들어 포트 avoid 가 빗나갔다
    # en 에 없는 그 언어만의 뜻 점검 — 근거(evidence) 0~1 을 17개 언어 다 본 뒤 2 로 넓힌다. 같은 (key, chosen) 이 세 언어 넘게 뜨면 en 만 다르게 쓴 것이라 맞을 때가 많으니 한두 언어에서만 뜬 짝부터 읽는다(774곳 → 260곳, fr 「ne cache pas」·「tend la main」·ur 「ٹکتا」가 여기서 나왔다):
    #   sqlite3 <언어>.sqlite "attach 'en.sqlite' as e; select chosen, surface, key, sentence from hits h where shown=1 and evidence=2 and chosen not like 'lesson-%' and not exists (select 1 from e.hits x where x.key=h.key and x.chosen=h.chosen)"
+   bash $POPUP/scripts/sonub/run.sh popup-index.php checks all       # 언어별 한 줄 — weak01(그 언어만의 뜻, 근거 0~1)·weak2(근거 2, 한두 언어에서만)·tie(en 과 다른 비김)·leak. tie·leak 은 0 이어야 하고, weak 는 고친 뒤 줄었는지 본다(tr 「yayına alma」가 deploy·go-live 로 비긴 것이 tie 로 나왔다)
    bash $POPUP/scripts/sonub/run.sh popup-index.php compare ko      # 언어 간 대조 — 검토한 en 이 문맥으로 거절한 뜻을 ko 는 감싼 곳(같은 키)
    bash $POPUP/scripts/sonub/run.sh popup-index.php query en branch  # 그 표기·뜻이 잡힌 모든 문장과 점수
    bash $POPUP/scripts/sonub/run.sh popup-index.php senses en        # 뜻이 여럿인 표기 → 후보와 문맥 신호

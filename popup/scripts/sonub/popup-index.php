@@ -73,10 +73,12 @@ $terms = (new ReflectionClassConstant(Glossary::class, 'TERMS'))->getValue();
  */
 function group_excludes(): array
 {
-    return ['englesson' => EnglishCourse::GLOSSARY_EXCLUDE, 'english' => EnglishCourse::GLOSSARY_EXCLUDE, 'aiint' => AiInternals::GLOSSARY_EXCLUDE];
+    // 파이썬 강의 본문(PythonCourse::inline)은 낱말 python 을 감싸지 않는다 — 화면 전체가 파이썬이라
+    return ['englesson' => EnglishCourse::GLOSSARY_EXCLUDE, 'english' => EnglishCourse::GLOSSARY_EXCLUDE, 'aiint' => AiInternals::GLOSSARY_EXCLUDE, 'pylesson' => ['python']];
 }
 
-const DYNAMIC_SCOPES = ['aicourse' => 'learn-ai', 'shdeep' => 'shell', 'shpat' => 'shell', 'shchain' => 'shell', 'shfig' => 'shell', 'shell_advanced' => 'shell', 'shell_regex' => 'shell'];
+// 본문을 PHP(Git::inline·Game::inline·PythonCourse::inline)로 감싸는 그룹도 여기 — Blade 글자에 범위가 없어, 파이썬 강의 그림에 scope 가 없던 때는 pylesson 이 범위 없이 색인됐다
+const DYNAMIC_SCOPES = ['git' => 'git', 'game' => 'gamedev', 'pylesson' => 'python', 'aicourse' => 'learn-ai', 'shdeep' => 'shell', 'shpat' => 'shell', 'shchain' => 'shell', 'shfig' => 'shell', 'shell_advanced' => 'shell', 'shell_regex' => 'shell'];
 
 /**
  * 키마다 화면이 PHP 로 정하는 범위 — Blade 글자로는 알 수 없는 것. 없으면 null(그룹 짐작을 쓴다).

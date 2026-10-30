@@ -15,6 +15,7 @@
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php diff <언어> <예전.sqlite>  # 사전을 고치기 전 색인 사본과 비교 — 사라진·바뀐·새로 뜬 팝업
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php cut [언어=en]              # 낱말 가운데서 끝난 표기(ja 「パラメータ」ー) — 팝업 밖에 남은 글자
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php outliers [언어=en(모든 언어)] [기준=en]  # 그 언어만 기준 언어보다 크게 많이(다른 뜻까지 잡음)·적게(표기 빠짐) 띄운 뜻
+ *   bash $POPUP/scripts/sonub/run.sh popup-index.php shadow [언어=en]           # 범위 있는 용어가 범위 없는 용어의 이름 표기를 가진 곳 — 그 화면에서 정확한 용어가 늘 진다(색인 없이 사전만 본다)
  *
  * 데이터베이스: storage/app/popup-index/<언어>.sqlite (git 에 안 들어간다). sqlite3 로 직접 물어도 된다 —
  *   terms(id, category, term, short, scope, context, cues)   사전 — 용어마다 표기·한 줄 뜻·문맥 신호
@@ -223,6 +224,27 @@ if ($command === 'report') {
         printf("   %-3s 잡힌 자리 %6d · 팝업 %5d · 근거 없는 팝업 %5d (%2d%%) · 문맥으로 바뀜 %4d · 근거 없어 뺌 %4d\n", $l, $r['hits'], $r['shown'], $r['bare'],
             $r['shown'] ? round(100 * $r['bare'] / $r['shown']) : 0, $r['changed'], $r['dropped']);
     }
+    exit(0);
+}
+
+if ($command === 'shadow') {
+    // 범위(scope)가 있는 용어가 범위 없는 다른 용어의 이름 표기를 같이 가진 곳 — 그 화면에서는 범위 층(1)이 이겨 정확한 용어가 늘 진다.
+    // 화면 전용 뜻(claude-code 화면의 cc-skill)이면 맞다. 일반 묶음 용어가 낱낱 용어 이름을 가진 것(hook-event 의 PreToolUse — 자기 용어 hook-pretooluse)은 틀리다
+    foreach ($terms as $id => $_) {
+        foreach (Glossary::surfaces($id, $locale) as $surface) {
+            $by[mb_strtolower($surface)][] = $id;
+        }
+    }
+    $found = 0;
+    foreach ($by ?? [] as $surface => $ids) {
+        $scoped = array_filter($ids, fn (string $id) => isset($terms[$id]['scope']));
+        $named = array_filter($ids, fn (string $id) => ! isset($terms[$id]['scope']) && mb_strtolower(preg_replace('/\s*[\(（].*$/u', '', Glossary::term($id, $locale))) === $surface);
+        if ($scoped && $named) {
+            printf("%-28s 범위 %s ← 이름 주인 %s\n", $surface, implode(',', array_map(fn (string $id) => $id.'('.implode('·', (array) $terms[$id]['scope']).(! empty($terms[$id]['case']) ? '·case' : '').')', $scoped)), implode(',', $named));
+            $found++;
+        }
+    }
+    echo "{$found}개 — 그 범위 화면에서 이름 주인이 아닌 범위 용어가 뜬다. 범위 용어가 그 낱낱 뜻을 묶은 것뿐이면 그 표기를 범위 용어에서 뺀다(related 로)\n";
     exit(0);
 }
 

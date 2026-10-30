@@ -6,7 +6,7 @@
  *
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php build [언어=en|all]      # 색인을 만들고 요약·검토 목록을 보인다(all = 17개 언어, 요약만)
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php report                    # 17개 언어 색인의 한 줄 요약(언어별 비교)
- *   bash $POPUP/scripts/sonub/run.sh popup-index.php doubt [언어=en] [개수=40]  # 근거 없이 감싼 일반 낱말 — 뜻이 하나뿐인 용어가 다른 뜻으로 쓰인 곳 찾기
+ *   bash $POPUP/scripts/sonub/run.sh popup-index.php doubt [언어=en] [개수=40] [id,id…]  # 근거 없이 감싼 일반 낱말 — 뜻이 하나뿐인 용어가 다른 뜻으로 쓰인 곳(id 를 주면 그 용어의 모든 자리)
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php compare <언어> [기준=en]  # 언어 간 대조 — 기준 언어가 문맥으로 거절한 뜻을 이 언어는 감싼 곳
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php query <언어> <id|표기>    # 그 용어·표기가 잡힌 모든 문장과 고른 뜻
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php senses [언어=en]          # 뜻이 여럿인 표기 → 후보 id 와 문맥 신호(뜻 목록)
@@ -447,6 +447,8 @@ if ($command === 'pages') {
 
 if ($command === 'doubt') {
     $limit = (int) ($argv[3] ?? 40);
+    // 용어 id 를 쉼표로 주면 그 용어만, 근거 없는 자리를 모두 보인다 — 예문 4개로는 놓친다(관리자 통계의 'score weights' 는 다섯째였다)
+    $only = isset($argv[4]) ? array_flip(explode(',', $argv[4])) : null;
     if (! is_file($file)) {
         fwrite(STDERR, "색인이 없습니다 — 먼저 build {$locale}\n");
         exit(2);
@@ -457,6 +459,9 @@ if ($command === 'doubt') {
     $byTerm = [];
     foreach ($db->query('SELECT chosen, surface, key, sentence, evidence, page, shown FROM hits WHERE chosen IS NOT NULL AND shown = 1') as $row) {
         $context = $terms[$row['chosen']]['context'] ?? false;
+        if ($only !== null && ! isset($only[$row['chosen']])) {
+            continue;
+        }
         if (! $plain($row['surface']) || $context === true || in_array($locale, (array) $context, true)) {
             continue;   // context 낱말은 이미 근거가 있어야만 감싼다
         }
@@ -475,7 +480,7 @@ if ($command === 'doubt') {
             break;
         }
         printf("\n%s  %d/%d  — %s\n", $id, count($bare), $t['shown'], Glossary::short($id, $locale));
-        foreach (array_slice($bare, 0, 4) as $row) {
+        foreach ($only === null ? array_slice($bare, 0, 4) : $bare as $row) {
             echo '    '.str_pad($row['key'], 34).' '.mb_strimwidth($row['sentence'], 0, 120, '…')."\n";
         }
     }

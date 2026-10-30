@@ -14,7 +14,7 @@
  *                                                                              (all = 모든 그룹에서 en 원문의 같은 키에 없는 뜻만 — 번역에서 생긴 낱말)
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php diff <언어> <예전.sqlite>  # 사전을 고치기 전 색인 사본과 비교 — 사라진·바뀐·새로 뜬 팝업
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php cut [언어=en]              # 낱말 가운데서 끝난 표기(ja 「パラメータ」ー) — 팝업 밖에 남은 글자
- *   bash $POPUP/scripts/sonub/run.sh popup-index.php outliers [언어=en(모든 언어)] [기준=en]  # 그 언어만 기준 언어보다 크게 많이 띄운 뜻 — 번역 낱말이 다른 뜻까지 잡은 곳
+ *   bash $POPUP/scripts/sonub/run.sh popup-index.php outliers [언어=en(모든 언어)] [기준=en]  # 그 언어만 기준 언어보다 크게 많이(다른 뜻까지 잡음)·적게(표기 빠짐) 띄운 뜻
  *
  * 데이터베이스: storage/app/popup-index/<언어>.sqlite (git 에 안 들어간다). sqlite3 로 직접 물어도 된다 —
  *   terms(id, category, term, short, scope, context, cues)   사전 — 용어마다 표기·한 줄 뜻·문맥 신호
@@ -248,6 +248,13 @@ if ($command === 'outliers') {
             foreach ($examples as $example) {
                 printf("      %-40s %s\n", $example['key'], mb_strimwidth($example['sentence'], 0, 110, '…'));
             }
+        }
+        // 반대로 크게 적은 뜻 — 그 언어 번역 낱말이 사전 표기에 없다(zh 「记忆」 = 에이전트 메모리, id 「izin」 = 권한). 일상 뜻이 많은 낱말(th 「สิทธิ์」 = 체험 자격)은 더하지 않는다
+        $rows = $db->query('SELECT b.chosen, b.n b, coalesce(x.n, 0) n FROM (SELECT chosen, count(*) n FROM base.hits WHERE shown = 1 AND chosen IS NOT NULL GROUP BY chosen) b
+            LEFT JOIN (SELECT chosen, count(*) n FROM main.hits WHERE shown = 1 AND chosen IS NOT NULL GROUP BY chosen) x ON x.chosen = b.chosen
+            WHERE b.n >= coalesce(x.n, 0) * 3 + 6 ORDER BY b.n - coalesce(x.n, 0) DESC LIMIT 8')->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            printf("%-3s %-26s %s %3d → %s %3d  (빠짐 — 표기: %s)\n", $l, $row['chosen'], $base, $row['b'], $l, $row['n'], implode(' · ', Glossary::surfaces($row['chosen'], $l)));
         }
     }
     exit(0);

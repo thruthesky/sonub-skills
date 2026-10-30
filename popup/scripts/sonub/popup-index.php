@@ -17,6 +17,7 @@
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php outliers [언어=en(모든 언어)] [기준=en]  # 그 언어만 기준 언어보다 크게 많이(다른 뜻까지 잡음)·적게(표기 빠짐) 띄운 뜻
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php shadow [언어=en]           # 범위 있는 용어가 범위 없는 용어의 이름 표기를 가진 곳 — 그 화면에서 정확한 용어가 늘 진다(색인 없이 사전만 본다)
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php leaks [언어=en|all]          # except 에 넣었는데 아직 그 뜻이 뜨는 자리 — 화면이 따로 감싸는 짧은 목록 조각(키로 못 알아봄)
+ *   bash $POPUP/scripts/sonub/run.sh popup-index.php pairs [언어|all] [기준=en]   # 같은 키에서 기준 언어와 엇갈린 비슷한 뜻 짝(en 하위 명령 ↔ 그 언어 명령) — 그 언어 꼴이 긴 용어 표기에 없다
  *
  * 데이터베이스: storage/app/popup-index/<언어>.sqlite (git 에 안 들어간다). sqlite3 로 직접 물어도 된다 —
  *   terms(id, category, term, short, scope, context, cues)   사전 — 용어마다 표기·한 줄 뜻·문맥 신호
@@ -53,9 +54,9 @@ $app->make(Kernel::class)->bootstrap();
 $command = $argv[1] ?? 'build';
 $locale = $argv[2] ?? 'en';
 $dir = $root.'/storage/app/popup-index';
-if (! in_array($locale, [...array_keys(config('locales.locales')), ...(in_array($command, ['build', 'leaks'], true) ? ['all'] : [])], true)) {
+if (! in_array($locale, [...array_keys(config('locales.locales')), ...(in_array($command, ['build', 'leaks', 'pairs'], true) ? ['all'] : [])], true)) {
     // 셸 변수가 안 나뉘어 "ar runner" 같은 값이 오면 그 이름의 빈 데이터베이스를 만들던 것을 막는다
-    fwrite(STDERR, "모르는 언어 '{$locale}' — config/locales.php 의 17개 언어 중 하나(build·leaks 는 all 도)\n");
+    fwrite(STDERR, "모르는 언어 '{$locale}' — config/locales.php 의 17개 언어 중 하나(build·leaks·pairs 는 all 도)\n");
     exit(2);
 }
 @mkdir($dir, 0775, true);
@@ -278,6 +279,29 @@ if ($command === 'leaks') {
         }
     }
     echo "{$found}곳 — except 가 걸리지 않은 짧은 조각. 그 조각 글을 그 언어의 avoid 에 ^[\\s-]*…\\s*\$ 로 넣는다\n";
+    exit(0);
+}
+
+if ($command === 'pairs') {
+    // 같은 번역 키에서 기준 언어(en)와 엇갈린 '비슷한 뜻' 짝 — en 은 shell-subcommand·cc-permission-rule, 그 언어는 shell-command·cc-rules 처럼 이름 앞머리와 낱말을 나눠 가진 두 뜻.
+    // 대개 그 언어의 복수·소유격·띄어쓰기 꼴(ur 「سب کمانڈ」, es 「reglas de permisos」)이 긴 용어 표기에 없어 짧은 낱말만 일반 용어로 잡힌 것이다 → 그 꼴을 그 언어 <id>_aliases 에
+    $base = $argv[3] ?? 'en';
+    foreach ($locale === 'all' ? array_diff(array_keys(config('locales.locales')), [$base]) : [$locale] as $l) {
+        if (! is_file("{$dir}/{$l}.sqlite") || ! is_file("{$dir}/{$base}.sqlite")) {
+            continue;
+        }
+        $db = new PDO("sqlite:{$dir}/{$l}.sqlite");
+        $db->exec("ATTACH DATABASE '{$dir}/{$base}.sqlite' AS base");
+        $rows = $db->query("WITH L AS (SELECT DISTINCT key, chosen FROM main.hits WHERE chosen IS NOT NULL), B AS (SELECT DISTINCT key, chosen FROM base.hits WHERE chosen IS NOT NULL)
+            SELECT lo.chosen mine, b.chosen theirs, count(*) n, min(lo.key) example FROM L lo JOIN B b ON b.key = lo.key
+            WHERE NOT EXISTS (SELECT 1 FROM B x WHERE x.key = lo.key AND x.chosen = lo.chosen) AND NOT EXISTS (SELECT 1 FROM L y WHERE y.key = b.key AND y.chosen = b.chosen)
+              AND instr(lo.chosen, '-') > 0 AND substr(lo.chosen, 1, instr(lo.chosen, '-')) = substr(b.chosen, 1, instr(b.chosen || '-', '-'))
+              AND (instr(b.chosen, substr(lo.chosen, instr(lo.chosen, '-') + 1)) > 0 OR instr(lo.chosen, substr(b.chosen, instr(b.chosen, '-') + 1)) > 0)
+            GROUP BY lo.chosen, b.chosen ORDER BY n DESC")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            printf("%-3s %-28s ← %s %-28s %3d곳  예: %s\n", $l, $row['mine'], $base, $row['theirs'], $row['n'], $row['example']);
+        }
+    }
     exit(0);
 }
 

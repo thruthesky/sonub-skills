@@ -572,10 +572,11 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
     }
 
     // AI 과정 챕터(aicourse.<챕터>_*)는 챕터마다 화면 범위가 다르다 — AiCourse::glossaryScope(슬러그)를 키마다 쓴다(learn/ai-course.blade.php 와 같게)
+    // 앞 챕터 1~9 는 커리큘럼 글(aic.s<N>_*)을 그대로 쓴다 — 이것을 빼면 색인은 aic 를 범위 없이 읽어, 화면(learn-ai)에서 th 「ปรับสเกล」(temperature 가 점수를 키움)이 특성 스케일링으로 뜨는 것을 놓쳤다
     $keyScopes = [];
     foreach (AiCourse::chapters() as $chapter) {
         array_walk_recursive($chapter, function ($value) use (&$keyScopes, $chapter) {
-            if (is_string($value) && str_starts_with($value, 'aicourse.')) {
+            if (is_string($value) && (str_starts_with($value, 'aicourse.') || str_starts_with($value, 'aic.'))) {
                 $keyScopes[$value] = AiCourse::glossaryScope($chapter['slug']);
             }
         });

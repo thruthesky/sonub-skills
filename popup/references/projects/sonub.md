@@ -80,6 +80,8 @@ SONUB 은 왕초보를 가르친다. 설명 없이 지나간 "토큰" 한 낱말
    bash $POPUP/scripts/sonub/run.sh popup-index.php pairs all          # 같은 키에서 en 과 엇갈린 비슷한 뜻 짝(en 하위 명령 ↔ ur 명령) — 그 언어의 복수·소유격 꼴을 <id>_aliases 에. 번역이 동사로 풀어 써 낱말이 짧은 뜻 그대로인 것(「평판 점수를 잃지 않고」)은 맞다
    # 별칭(<id>_aliases)은 ASCII 쉼표·「，」「、」로만 갈린다 — ar·ur 의 아랍 쉼표 「،」는 가르지 않아 「سكربت تثبيت، install.sh」가 한 덩어리로 아무 데도 안 맞았다(쉼표째 쓰는 구절 「ان پٹ، پروسیسنگ اور آؤٹ پٹ」 때문에 규칙은 그대로). 같은 표기를 두 용어 별칭에 넣으면 점수가 비겨(margin 0) 등록 순서로 갈린다 — hi 「Location शीर्षक」가 일반 헤더에도 있었다: sqlite3 … "select surface, chosen, candidates from hits where shown=1 and margin=0"
    # leaks 는 색인이 Glossary.php·lang/<언어>/glossary.php 보다 오래되면 알린다 — 고친 뒤 build 없이 보면 방금 넣은 except 가 '새는 자리'로 보인다(68곳이 다 이것이었다). avoid 는 매치가 표기 전체를 덮어야 하므로 ar·ur·hi·th 처럼 결합 부호가 붙는 글은 \p{L} 대신 [\p{L}\p{M}] 로 — ar 「منفّذًا」(실행된)의 「ًا」가 \p{L} 에 안 들어 포트 avoid 가 빗나갔다
+   # en 에 없는 그 언어만의 뜻 점검 — 근거(evidence) 0~1 을 17개 언어 다 본 뒤 2 로 넓힌다. 같은 (key, chosen) 이 세 언어 넘게 뜨면 en 만 다르게 쓴 것이라 맞을 때가 많으니 한두 언어에서만 뜬 짝부터 읽는다(774곳 → 260곳, fr 「ne cache pas」·「tend la main」·ur 「ٹکتا」가 여기서 나왔다):
+   #   sqlite3 <언어>.sqlite "attach 'en.sqlite' as e; select chosen, surface, key, sentence from hits h where shown=1 and evidence=2 and chosen not like 'lesson-%' and not exists (select 1 from e.hits x where x.key=h.key and x.chosen=h.chosen)"
    bash $POPUP/scripts/sonub/run.sh popup-index.php compare ko      # 언어 간 대조 — 검토한 en 이 문맥으로 거절한 뜻을 ko 는 감싼 곳(같은 키)
    bash $POPUP/scripts/sonub/run.sh popup-index.php query en branch  # 그 표기·뜻이 잡힌 모든 문장과 점수
    bash $POPUP/scripts/sonub/run.sh popup-index.php senses en        # 뜻이 여럿인 표기 → 후보와 문맥 신호

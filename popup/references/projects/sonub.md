@@ -83,6 +83,8 @@ SONUB 은 왕초보를 가르친다. 설명 없이 지나간 "토큰" 한 낱말
    # en 에 없는 그 언어만의 뜻 점검 — 근거(evidence) 0~1 을 17개 언어 다 본 뒤 2 로 넓힌다. 같은 (key, chosen) 이 세 언어 넘게 뜨면 en 만 다르게 쓴 것이라 맞을 때가 많으니 한두 언어에서만 뜬 짝부터 읽는다(774곳 → 260곳, fr 「ne cache pas」·「tend la main」·ur 「ٹکتا」가 여기서 나왔다):
    #   sqlite3 <언어>.sqlite "attach 'en.sqlite' as e; select chosen, surface, key, sentence from hits h where shown=1 and evidence=2 and chosen not like 'lesson-%' and not exists (select 1 from e.hits x where x.key=h.key and x.chosen=h.chosen)"
    bash $POPUP/scripts/sonub/run.sh popup-index.php checks all       # 언어별 한 줄 — weak01(그 언어만의 뜻, 근거 0~1)·weak2(근거 2, 한두 언어에서만)·tie(en 과 다른 비김)·leak. tie·leak 은 0 이어야 하고, weak 는 고친 뒤 줄었는지 본다(tr 「yayına alma」가 deploy·go-live 로 비긴 것이 tie 로 나왔다)
+   # 다른 팀이 새로 쓴 en 문장 — 그 언어만의 뜻 점검은 en 을 기준으로 삼아 en 자신은 안 본다. git log --since='2 days ago' -p -- 'lang/en/*.php' 의 + 줄 키를 모아(macOS sed 는 \s 를 몰라 python 으로)
+   #   hits 의 key 끝 조각과 맞춰 흔한 낱말 표기만 읽는다 — 「press keys missing from the on-screen keyboard」(자판 키)가 딕셔너리 키(ar 도), ja 「キー」가 어텐션 Key 로 떴다
    bash $POPUP/scripts/sonub/run.sh popup-index.php compare ko      # 언어 간 대조 — 검토한 en 이 문맥으로 거절한 뜻을 ko 는 감싼 곳(같은 키)
    bash $POPUP/scripts/sonub/run.sh popup-index.php query en branch  # 그 표기·뜻이 잡힌 모든 문장과 점수
    bash $POPUP/scripts/sonub/run.sh popup-index.php senses en        # 뜻이 여럿인 표기 → 후보와 문맥 신호

@@ -86,6 +86,7 @@ SONUB 은 왕초보를 가르친다. 설명 없이 지나간 "토큰" 한 낱말
    # 다른 팀이 새로 쓴 en 문장 — 그 언어만의 뜻 점검은 en 을 기준으로 삼아 en 자신은 안 본다. git log --since='2 days ago' -p -- 'lang/en/*.php' 의 + 줄 키를 모아(macOS sed 는 \s 를 몰라 python 으로)
    #   hits 의 key 끝 조각과 맞춰 흔한 낱말 표기만 읽는다 — 「press keys missing from the on-screen keyboard」(자판 키)가 딕셔너리 키(ar 도), ja 「キー」가 어텐션 Key 로 떴다
    # 테스트(Glossary::resolve(글, 언어, 범위))의 범위는 색인 hits.scope 를 그대로 옮긴다 — 'shell' 로만 주면 실제 화면 범위 'shell,appdev,git' 에서만 뜨는 git-reset 이 안 떠 고침 없이도 통과한다. 고친 줄을 잠깐 빼고 실패하는지 본다.
+   # 고침마다 테스트가 지키는지 — 규칙 하나를 잠깐 다른 글자로 바꾸고 그 키·용어가 나오는 테스트만 --filter 로 돌린 뒤 바로 원래대로 쓴다(한 번에 몇 초). 테스트 파일 전체를 고침마다 돌리면 1시간이 넘고, 그 사이 사람 커밋이 망가진 Glossary.php 를 쓸어 간다(2026-10-30 실제로 났다 — 69d5c4888). 끝나면 git show origin/main:app/Content/Glossary.php 에 가짜 글자가 없는지 본다. except 로만 막은 자리는 '그 키 문장에는 17개 언어 어디서도 그 뜻이 없다'는 표 테스트 하나로 지킨다
    # avoid·except JSON 을 zsh echo 로 쓰지 않는다 — echo 가 \\b 를 바꿔 JSON 이 깨지고 && 뒤 명령이 조용히 건너뛰어진다. cat <<'EOF' 로 쓴다
    bash $POPUP/scripts/sonub/run.sh popup-index.php compare ko      # 언어 간 대조 — 검토한 en 이 문맥으로 거절한 뜻을 ko 는 감싼 곳(같은 키)
    bash $POPUP/scripts/sonub/run.sh popup-index.php query en branch  # 그 표기·뜻이 잡힌 모든 문장과 점수

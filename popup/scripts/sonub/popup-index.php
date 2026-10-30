@@ -41,8 +41,13 @@
 
 use App\Content\AiCourse;
 use App\Content\AiInternals;
+use App\Content\AiTools;
 use App\Content\EnglishCourse;
 use App\Content\Glossary;
+use App\Content\GlossaryDetail;
+use App\Content\Harness;
+use App\Content\ShellCourse;
+use App\Support\RichText;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Arr;
 
@@ -91,13 +96,13 @@ function key_scope(string $key): ?string
 {
     static $tools = null, $lessons = null;
     $tools ??= array_column(array_map(fn ($slug, $tool) => ['prefix' => $tool['prefix'] ?? null, 'slug' => $slug],
-        array_keys($all = (new ReflectionClassConstant(App\Content\AiTools::class, 'TOOLS'))->getValue()), $all), 'slug', 'prefix');
-    $lessons ??= array_keys((new ReflectionClassConstant(App\Content\ShellCourse::class, 'GLOSSARY_SCOPES'))->getValue());
+        array_keys($all = (new ReflectionClassConstant(AiTools::class, 'TOOLS'))->getValue()), $all), 'slug', 'prefix');
+    $lessons ??= array_keys((new ReflectionClassConstant(ShellCourse::class, 'GLOSSARY_SCOPES'))->getValue());
     if (preg_match('/^aitools\.([a-z]+)_/', $key, $m) && isset($tools[$m[1]])) {
         return $tools[$m[1]].',+shell';
     }
     if (preg_match('/^(?:shell|shdeep|shpat|shchain|shfig|shell_advanced)\.(?:.*?)\b('.implode('|', $lessons).')(?![a-z])/', $key, $m)) {
-        return App\Content\ShellCourse::glossaryScope($m[1]);
+        return ShellCourse::glossaryScope($m[1]);
     }
 
     return null;
@@ -112,7 +117,7 @@ function key_scope(string $key): ?string
 /** 용어 상세 본문(x-widget.glossary.term-body)을 그리는 용어 — 용어 상세 화면(/glossary/<이름>)과 하네스 화면의 용어 탭(/harness/built-in 등, Harness::term) */
 function detail_ids(): array
 {
-    return array_values(array_unique([...array_values(Glossary::detailSlugs()), ...array_filter(array_map([App\Content\Harness::class, 'term'], App\Content\Harness::tabKeys()))]));
+    return array_values(array_unique([...array_values(Glossary::detailSlugs()), ...array_filter(array_map([Harness::class, 'term'], Harness::tabKeys()))]));
 }
 
 /** 용어 상세 글의 키(glossary-detail.cc_auto_memory_use2)가 설명하는 용어 id — 키 앞머리가 그 id(밑줄로 바꾼 것)다. 공통 글(lead)은 null */
@@ -141,7 +146,7 @@ function detail_pieces(string $text): array
 {
     $out = [];
     $cursor = 0;
-    foreach (App\Content\GlossaryDetail::pieces($text) as $piece) {
+    foreach (GlossaryDetail::pieces($text) as $piece) {
         $at = strpos($text, $piece['text'], $cursor);
         if ($at === false) {
             return [[0, $text]];
@@ -162,7 +167,7 @@ function rich_pieces(string $text): array
     }
     $out = [];
     $cursor = 0;
-    foreach (App\Support\RichText::blocks($text) as $block) {
+    foreach (RichText::blocks($text) as $block) {
         foreach ($block['type'] === 'list' ? $block['items'] : [$block['text']] as $piece) {
             $at = strpos($text, $piece, $cursor);
             if ($at === false) {
@@ -265,6 +270,11 @@ if ($command === 'leaks') {
     foreach ($locale === 'all' ? array_keys(config('locales.locales')) : [$locale] as $l) {
         if (! is_file("{$dir}/{$l}.sqlite")) {
             continue;
+        }
+        // 색인이 Glossary.php·그 언어 glossary.php 보다 오래되면 방금 넣은 except 가 아직 안 들어가 '새는 자리'로 잘못 보인다 — 먼저 build 하라고 알린다
+        $stale = max(filemtime(base_path('app/Content/Glossary.php')), (int) @filemtime(lang_path("{$l}/glossary.php"))) > filemtime("{$dir}/{$l}.sqlite");
+        if ($stale) {
+            fwrite(STDERR, "{$l}: 색인이 Glossary.php·lang/{$l}/glossary.php 보다 오래됐다 — build {$l} 뒤에 다시 본다\n");
         }
         $db = new PDO("sqlite:{$dir}/{$l}.sqlite");
         $q = $db->prepare('SELECT key, surface, sentence FROM hits WHERE shown = 1 AND chosen = ? AND key = ?');
@@ -676,8 +686,8 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
         // 용어 상세 화면(term-body)도 그 용어의 '쉽게 말하면'(<id>_easy)과 예의 설명(<id>_example)을 감싼다 — 범위 없이, 그 용어 자신은 빼고
         $lessonEasy = $ownDetail = [];
         if ($group === 'glossary') {
-            foreach (array_column(App\Content\ShellCourse::lessons(), 'key') as $lesson) {
-                $lessonEasy[str_replace('-', '_', App\Content\ShellCourse::lessonTerm($lesson)).'_easy'] = $lesson;
+            foreach (array_column(ShellCourse::lessons(), 'key') as $lesson) {
+                $lessonEasy[str_replace('-', '_', ShellCourse::lessonTerm($lesson)).'_easy'] = $lesson;
             }
             foreach (detail_ids() as $id) {
                 $ownDetail[str_replace('-', '_', $id).'_easy'] = $ownDetail[str_replace('-', '_', $id).'_example'] = $id;
@@ -703,7 +713,7 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
                 [$page, $shownIds] = [['ids' => [], 'topics' => []], []];   // 단원 머리·용어 상세마다 따로 감싼다(group shell-<단원>-intro · glossary-detail-<id>)
             }
             $key = "{$group}.{$key}";
-            $keyScope = isset($lessonEasy[substr($key, 9)]) ? App\Content\ShellCourse::glossaryScope($lessonEasy[substr($key, 9)]) : ($keyScopes[$key] ?? key_scope($key) ?? $scope);
+            $keyScope = isset($lessonEasy[substr($key, 9)]) ? ShellCourse::glossaryScope($lessonEasy[substr($key, 9)]) : ($keyScopes[$key] ?? key_scope($key) ?? $scope);
             $excluded = array_flip($groupExcluded);
             foreach ($excludeRules as [$rule, $ids]) {
                 if (preg_match($rule, $key)) {

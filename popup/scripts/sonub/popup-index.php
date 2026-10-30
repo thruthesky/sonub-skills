@@ -612,8 +612,14 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
     $review = [];
     foreach (glob("{$root}/lang/{$locale}/*.php") as $path) {
         $group = basename($path, '.php');
+        // 팝업 글 자체(glossary)는 본문에서 감싸지 않는다 — 다만 쉘 강의 단원 머리(shell/partials/lesson)는 단원 메뉴 용어(ShellCourse::lessonTerm)의
+        // '쉽게 말하면'(glossary.menu_shell_<단원>_easy)을 그 단원 범위로 감싼다. 넣기 전에는 16단원의 LEGO 비유 'any model'(LEGO 모형)이
+        // 15개 언어에서 AI 모델로 뜬 것을 화면 대조로만 찾았다(2026-10-30)
+        $lessonEasy = [];
         if ($group === 'glossary') {
-            continue;   // 팝업 글 자체 — 본문에서 감싸지 않는다
+            foreach (array_column(App\Content\ShellCourse::lessons(), 'key') as $lesson) {
+                $lessonEasy[str_replace('-', '_', App\Content\ShellCourse::lessonTerm($lesson)).'_easy'] = $lesson;
+            }
         }
         // 용어 상세(/glossary/<이름>)의 글은 화면에서 감싼다 — 화면 범위 없이, `코드` 조각은 빼고, 그 용어 자신은 빼고(x-widget.glossary.term-body)
         $detail = $group === 'glossary-detail';
@@ -628,8 +634,14 @@ $build = function (string $locale, bool $quiet) use ($root, $dir, $terms): void 
             if (! is_string($text) || ! preg_match('/\p{L}{3}/u', $text)) {
                 continue;
             }
+            if ($group === 'glossary') {
+                if (! isset($lessonEasy[$key])) {
+                    continue;
+                }
+                [$page, $shownIds] = [['ids' => [], 'topics' => []], []];   // 단원 머리마다 따로 감싼다(group shell-<단원>-intro)
+            }
             $key = "{$group}.{$key}";
-            $keyScope = $keyScopes[$key] ?? key_scope($key) ?? $scope;
+            $keyScope = isset($lessonEasy[substr($key, 9)]) ? App\Content\ShellCourse::glossaryScope($lessonEasy[substr($key, 9)]) : ($keyScopes[$key] ?? key_scope($key) ?? $scope);
             $excluded = array_flip($groupExcluded);
             foreach ($excludeRules as [$rule, $ids]) {
                 if (preg_match($rule, $key)) {

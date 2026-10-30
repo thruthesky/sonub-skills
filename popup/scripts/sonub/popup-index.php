@@ -14,6 +14,7 @@
  *                                                                              (all = 모든 그룹에서 en 원문의 같은 키에 없는 뜻만 — 번역에서 생긴 낱말)
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php diff <언어> <예전.sqlite>  # 사전을 고치기 전 색인 사본과 비교 — 사라진·바뀐·새로 뜬 팝업
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php cut [언어=en]              # 낱말 가운데서 끝난 표기(ja 「パラメータ」ー) — 팝업 밖에 남은 글자
+ *   bash $POPUP/scripts/sonub/run.sh popup-index.php outliers [언어=en(모든 언어)] [기준=en]  # 그 언어만 기준 언어보다 크게 많이 띄운 뜻 — 번역 낱말이 다른 뜻까지 잡은 곳
  *
  * 데이터베이스: storage/app/popup-index/<언어>.sqlite (git 에 안 들어간다). sqlite3 로 직접 물어도 된다 —
  *   terms(id, category, term, short, scope, context, cues)   사전 — 용어마다 표기·한 줄 뜻·문맥 신호
@@ -221,6 +222,33 @@ if ($command === 'report') {
             sum(shown AND evidence = 0) bare FROM hits')->fetch(PDO::FETCH_ASSOC);
         printf("   %-3s 잡힌 자리 %6d · 팝업 %5d · 근거 없는 팝업 %5d (%2d%%) · 문맥으로 바뀜 %4d · 근거 없어 뺌 %4d\n", $l, $r['hits'], $r['shown'], $r['bare'],
             $r['shown'] ? round(100 * $r['bare'] / $r['shown']) : 0, $r['changed'], $r['dropped']);
+    }
+    exit(0);
+}
+
+if ($command === 'outliers') {
+    // 뜻마다 실제 팝업 수(shown)를 기준 언어와 견준다 — 두 배 + 4 이상이면 그 언어의 낱말이 다른 뜻까지 잡았을 수 있다(zh 「调用」 = 부르다 일반, 「秘【密钥】匙」).
+    // 맞는 경우도 많다(es 'terminal de práctica' = 연습 상자, en 은 낱말이 달라 덜 잡힘) — 문장을 읽고 틀린 것만 고친다
+    $base = $argv[3] ?? 'en';
+    foreach ($locale === $base ? array_diff(array_keys(config('locales.locales')), [$base]) : [$locale] as $l) {
+        if (! is_file("{$dir}/{$l}.sqlite") || ! is_file("{$dir}/{$base}.sqlite")) {
+            fwrite(STDERR, "색인이 없습니다 — 먼저 build {$l} · build {$base}\n");
+
+            continue;
+        }
+        $db = new PDO("sqlite:{$dir}/{$l}.sqlite");
+        $db->exec("ATTACH DATABASE '{$dir}/{$base}.sqlite' AS base");
+        $rows = $db->query('SELECT x.chosen, coalesce(b.n, 0) b, x.n FROM (SELECT chosen, count(*) n FROM main.hits WHERE shown = 1 AND chosen IS NOT NULL GROUP BY chosen) x
+            LEFT JOIN (SELECT chosen, count(*) n FROM base.hits WHERE shown = 1 AND chosen IS NOT NULL GROUP BY chosen) b ON b.chosen = x.chosen
+            WHERE x.n >= coalesce(b.n, 0) * 2 + 4 ORDER BY x.n - coalesce(b.n, 0) DESC LIMIT 12')->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            printf("%-3s %-26s %s %3d → %s %3d\n", $l, $row['chosen'], $base, $row['b'], $l, $row['n']);
+            $examples = $db->prepare('SELECT key, sentence FROM hits WHERE shown = 1 AND chosen = ? AND key NOT IN (SELECT key FROM base.hits WHERE chosen = ?) LIMIT 3');
+            $examples->execute([$row['chosen'], $row['chosen']]);
+            foreach ($examples as $example) {
+                printf("      %-40s %s\n", $example['key'], mb_strimwidth($example['sentence'], 0, 110, '…'));
+            }
+        }
     }
     exit(0);
 }

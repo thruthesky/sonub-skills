@@ -76,6 +76,7 @@ SONUB 은 왕초보를 가르친다. 설명 없이 지나간 "토큰" 한 낱말
    bash $POPUP/scripts/sonub/run.sh popup-index.php report          # 언어별 한 줄 — 팝업 수·근거 없는 팝업 비율·문맥으로 바뀜·뺌
    bash $POPUP/scripts/sonub/run.sh popup-index.php doubt en 60     # 근거 없이 감싼 일반 낱말(용어별, 문장 4개씩) — 숨은 다른 뜻 찾기
    bash $POPUP/scripts/sonub/run.sh popup-index.php doubt en 400 - 1  # 근거상한 1 — 앞 글·문단 신호 하나뿐인 자리까지(그림 설명 비유 'handshake'·'socket', 'ln 40'·'math domain error' 가 여기서 나왔다)
+   bash $POPUP/scripts/sonub/run.sh popup-index.php leaks all          # except 에 넣었는데 아직 뜨는 자리 — 화면이 따로 감싸는 짧은 목록 조각(「- 내 규칙」)은 키로 못 알아본다 → 그 언어 avoid 에 ^[\s-]*…\s*$
    bash $POPUP/scripts/sonub/run.sh popup-index.php compare ko      # 언어 간 대조 — 검토한 en 이 문맥으로 거절한 뜻을 ko 는 감싼 곳(같은 키)
    bash $POPUP/scripts/sonub/run.sh popup-index.php query en branch  # 그 표기·뜻이 잡힌 모든 문장과 점수
    bash $POPUP/scripts/sonub/run.sh popup-index.php senses en        # 뜻이 여럿인 표기 → 후보와 문맥 신호

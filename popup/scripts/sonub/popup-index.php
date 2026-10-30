@@ -16,6 +16,7 @@
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php cut [언어=en]              # 낱말 가운데서 끝난 표기(ja 「パラメータ」ー) — 팝업 밖에 남은 글자
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php outliers [언어=en(모든 언어)] [기준=en]  # 그 언어만 기준 언어보다 크게 많이(다른 뜻까지 잡음)·적게(표기 빠짐) 띄운 뜻
  *   bash $POPUP/scripts/sonub/run.sh popup-index.php shadow [언어=en]           # 범위 있는 용어가 범위 없는 용어의 이름 표기를 가진 곳 — 그 화면에서 정확한 용어가 늘 진다(색인 없이 사전만 본다)
+ *   bash $POPUP/scripts/sonub/run.sh popup-index.php leaks [언어=en|all]          # except 에 넣었는데 아직 그 뜻이 뜨는 자리 — 화면이 따로 감싸는 짧은 목록 조각(키로 못 알아봄)
  *
  * 데이터베이스: storage/app/popup-index/<언어>.sqlite (git 에 안 들어간다). sqlite3 로 직접 물어도 된다 —
  *   terms(id, category, term, short, scope, context, cues)   사전 — 용어마다 표기·한 줄 뜻·문맥 신호
@@ -52,9 +53,9 @@ $app->make(Kernel::class)->bootstrap();
 $command = $argv[1] ?? 'build';
 $locale = $argv[2] ?? 'en';
 $dir = $root.'/storage/app/popup-index';
-if (! in_array($locale, [...array_keys(config('locales.locales')), ...($command === 'build' ? ['all'] : [])], true)) {
+if (! in_array($locale, [...array_keys(config('locales.locales')), ...(in_array($command, ['build', 'leaks'], true) ? ['all'] : [])], true)) {
     // 셸 변수가 안 나뉘어 "ar runner" 같은 값이 오면 그 이름의 빈 데이터베이스를 만들던 것을 막는다
-    fwrite(STDERR, "모르는 언어 '{$locale}' — config/locales.php 의 17개 언어 중 하나(build 는 all 도)\n");
+    fwrite(STDERR, "모르는 언어 '{$locale}' — config/locales.php 의 17개 언어 중 하나(build·leaks 는 all 도)\n");
     exit(2);
 }
 @mkdir($dir, 0775, true);
@@ -253,6 +254,30 @@ if ($command === 'shadow') {
         }
     }
     echo "{$found}개 — 그 범위 화면에서 이름 주인이 아닌 범위 용어가 뜬다. 범위 용어가 그 낱낱 뜻을 묶은 것뿐이면 그 표기를 범위 용어에서 뺀다(related 로)\n";
+    exit(0);
+}
+
+if ($command === 'leaks') {
+    // except 에 넣은 키인데 색인에 그 뜻이 아직 뜨는 자리 — 화면의 x-ui.rich-text 는 목록 항목을 조각마다 감싸는데, 짧은 조각(라틴 12자·한중일 8자 미만)은
+    // 키로 알아보지 않는다(같은 글이 다른 키에도 있을 수 있어). 「- 내 규칙」(aicourse.claude_code_1_p1)이 그래서 except 를 넣어도 .claude/rules 로 떴다 → 그 조각은 언어별 avoid(^…$)로
+    $found = 0;
+    foreach ($locale === 'all' ? array_keys(config('locales.locales')) : [$locale] as $l) {
+        if (! is_file("{$dir}/{$l}.sqlite")) {
+            continue;
+        }
+        $db = new PDO("sqlite:{$dir}/{$l}.sqlite");
+        $q = $db->prepare('SELECT key, surface, sentence FROM hits WHERE shown = 1 AND chosen = ? AND key = ?');
+        foreach ($terms as $id => $spec) {
+            foreach ($spec['except'] ?? [] as $key) {
+                $q->execute([$id, $key]);
+                foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                    printf("%-3s %-24s %-44s %s\n", $l, $id, $key, mb_substr(str_replace("\n", ' ', $row['sentence']), 0, 90));
+                    $found++;
+                }
+            }
+        }
+    }
+    echo "{$found}곳 — except 가 걸리지 않은 짧은 조각. 그 조각 글을 그 언어의 avoid 에 ^[\\s-]*…\\s*\$ 로 넣는다\n";
     exit(0);
 }
 

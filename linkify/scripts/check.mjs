@@ -137,7 +137,7 @@ try {
 			continue;
 		}
 		const sections = JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('[data-linkified]')].map((e) => ({
-			id: e.id, tag: e.tagName.toLowerCase(), kind: e.dataset.linkified, visible: e.checkVisibility(),
+			id: e.id, tag: e.tagName.toLowerCase(), kind: e.dataset.linkified, visible: e.checkVisibility(), inControl: !!e.closest('a, button, summary'),
 			count: document.querySelectorAll('[id="' + CSS.escape(e.id) + '"]').length })))`));
 		r.sections = sections;
 		check('sections linked', sections.length > 0, `${sections.length} (${sections.filter((x) => x.visible).length} visible)`);
@@ -147,11 +147,17 @@ try {
 		if (wide.length) console.log(`note [${width}] non-ASCII ids paste as %XX: ${wide.slice(0, 5).join(', ')}${wide.length > 5 ? ' …' : ''}`);
 
 		// click like a person
-		const first = sections.find((x) => x.visible && x.kind === 'heading');
+		const first = sections.find((x) => x.visible && x.kind === 'heading' && !x.inControl); // a heading inside a link card opens the link instead
 		if (first) {
 			await ev(`document.getElementById(${JSON.stringify(first.id)}).scrollIntoView({ block: 'center', behavior: 'instant' })`);
-			await sleep(300);
-			const b = JSON.parse(await ev(`JSON.stringify(document.getElementById(${JSON.stringify(first.id)}).getBoundingClientRect())`));
+			// a long page still lays out while it loads — click only once the heading stands still
+			let b = null;
+			for (let i = 0, last = null; i < 40; i++) {
+				await sleep(150);
+				b = JSON.parse(await ev(`JSON.stringify(document.getElementById(${JSON.stringify(first.id)}).getBoundingClientRect())`));
+				if (b.y === last) break;
+				last = b.y;
+			}
 			await click(b.x + Math.min(12, b.width / 4), b.y + b.height / 2);
 			await sleep(900);
 			const after = JSON.parse(await ev(`(async () => JSON.stringify({ hash: location.hash, toast: document.querySelector('.linkify-toast.is-visible')?.textContent || '',
@@ -174,9 +180,12 @@ try {
 			const at = JSON.parse(await ev(`(() => { const e = document.getElementById(${JSON.stringify(id)}); if (!e) return JSON.stringify({ missing: true });
 				const want = (parseFloat(getComputedStyle(e).scrollMarginTop) || 0) + (parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0); const top = e.getBoundingClientRect().top;
 				const end = scrollY + innerHeight >= document.documentElement.scrollHeight - 2;
-				return JSON.stringify({ top: Math.round(top), want: Math.round(want), visible: e.checkVisibility(), end }); })()`));
-			const ok = !at.missing && at.visible && (Math.abs(at.top - at.want) <= 6 || (at.end && at.top >= at.want - 6));
-			check(`open #${id}`, ok, at.missing ? 'no such id' : `top ${at.top}px, want ${at.want}px${at.end ? ' (page end)' : ''}${at.visible ? '' : ', hidden'}`);
+				const bar = document.querySelector(document.querySelector('script[data-header]')?.dataset.header || 'none');
+				const barBottom = bar && ['sticky', 'fixed'].includes(getComputedStyle(bar).position) ? Math.round(bar.getBoundingClientRect().bottom) : 0;
+				return JSON.stringify({ top: Math.round(top), want: Math.round(want), visible: e.checkVisibility(), end, barBottom }); })()`));
+			const covered = !at.missing && at.top < at.barBottom; // a margin smaller than the real header still "matches" want — the reader sees no heading
+			const ok = !at.missing && at.visible && !covered && (Math.abs(at.top - at.want) <= 6 || (at.end && at.top >= at.want - 6));
+			check(`open #${id}`, ok, at.missing ? 'no such id' : `top ${at.top}px, want ${at.want}px${at.end ? ' (page end)' : ''}${at.visible ? '' : ', hidden'}${covered ? `, under the sticky header (bottom ${at.barBottom}px)` : ''}`);
 		}
 	}
 	if (errors.length) console.log(`note: page errors —\n  ${[...new Set(errors)].slice(0, 5).join('\n  ')}`);

@@ -201,7 +201,8 @@ try {
     const passive = (e) => ['hover', 'click', 'manual'].includes(e.trigger);
     err('stuck-hidden', after.filter((e) => e.visible === false && !passive(e)).map((e) => e.el),
         'Still invisible after scrolling and waiting — the element never played (manual trigger? display:none parent? JS error?).');
-    err('text-changed', after.filter((e) => byKey.has(e.key) && e.text !== byKey.get(e.key).text && !e.el.includes('data-webmovie-rotate'))
+    // a manual shot's text belongs to the page's own script (an unread count filled in after load) — the kit never touched it
+    err('text-changed', after.filter((e) => byKey.has(e.key) && e.text !== byKey.get(e.key).text && !e.el.includes('data-webmovie-rotate') && e.trigger !== 'manual')
         .map((e) => `${e.el}: "${byKey.get(e.key).text.slice(0, 60)}" → "${e.text.slice(0, 60)}"`),
         'After the animation the text differs from the HTML. The final frame must be the original text (counters end on the server value).');
     if (leftovers) err('split-left', [`${leftovers} .webmovie-word spans`], 'Split spans were not restored after the animation (still playing? raise --wait).');

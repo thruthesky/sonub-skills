@@ -19,7 +19,7 @@
 ## 현재 상태
 
 - 2026-10-23 **사이트에 넣었다** — 레이아웃은 `partials/linkify.blade.php` 하나를 메인(`layouts/main`)·서브도메인(`sites/head`)이 싣는다. 적용 화면 목록·자동 id 현황은 `docs/linkify-pages.md`(`node scripts/linkify-scan.mjs --md docs/linkify-pages.md` 가 만든다), 테스트 `tests/Feature/LinkifyTest.php`.
-- 본문 제목에는 사이트 기본 여백 `.sonub-page :where(h1~h4) { scroll-margin }`(content.css)이 먼저 걸린다 — linkify.css 의 `:where([data-linkified])` 보다 앞선다. 화면이 `html { scroll-padding }` 을 따로 두면(`/shell`) 그 화면 CSS 에서 링크 단원 여백을 간격만으로 줄인다(`shell.css`).
+- 본문 제목에는 사이트 기본 여백 `.sonub-page :where(h1~h4) { scroll-margin }`(content.css)이 먼저 걸린다 — linkify.css 의 `:where([data-linkified])` 보다 앞선다. 값은 막대의 실제 높이 `--linkify-offset` 을 따른다(휴대폰 막대는 136px). 화면이 `html { scroll-padding }` 을 따로 두면(`/shell`) 그 화면 CSS 에서 링크 단원 여백을 간격만으로 줄인다(`shell.css`).
 - 사이트에 이미 있는 해시·스크롤 코드(이것들과 겹치지 않게 넣는다):
 
 | 파일 | 하는 일 | linkify 와의 관계 |

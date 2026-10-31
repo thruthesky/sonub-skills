@@ -127,7 +127,7 @@ It opens the page three times in headless Chrome and prints errors (✗, exit co
 | --- | --- |
 | ✗ `hidden-without-js` | text invisible when JS does not run (hidden in plain CSS) |
 | ✗ `stuck-hidden` | still invisible after scrolling through and waiting |
-| ✗ `text-changed` | after the animation the text differs from the HTML |
+| ✗ `text-changed` | after the animation the text differs from the HTML (`data-webmovie-trigger="manual"` is skipped: the page's own script owns that text) |
 | ✗ `split-left` | letter/word spans were not put back |
 | ✗ `hidden-reduced-motion` · `moving-reduced-motion` | reduced-motion users get hidden or moving content |
 | ✗ `movie-no-pause` | a movie without its play/pause button |

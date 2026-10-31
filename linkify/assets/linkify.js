@@ -268,10 +268,16 @@
 			const want = (parseFloat(getComputedStyle(el).scrollMarginTop) || 0) + pagePadding(); // = sticky header + gap (linkify.css)
 			if (Math.abs(el.getBoundingClientRect().top - want) > 4) el.scrollIntoView({ block: 'start', behavior: 'instant' });
 		};
+		// a bar or block above that grows after landing (a login button, a late menu) pushes the section down — follow it at once
+		const resized = new ResizeObserver(again);
+		resized.observe(document.body);
 		document.fonts?.ready.then(again);
 		window.addEventListener('load', again, { once: true });
 		setTimeout(again, 400);
-		setTimeout(again, 1200);
+		setTimeout(() => {
+			again();
+			resized.disconnect();
+		}, 1200);
 	}
 
 	function currentId() {

@@ -827,7 +827,7 @@
                     if (n.nodeType === Node.ELEMENT_NODE && !n.classList.contains('webmovie-word') && !n.classList.contains('webmovie-sep')) refresh(n);
                 }
             }
-        }).observe(doc.body, { childList: true, subtree: true });
+        }).observe(doc.documentElement, { childList: true, subtree: true }); // the document, not <body>: a swapped-in <body> (Turbo-style navigation) is seen too
         // <button data-webmovie-replay> inside a picture (or data-webmovie-replay="<id>" anywhere) plays it again
         doc.addEventListener('click', (e) => {
             const b = e.target.closest?.('[data-webmovie-replay]');

@@ -199,24 +199,41 @@
         items.forEach((el, i) => addNode(svg, ['ig-node', el.dataset.igClass || ''].join(' ').trim(), x, boxes[i].cy));
     }
 
-    function boot() {
-        const boxes = [...document.querySelectorAll('[data-ig-lines]')];
-        if (!boxes.length) return;
-        let queued = false;
-        const redraw = () => {
-            if (queued) return;
-            queued = true;
-            requestAnimationFrame(() => { queued = false; boxes.forEach(draw); });
-        };
-        const ro = new ResizeObserver(redraw);
-        boxes.forEach((box) => {
+    // Containers added later — a fetched fragment, or a whole new <body> swapped in by Turbo/htmx-style navigation — are picked
+    // up by a MutationObserver on the document (like the wizard kit); a container that left the document is dropped.
+    const boxes = new Set();
+    let queued = false;
+    const redraw = () => {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(() => {
+            queued = false;
+            boxes.forEach((box) => {
+                if (box.isConnected) return draw(box);
+                boxes.delete(box);
+                ro.unobserve(box);
+            });
+        });
+    };
+    const ro = new ResizeObserver(redraw);
+    function attach(root) {
+        const found = [...(root.matches?.('[data-ig-lines]') ? [root] : []), ...(root.querySelectorAll?.('[data-ig-lines]') ?? [])];
+        found.filter((box) => !boxes.has(box)).forEach((box) => {
+            boxes.add(box);
             ro.observe(box);
             box.querySelectorAll('[data-ig-to], [data-ig-chain], [data-ig-chain] > *, [data-ig-tree], [data-ig-tree] > *').forEach((el) => ro.observe(el));
         });
+        if (found.length) redraw();
+    }
+
+    function boot() {
+        attach(document);
+        new MutationObserver((muts) => {
+            for (const m of muts) for (const n of m.addedNodes) if (n.nodeType === 1 && !n.closest('svg.ig-svg')) attach(n);
+        }).observe(document.documentElement, { childList: true, subtree: true });
         document.fonts?.ready.then(redraw);
         window.addEventListener('load', redraw);
         document.addEventListener('webmovie:done', redraw); // a shot moved a box (translate/scale) — end the lines on its final place
-        redraw();
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

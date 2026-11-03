@@ -318,7 +318,10 @@
 
 	// ---- sticky header offset --------------------------------------------------------------
 
+	let headerWatch = null;
 	function watchHeader() {
+		headerWatch?.disconnect();
+		headerWatch = null;
 		const header = config.header && document.querySelector(config.header);
 		if (!header) return;
 		const update = () => {
@@ -328,7 +331,8 @@
 			const offset = sticky ? Math.max(0, Math.ceil(box.height) - pagePadding()) : 0;
 			document.documentElement.style.setProperty('--linkify-offset', `${offset}px`);
 		};
-		new ResizeObserver(update).observe(header);
+		headerWatch = new ResizeObserver(update);
+		headerWatch.observe(header);
 		update();
 	}
 
@@ -346,7 +350,15 @@
 		go(currentId());
 	}
 
-	window.Linkify = { start, apply, copy, go, idFor, labels };
+	/** After a page swaps in a whole new <body> without reloading (Turbo-style navigation): new header, new sections. */
+	function refresh() {
+		if (!started) return start();
+		watchHeader();
+		apply();
+		go(currentId());
+	}
+
+	window.Linkify = { start, refresh, apply, copy, go, idFor, labels };
 	if (!config.auto) return;
 	// A deferred script runs while readyState is already 'interactive' but before DOMContentLoaded — frameworks
 	// (Alpine, Vue) may not have rendered yet. Wait for DOMContentLoaded; 'load' covers a script added after it.

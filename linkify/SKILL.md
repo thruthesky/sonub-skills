@@ -31,7 +31,7 @@ open that address later
 
 | File | What |
 | --- | --- |
-| `assets/linkify.js` | Gives h2–h4 (and `[data-linkify-anchor]` elements) an id if they have none, adds a link button, copies `page#id` on click of the heading or the button, `history.replaceState` (no reload, no `hashchange`), toast, landing on open/`hashchange` (opens `<details>`, sends `linkify:reveal` to hidden panels, re-aligns after late fonts/images until the reader moves). API: `Linkify.apply(el)` after a re-render |
+| `assets/linkify.js` | Gives h2–h4 (and `[data-linkify-anchor]` elements) an id if they have none, adds a link button, copies `page#id` on click of the heading or the button, `history.replaceState` (no reload, no `hashchange`), toast, landing on open/`hashchange` (opens `<details>`, sends `linkify:reveal` to hidden panels, re-aligns after late fonts/images until the reader moves). API: `Linkify.apply(el)` after a re-render, `Linkify.refresh()` after a whole `<body>` swap |
 | `assets/linkify.css` | Button (hidden until hover/focus, faint on touch screens), toast, landing flash, `scroll-margin` below the sticky header. Theme with `--linkify-accent`, `--linkify-muted`, `--linkify-toast-bg`, `--linkify-gap`. Logical properties (RTL), reduced motion |
 | `assets/demo.html` | Every case in one page — own id, duplicate titles, Korean title, paragraph anchor, link inside a heading, heading inside a card link, closed details, hidden tab, sticky header. `python3 -m http.server` in `assets/`, open `demo.html` |
 | `scripts/linkify.py` | `init [dir]` copies the kit and prints the tags · `audit <files/dirs>` lists headings without a fixed id (and the id the script would make, or "translated text — give a fixed id"), duplicate ids, non-portable ids, `#links` to nothing · `slug "<text>"` |
@@ -76,6 +76,7 @@ The request says the scope: `/linkify the docs pages`, `/linkify the FAQ — eve
 ## Edge cases
 
 - **Content rendered later** (SPA route change, infinite list, Markdown rendered in the browser): call `Linkify.apply(container)` after rendering; if the address points at a section that only now exists, it goes there.
+- **Whole-page navigation without reload** (Turbo Drive, a swapped `<body>`): call `Linkify.refresh()` on each visit (`turbo:load` after a `turbo:visit`) — it re-measures the new sticky header, decorates the new body and lands on `#id`.
 - **Clipboard blocked** (http page, iframe without permission): the old `execCommand('copy')` fallback runs; if that fails too the toast says the link is in the address bar.
 - **Same text twice** gets `-2` — but the order decides who gets the plain id, so give fixed ids where duplicates are likely ("Example", "Summary").
 - **Very long pages with `data-blocks="p"`**: hundreds of buttons are fine for performance, but noisy; prefer explicit anchors.

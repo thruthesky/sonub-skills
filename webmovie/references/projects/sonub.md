@@ -43,21 +43,18 @@
 ```blade
 {{-- resources/views/components/widget/home/movie.blade.php --}}
 @props(['scenes'])
-@pushOnce('head')
-    <link rel="stylesheet" href="{{ asset_v('/css/webmovie.css') }}">
-    <script src="{{ asset_v('/js/webmovie.js') }}"></script>
-@endPushOnce
-<section class="home-movie" data-webmovie-player aria-label="{{ __('home.movie_label') }}"
-         data-label-play="{{ __('webmovie.play') }}" data-label-pause="{{ __('webmovie.pause') }}"
-         data-label-replay="{{ __('webmovie.replay') }}" data-label-scene="{{ __('webmovie.scene') }}">
+{{-- 플레이어는 공통 틀 x-ui.webmovie-player 하나로 — webmovie.css·js 를 싣고 단추 이름(lang/*/webmovie.php)을 단다(SSOT 11절 "webmovie 플레이어") --}}
+<x-ui.webmovie-player class="home-movie" :aria-label="__('home.movie_label')">
     @foreach ($scenes as $scene)
         <section class="webmovie-scene">
             <h2 id="{{ $scene['id'] }}" data-webmovie="{{ $scene['effect'] }}">{{ __($scene['title']) }}</h2>
             <p data-webmovie="words">{{ __($scene['body']) }}</p>
         </section>
     @endforeach
-</section>
+</x-ui.webmovie-player>
 ```
+
+- 🛑 `data-webmovie-player`·`data-label-*` 을 위젯에 직접 쓰지 않는다 — 키트는 이름이 없으면 영어 Play·Scene 으로 읽는다. 틀의 값: `as`(section·aside·div) · `start`(false 면 나중에 JS 가 켠다) · `play`·`pause`(이름을 바꿀 때만). 검사 `tests/Feature/WebmovieReplayTest.php`.
 
 - 숫자: 서버가 형식을 맞춘 값을 넣는다 — `<data value="{{ $n }}" data-webmovie="count">{{ \Illuminate\Support\Number::format($n, locale: app()->getLocale()) }}</data>`.
 - 막대·원: `style="--pct: {{ $pct }}"` 는 허용되는 유일한 `style=""`(값 변수 `--pct`, SSOT 11절 CSS 규칙). 색·크기는 CSS 에서.
@@ -67,7 +64,7 @@
 
 ## 번역 — 17개 언어
 
-- 화면 글은 모두 `lang/{17개}/*.php` 에서 온다. 애니메이션 속성에는 글을 넣지 않는다 — 예외는 무비 단추 이름(`data-label-*`)이고, 이것도 언어 파일에서 넣는다. 처음 쓸 때 `lang/*/webmovie.php` 에 `play`·`pause`·`replay`·`scene` 네 키를 17개 언어로 만든다.
+- 화면 글은 모두 `lang/{17개}/*.php` 에서 온다. 애니메이션 속성에는 글을 넣지 않는다 — 예외는 무비 단추 이름(`data-label-*`)이고, 공통 틀 `x-ui.webmovie-player` 가 `lang/*/webmovie.php`(`play`·`pause`·`replay`·`scene`, 17개 언어 — 이미 있다)에서 넣는다.
 - 키트가 언어별로 알아서 하는 것: 아랍어·우르두어는 글자 효과를 낱말 효과로 바꾸고(글자 이음 보존) RTL 방향으로 뒤집는다. 일본어·중국어·한국어는 원래 줄바꿈을 지킨다. 번역이 길어도 전체 시간은 같다.
 - 한국어는 SONUB 에서 어절 단위 줄바꿈(`word-break: keep-all`)을 쓰는 곳이 있다 — 그 요소에서는 키트도 어절 단위로 나눠 줄이 튀지 않는다.
 - 확인은 가장 긴 언어(de·ru), 한중일(ko·ja·zh), RTL(ar·ur)로 한다(`/ar/…` 주소).

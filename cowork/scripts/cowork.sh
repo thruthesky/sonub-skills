@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # cowork.sh — claude·codex·agy 세 AI CLI 중 이 컴퓨터에서 **실제로 쓸 수 있는** 것을 읽기 전용 분석가로 병렬 실행한다.
-#             모델: claude = Fable 5.2 · medium · codex = GPT-6.2 Astra · high · agy = Gemini 4 Hydrogen · xhigh
+#             모델: claude = Fable 5.2 · high · codex = GPT-6.2 Astra · high · agy = Gemini 4 Hydrogen · xhigh
 #             (기본값과 근거는 agents.sh 의 default_model·default_effort — 2026-11-18 사용자 지시)
 #
 #   처음 한 번:  bash <스킬 폴더>/scripts/cowork.sh init        → .cowork/.cowork-agents.json + .cowork/cowork-prompt.md
@@ -59,7 +59,7 @@ usage() {
         cowork.sh agents | list | review <폴더명> | init-hook
         cowork.sh note <AI> "<메모>" | enable <AI> | disable <AI> | set <AI> key=value…
 
-  AI          claude(Fable 5.2 · medium) · codex(GPT-6.2 Astra · high) · agy(Gemini 4 Hydrogen · xhigh) — 이 셋만 쓴다
+  AI          claude(Fable 5.2 · high) · codex(GPT-6.2 Astra · high) · agy(Gemini 4 Hydrogen · xhigh) — 이 셋만 쓴다
 
   <폴더명>    .cowork/<폴더명>/ — 작업 ID. 소문자·숫자·하이픈만(예: login-timeout). 사람이 준 이름 그대로 쓴다.
               init·list·agents·note·enable·disable·set·review·init-hook·help 는 명령이라 폴더명으로 못 쓴다.

@@ -100,7 +100,7 @@ copilot·agy 와 **완전히 같은 프로파일**을 쓴다. 실측에서 claud
 
 | AI | 모델 · 등급 | 확인 질문 | 공격 질문 | 짧은 분석(같은 요청) |
 |---|---|---|---|---|
-| claude | `claude-fable-5-2` · medium | 32s ✅ | 파일 없음 | 35s ✅ |
+| claude | `claude-fable-5-2` · medium | 32s ✅ | 파일 없음 | 35s ✅ | (v3.0.1 부터 기본 등급은 high)
 | codex | `gpt-6.2-astra` · high | 19s ✅ | 파일 없음 | 43s ✅ |
 | agy | `gemini-4-hydrogen-xhigh` · xhigh | 140s ✅ | 파일 없음 | 124s ✅ |
 

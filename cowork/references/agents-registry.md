@@ -76,7 +76,7 @@ codex 의 `fallbackModels` 가 비었거나 예전 기본(`gpt-5.6-terra`)뿐이
 
 | AI(id) | CLI | 기본 모델 · 등급 | 읽기 전용 방어 | 특이점 |
 |---|---|---|---|---|
-| `claude` | `claude -p` | `claude-fable-5-2` · `medium` | `--allowedTools "Read Grep Glob"` + `--disallowedTools` + sandbox-exec | plan 모드 금지 |
+| `claude` | `claude -p` | `claude-fable-5-2` · `high` | `--allowedTools "Read Grep Glob"` + `--disallowedTools` + sandbox-exec | plan 모드 금지 |
 | `codex` | `codex exec -o` | `gpt-6.2-astra` · `high` | `--sandbox read-only` | config 의 모델을 쓰지 않는다 · 거절되면 `gpt-6.2-sol` |
 | `agy` | `agy -p` | `gemini-4-hydrogen-xhigh` · `xhigh` | sandbox-exec 만 + `--dangerously-skip-permissions` | 없으면 실행 안 함 · ID 접미어가 곧 등급 |
 

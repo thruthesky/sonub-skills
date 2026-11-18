@@ -61,7 +61,7 @@ run_timeout() {
 
 # --- 모델·추론 등급 ------------------------------------------------------------
 # 🛑 기본 모델은 여기서 정한다(2026-11-18 사용자 지시). CLI 기본값·자동 고르기에 맡기지 않는다.
-#    claude = Fable 5.2 · medium   codex = GPT-6.2 Astra · high   agy = Gemini 4 Hydrogen · xhigh(그 모델의 최고 등급)
+#    claude = Fable 5.2 · high   codex = GPT-6.2 Astra · high   agy = Gemini 4 Hydrogen · xhigh(그 모델의 최고 등급)
 #    셋 모두 2026-11-18 확인 질문으로 실제 응답을 확인했다(claude 2.1.327 · codex-cli 0.169.1 · agy 1.5.10).
 #    agy 는 모델 ID 접미어(-xhigh)가 곧 등급이다 — `agy models` 의 Hydrogen 은 low·medium·high·xhigh 네 가지.
 # 앞서는 순서: 환경변수(COWORK_MODEL_<AI> 등) → 사람이 `cowork.sh set <AI> model=…` 로 고정한 값 → 아래 기본값.
@@ -71,7 +71,7 @@ default_model() {
   case "$1" in claude) printf 'claude-fable-5-2' ;; codex) printf 'gpt-6.2-astra' ;; agy) printf 'gemini-4-hydrogen-xhigh' ;; esac
 }
 default_effort() {
-  case "$1" in claude) printf 'medium' ;; codex) printf 'high' ;; agy) printf 'xhigh' ;; esac
+  case "$1" in claude) printf 'high' ;; codex) printf 'high' ;; agy) printf 'xhigh' ;; esac
 }
 # agents-db.pl show 가 "고정 안 한 AI 는 기본값으로 돈다" 를 그대로 보여 주도록 넘긴다(id=모델/등급 …).
 COWORK_DEFAULTS=""
@@ -262,7 +262,7 @@ readonly_desc() {
 scan_model() { # <id>
   S_MODEL="$(default_model "$1")"; S_EFFORT="$(default_effort "$1")"
   case "$1" in
-    claude) S_DETAIL='Claude Fable 5.2 · medium(기본값 고정)' ;;
+    claude) S_DETAIL='Claude Fable 5.2 · high(기본값 고정)' ;;
     codex) S_DETAIL='GPT-6.2 Astra · high(기본값 고정 — ~/.codex/config.toml 의 모델을 쓰지 않는다)' ;;
     agy) S_DETAIL='Gemini 4 Hydrogen · xhigh(기본값 고정)' ;;
   esac

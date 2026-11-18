@@ -41,8 +41,8 @@
 리뷰를 기다리지 않음) ⓒ 리뷰 완료 시 `.review-final-report` 삭제 → 다음 Stop 부터 skip. 리뷰가
 `final-report.md` 를 수정해도 다음 Stop 은 마커가 없어 재실행되지 않는다.
 
-**리뷰는 전부 1-pass 다**: 리뷰 입력은 *이미 종합된 결론* 이고 리뷰 자체가 비판 작업이다. copilot 은
-분석 때와 똑같이 **두 두뇌(copilot-grok·copilot-mai)를 별개 프로세스로** 띄워 각자 리뷰한다.
+**리뷰는 전부 1-pass 다**: 리뷰 입력은 *이미 종합된 결론* 이고 리뷰 자체가 비판 작업이다. 분석에 성공했던
+AI(claude·codex·agy 중)가 분석 때와 같은 모델로 각자 리뷰한다.
 
 ## 리뷰 페르소나 (cowork.sh 가 REVIEW-PERSONA 마커를 읽어 리뷰 AI 들에 주입)
 

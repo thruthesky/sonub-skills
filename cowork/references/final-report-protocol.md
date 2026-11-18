@@ -1,6 +1,6 @@
 # 종합 검토 프로토콜 — final-report.md 작성 규칙
 
-`cowork.sh` 가 만든 `.cowork/<slug>/<AI>-cowork.md`(이번에 참여한 AI 마다 하나 — claude·codex·copilot-grok·copilot-mai·agy·gemini·grok·kimi·opencode·custom 중
+`cowork.sh` 가 만든 `.cowork/<slug>/<AI>-cowork.md`(이번에 참여한 AI 마다 하나 — claude·codex·agy 중
 그 컴퓨터에서 쓸 수 있었던 것)를
 오케스트레이터(메인 Claude Code)가 읽고 `.cowork/<slug>/final-report.md` 한 편으로 종합할 때의 규칙과
 템플릿이다.
@@ -40,7 +40,6 @@
 
 1. `*-cowork.md` 를 **모두 읽는다**(실패 파일 포함 — 실패 사실을 알아야 한다). 실행 출력의 "건너뜀" 줄에 있던 AI 는 참여하지 않았다.
 2. 주장을 표로 정리한다: 쟁점별로 참여한 AI 마다 뭐라 했는지(**AI 하나 = 열 하나**).
-   copilot-grok 과 copilot-mai 는 **같은 CLI 의 서로 다른 두뇌**다 — 한 열로 합치지 말고 따로 적는다.
 3. **쟁점을 분류한다**:
    - **합의** — 생존한 분석 전부가 같은 결론. 그래도 근거 1~2개는 표본 검증한다.
    - **이견** — 갈린 지점. 자료를 열어 직접 판정한다. 이게 종합의 본체다.

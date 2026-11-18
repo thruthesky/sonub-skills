@@ -1,13 +1,19 @@
 ---
 name: cowork
-description: 🛑 사용자가 "cowork"·"/cowork"·"코워크"라고 직접 지목했을 때만 사용한다. "분석해줘"·"검토해줘"·"원인 파악" 같은 일반 요청으로는 자동 트리거하지 않는다. 이 컴퓨터에 설치된 AI CLI(claude·codex·GitHub Copilot 의 Grok·MAI·agy(Gemini)·gemini·grok·kimi·opencode, 사람이 더한 custom)를 `/cowork init` 으로 스캔하고 확인 질문으로 실제로 답하는지 시험해 `.cowork/.cowork-agents.json` 에 기록한 뒤, 하나의 질문을 쓸 수 있는 AI 전부에게 동시에 읽기 전용 분석으로 던져 AI별 분석 파일을 만든다. 오케스트레이터가 근거를 직접 교차검증해 `final-report.md`로 종합·보고하고, 요청에 구현·수정이 포함되면 검증된 결론을 즉시 실행한다. AI 가 실패하면 원인(인증·구독·한도·모델 거절·시간 초과)을 기록해 다음 실행에서 피해 간다. 소프트웨어·기획·교재·레시피 등 모든 분야에서 동작하며 `.cowork/cowork-prompt.md`의 프로젝트 지침을 모든 분석에 주입한다. 사용 시점 — "/cowork init"·"cowork 초기화"·"AI 다시 스캔", "/cowork [폴더명] [프롬프트]"·"코워크로 분석해줘", cowork 목록·진행·AI 상태 확인. AgentTool·Workflow 대신 Bash 로 독립 CLI 프로세스를 실행한다.
+description: 🛑 사용자가 "cowork"·"/cowork"·"코워크"라고 직접 지목했을 때만 사용한다. "분석해줘"·"검토해줘"·"원인 파악" 같은 일반 요청으로는 자동 트리거하지 않는다. 세 AI CLI — Claude Code(Fable 5.2 medium)·Codex(GPT-6.2 Astra high)·agy(Gemini 4 Hydrogen) — 를 `/cowork init` 으로 찾고 확인 질문으로 실제로 답하는지 시험해 `.cowork/.cowork-agents.json` 에 기록한 뒤, 하나의 질문을 쓸 수 있는 AI 전부에게 동시에 읽기 전용 분석으로 던져 AI별 분석 파일을 만든다. 오케스트레이터가 근거를 직접 교차검증해 `final-report.md`로 종합·보고하고, 요청에 구현·수정이 포함되면 검증된 결론을 즉시 실행한다. AI 가 실패하면 원인(인증·구독·한도·모델 거절·시간 초과)을 기록해 다음 실행에서 피해 간다. 소프트웨어·기획·교재·레시피 등 모든 분야에서 동작하며 `.cowork/cowork-prompt.md`의 프로젝트 지침을 모든 분석에 주입한다. 사용 시점 — "/cowork init"·"cowork 초기화"·"AI 다시 스캔", "/cowork [폴더명] [프롬프트]"·"코워크로 분석해줘", cowork 목록·진행·AI 상태 확인. AgentTool·Workflow 대신 Bash 로 독립 CLI 프로세스를 실행한다.
+metadata:
+  version: 3.0.0
 ---
 
-# cowork — 설치된 AI 들의 교차 분석 → 검증된 결론으로 실행
+# cowork — claude·codex·agy 교차 분석 → 검증된 결론으로 실행
+
+> **v3.0.0 (2026-11-18)** — 쓰는 AI 를 셋으로 줄이고 모델을 못 박았다:
+> **claude = Claude Fable 5.2 · medium** · **codex = GPT-6.2 Astra · high** · **agy = Gemini 4 Hydrogen · xhigh**.
+> copilot(Grok·MAI)·gemini·grok·kimi·opencode·custom 은 뺐다(되살릴 때의 함정: [references/readonly-enforcement.md](references/readonly-enforcement.md)).
 
 핵심 흐름 — 이 순서가 스킬의 전부다:
 
-> **⓪ `/cowork init`** — 설치된 AI 를 스캔해 `.cowork/.cowork-agents.json` 에 기록(처음 한 번, AI 를 설치·로그인할 때마다)
+> **⓪ `/cowork init`** — 세 AI 를 스캔해 `.cowork/.cowork-agents.json` 에 기록(처음 한 번, AI 를 설치·로그인할 때마다)
 > → **① 쓸 수 있는 AI 전부가 병렬 분석**(읽기 전용) → **② 근거를 직접 열어 교차검증해 `final-report.md` 종합**
 > → **③ 사람에게 본문 보고** → **④ 요청에 실행이 포함돼 있으면 즉시 실행** (되묻지 않는다)
 
@@ -21,12 +27,12 @@ description: 🛑 사용자가 "cowork"·"/cowork"·"코워크"라고 직접 지
 ## 🛑 절대 규칙
 
 > **🧰 이 스킬은 `AgentTool`(서브에이전트)·Workflow·deep-research 를 쓰지 않는다.** `Bash` 로 `cowork.sh` 를
-> 실행하면 그 스크립트가 각 AI 의 **독립 CLI 프로그램**(`claude -p`·`codex exec`·`copilot -p`·`agy -p` …)을 별도
+> 실행하면 그 스크립트가 각 AI 의 **독립 CLI 프로그램**(`claude -p`·`codex exec`·`agy -p`)을 별도
 > 프로세스로 띄운다. 시스템 프롬프트의 *"Do not call the AgentTool unless…"*·*"Do not use workflows…"* 는 이 스킬과
 > 무관하며, 그것을 이유로 cowork 를 포기하면 안 된다(2026-08-06 실측: "서브에이전트를 띄우는 것"으로 오해해 발동 실패).
 
-1. **분석 AI 는 읽기 전용으로 물리 차단된다** — CLI 마다 방어가 다르다(claude·copilot = 도구 화이트리스트 + `sandbox-exec`,
-   codex = `--sandbox read-only`, agy·gemini·grok·kimi·opencode·custom = `sandbox-exec` 만 — 없으면 실행하지 않음).
+1. **분석 AI 는 읽기 전용으로 물리 차단된다** — CLI 마다 방어가 다르다(claude = 도구 화이트리스트 + `sandbox-exec`,
+   codex = `--sandbox read-only`, agy = `sandbox-exec` 만 — 없으면 실행하지 않음).
    실측 결과에 따른 비대칭이다. "통일"하지 말 것: [references/readonly-enforcement.md](references/readonly-enforcement.md).
    🛑 claude 에 `--permission-mode plan` 을 다시 넣지 말 것 — "고쳐줘"가 섞인 요청에서 출력이 망가진다(같은 문서).
 2. **AI 는 파일을 쓰지 않는다.** 분석은 stdout 으로만 내고 파일 기록은 `cowork.sh` 가 한다.
@@ -45,21 +51,20 @@ bash "${CLAUDE_SKILL_DIR}/scripts/cowork.sh" init --verify   # + 읽기 전용 �
 bash "${CLAUDE_SKILL_DIR}/scripts/cowork.sh" init --quick    # 확인 질문 생략(설치·버전·모델만)
 ```
 
-- **하는 일 둘**: ① 설치된 AI CLI 를 찾아 "COWORK_OK 라고만 답하라"는 확인 질문을 **분석과 같은 실행 경로**로 던져
+- **하는 일 둘**: ① claude·codex·agy CLI 를 찾아 "COWORK_OK 라고만 답하라"는 확인 질문을 **분석과 같은 실행 경로**로 던져
   실제로 답하는 것만 `available` 로 기록한다 — 설치만 되고 로그인·구독이 없는 AI 를 여기서 가려낸다.
   ② `.cowork/cowork-prompt.md`(이 프로젝트의 시스템 프롬프트) 초안을 없을 때만 만든다(`--force` 면 새로, 기존은 `.bak`).
 - **다시 돌려도 안전하다** — 사람이 고친 값(`enabled`·고정 모델·`timeout`)과 실패 기록·메모는 그대로 두고 설치·버전·상태만 갱신한다.
+  예전 판이 기록한 다른 AI(copilot·gemini·grok·kimi·opencode·custom)는 이때 목록에서 지운다(지우기 전에도 돌리지 않는다).
 - `init` 이 끝나면 **AI 표를 사람에게 본문으로 보여 준다** — 쓸 수 있는 AI, 못 쓰는 AI 와 이유(🔑 로그인 필요 → `<cli> login`,
-  💳 구독·결제, ⏳ 한도), 어댑터 없는 후보 CLI. 이어서 시스템 프롬프트의 네 절을 **작업공간을 직접 훑어 실제 내용으로 채운다**
+  💳 구독·결제, ⏳ 한도). 이어서 시스템 프롬프트의 네 절을 **작업공간을 직접 훑어 실제 내용으로 채운다**
   (빈 안내문만 남기지 말 것). 절차·표 읽는 법: [references/init.md](references/init.md).
-- 어댑터 없는 CLI(cursor-agent·qwen·aider …)는 후보로만 적힌다. 쓰려면 그 CLI 의 headless 사용법을 확인한 뒤
-  `cowork.sh add-custom <이름> '["cli","-p","{PROMPT}"]'` → `init --verify`. 형식·주의: [references/agents-registry.md](references/agents-registry.md).
 
 ## 1단계 — 폴더명(작업 ID)
 
 - **사람이 지정한 폴더명은 그대로 쓴다.** 다듬거나 바꾸지 말라 — 사람은 그 이름으로 결과를 찾는다. 형식 위반은 스크립트가 거절한다.
 - **판별**: 첫 토큰이 소문자·숫자·하이픈만이고, 그것을 빼도 요청문이 온전하면 폴더명이다. 명령어
-  (`init`·`list`·`agents`·`note`·`enable`·`disable`·`set`·`add-custom`·`review`·`init-hook`·`help`)는 폴더명이 아니다.
+  (`init`·`list`·`agents`·`note`·`enable`·`disable`·`set`·`review`·`init-hook`·`help`)는 폴더명이 아니다.
 
 | 입력 | 폴더명 | 프롬프트 |
 |---|---|---|
@@ -83,12 +88,19 @@ bash "${CLAUDE_SKILL_DIR}/scripts/cowork.sh" <폴더명> "<분석 요청 프롬�
   파일이 없으면 빠른 스캔으로 먼저 만든다. 실행 머리에 돌릴 AI·건너뛴 AI(이유)·지난 실패와 메모가 찍힌다 — 읽고 시작한다.
 - 프롬프트는 **사용자 원문 그대로**(모든 AI 가 같은 질문을 받아야 대조가 성립). 페르소나와 `.cowork/cowork-prompt.md` 는
   스크립트가 주입한다 — 프롬프트에 직접 쓰지 말 것.
-- **copilot 은 두뇌 둘을 별개 프로세스로**(`copilot-grok`·`copilot-mai`) 돌린다. 서로의 분석을 못 본다 — 종합 때 한 열로 묶지 말라.
-- **모델은 최신·최고 등급**이 기본이다: claude=`opus`(그때의 최신 Opus)+`xhigh` · codex=config 모델+`xhigh` · copilot=목록에서
-  가장 새 `grok-*`·`mai-code-*`+`high`(두 모델 모두 xhigh 를 거절) · agy=실행 때마다 `agy models` 의 가장 새 Gemini ·
-  gemini·grok·kimi·opencode=그 CLI 의 기본 모델. 고정은 `cowork.sh set <AI> model=<ID> modelPinned=true`.
+- **모델은 못 박혀 있다**(2026-11-18 사용자 지시 — CLI 기본값·자동 고르기에 맡기지 않는다):
+
+  | AI | 모델 ID | 추론 등급 |
+  |---|---|---|
+  | `claude` | `claude-fable-5-2` (Claude Fable 5.2) | `medium` |
+  | `codex` | `gpt-6.2-astra` (GPT-6.2 Astra) | `high` — `~/.codex/config.toml` 의 모델을 쓰지 않는다 |
+  | `agy` | `gemini-4-hydrogen-xhigh` (Gemini 4 Hydrogen) | `xhigh` — 그 모델의 최고 등급, ID 접미어가 곧 등급 |
+
+  값은 `scripts/agents.sh` 의 `default_model`·`default_effort` 가 SSOT 다. 앞서는 순서: 환경변수 → `cowork.sh set <AI> model=<ID>`
+  (직접 준 값은 고정이 되고 `model=` 로 비우면 풀린다) → 위 기본값. 모델이 거절되면 마지막 성공 모델·`fallbackModels`
+  (codex 는 `gpt-6.2-sol`)로 그 자리에서 한 번 더 돈다.
 - 환경변수: `COWORK_ONLY`(쉼표 — 고르면 쉬는 시간·사용 안 함도 무시하고 돌린다) · `COWORK_TIMEOUT`(주면 모든 AI 에, 안 주면
-  AI 마다 배운 값 또는 900) · `COWORK_MODEL_<AI>`·`COWORK_EFFORT_<AI>`(이번만, 예 `COWORK_MODEL_COPILOT_GROK`) · 전체는 `cowork.sh help`.
+  AI 마다 배운 값 또는 900) · `COWORK_MODEL_<AI>`·`COWORK_EFFORT_<AI>`(이번만, 예 `COWORK_EFFORT_CLAUDE=high`) · 전체는 `cowork.sh help`.
 
 ## 3단계 — 결과 확인과 실패 기록
 
@@ -157,12 +169,12 @@ AI 분석은 재료일 뿐, 사람이 원하는 산출물은 `final-report.md` �
 ├── .probe/               ← 마지막 init 의 확인 질문 원본(AI 별 .out·.log — 왜 못 쓰는지 볼 때)
 ├── cowork-prompt.md      ← 이 프로젝트의 시스템 프롬프트 (모든 분석에 주입, 사람이 관리)
 └── <폴더명>/
-    ├── <AI>-cowork.md    ← AI 별 분석 (claude·codex·copilot-grok·copilot-mai·agy·… 이번에 돈 것만)
+    ├── <AI>-cowork.md    ← AI 별 분석 (claude·codex·agy 중 이번에 돈 것만)
     ├── final-report.md   ← 최종 종합·결론 (오케스트레이터 작성 — 사람이 원하는 산출물)
     ├── final-report-log.md ← 리뷰 라운드 변경 이력
     ├── .prompt.md        ← 실제 주입된 프롬프트 (재현용)
     ├── .review/          ← 리뷰 라운드 산출물
-    └── .logs/<AI>.log    ← 각 CLI 원시 로그 (copilot 은 *.jsonl 도)
+    └── .logs/<AI>.log    ← 각 CLI 원시 로그
 ```
 
 ## 자주 틀리는 지점

@@ -8,9 +8,7 @@
 #   agents-db.pl <json> record <id> <phase> <task> <exit> <diag> <secs> <model> [<log>]
 #                                                  실행 결과를 기록하고 다음 실행에 쓸 것을 배운다
 #   agents-db.pl <json> note <id> <text>          사람·오케스트레이터의 메모(원인·해결)를 남긴다
-#   agents-db.pl <json> set <id> <key>=<value>…   enabled·model·modelPinned·timeout·fallbackModels·command
-#   agents-db.pl <json> add-custom <id> <cmd-json> [<model>]  어댑터가 없는 CLI 를 직접 더한다
-#   agents-db.pl <json> customs                   custom 에이전트 목록(id \t command JSON)
+#   agents-db.pl <json> set <id> <key>=<value>…   enabled·model·effort·timeout·fallbackModels(model·effort 는 고정이 된다)
 #   agents-db.pl <json> show                      사람이 읽는 표
 #   agents-db.pl <json> brief <id,…>              실행 전 요약(최근 실패·메모)
 #
@@ -31,6 +29,14 @@ my $NOTE_KEEP  = 30;   # AI 마다 남길 메모 수
 my $COOLDOWN   = ($ENV{COWORK_LIMIT_COOLDOWN_MIN} // 180) * 60;   # 한도 초과 뒤 쉬는 시간
 my $T_BASE     = 900;                                              # 기본 제한 시간(cowork.sh 와 같다)
 my $T_MAX      = $ENV{COWORK_TIMEOUT_MAX} // 2400;                # 늘려도 이 이상은 안 간다
+
+# cowork 가 쓰는 AI(agents.sh 의 ADAPTER_AGENTS — 2026-11-18 부터 claude·codex·agy 셋). 예전 기록에 남은 다른
+# AI(copilot·gemini·grok·kimi·opencode·custom)는 돌리지도 보여 주지도 않고, init(merge) 때 지운다.
+# 환경변수가 없으면(사람이 직접 부름) 거르지 않는다.
+my %ALLOWED = map { $_ => 1 } grep { length } split /\s+/, ($ENV{COWORK_AGENTS} // '');
+sub allowed { !%ALLOWED || $ALLOWED{ $_[0] } }
+# agents.sh 의 기본 모델·등급(id=모델/등급). show 가 고정 안 한 AI 의 실제 모델을 보여 줄 때 쓴다.
+my %DEFAULT = map { my ($i, $m, $e) = /^([^=]+)=([^\/]*)\/(.*)$/; $i ? ($i => [$m, $e]) : () } split /\s+/, ($ENV{COWORK_DEFAULTS} // '');
 
 my ($file, $cmd, @args) = @ARGV;
 die "사용: agents-db.pl <json> <명령> …\n" unless $file && $cmd;
@@ -111,8 +117,7 @@ my %CMD;
 # --- merge: init 스캔 결과 합치기 ---------------------------------------------
 # scan.tsv 한 줄 = agent \t id \t cli \t path \t version \t model \t effort \t status \t detail \t readonly
 #                  \t probe(ok|fail|skip) \t probeSecs \t probeDiag \t probeLog \t readonlyCheck(ok|unsafe|-)
-#               또는 candidate \t name \t path \t version
-# 보존: enabled·timeout·notes·failures·stats·lastGoodModel·fallbackModels·command·modelPinned(+model)
+# 보존: enabled·timeout·notes·failures·stats·lastGoodModel·fallbackModels·modelPinned(+model)·effortPinned(+effort)
 $CMD{merge} = sub {
   my $scan = shift or die "merge: scan.tsv 가 필요하다\n";
   open my $in, '<', $scan or die "scan.tsv 를 열 수 없다: $scan\n";
@@ -125,14 +130,10 @@ $CMD{merge} = sub {
     $db->{host} = u8($ENV{COWORK_HOST} // '');
     $db->{sandbox} = u8($ENV{COWORK_SANDBOX} // '');
     $db->{candidates} = {};
+    delete $db->{agents}{$_} for grep { !allowed($_) } keys %{ $db->{agents} };   # 이제 쓰지 않는 AI 의 기록
     for my $r (@rows) {
       my $kind = shift @$r;
-      if ($kind eq 'candidate') {
-        my ($name, $path, $ver) = @$r;
-        $db->{candidates}{$name} = { path => $path, version => $ver,
-          note => '어댑터 없음 — 읽기 전용 실행 방법을 확인한 뒤 `cowork.sh add-custom` 으로 더한다' };
-        next;
-      }
+      next unless $kind eq 'agent';
       my ($id, $cli, $path, $ver, $model, $effort, $status, $detail, $ro, $probe, $psecs, $pdiag, $plog, $rocheck) = @$r;
       my $a = $db->{agents}{$id} ||= new_agent(cli => $cli);
       my $prev_status = $a->{status} // '';
@@ -166,7 +167,9 @@ $CMD{merge} = sub {
       } elsif ($rocheck eq 'ok') {
         $a->{readonlyVerifiedAt} = $now;
       }
-      $a->{fallbackModels} = ['gpt-5.6-terra'] if $cli eq 'codex' && !@{ $a->{fallbackModels} || [] } && !$a->{fallbackSeeded}++;
+      # codex 의 모델이 거절되면 한 번 더 해 볼 모델. 예전 기본(gpt-5.6-terra)만 있던 기록도 새 값으로 바꾼다.
+      my $fb = join ',', @{ $a->{fallbackModels} || [] };
+      $a->{fallbackModels} = ['gpt-6.2-sol'] if $cli eq 'codex' && ($fb eq '' || $fb eq 'gpt-5.6-terra');
     }
     return;
   });
@@ -175,6 +178,8 @@ $CMD{merge} = sub {
 
 # --- plan: 이번 실행에 돌릴 AI ------------------------------------------------
 # 출력(칸 구분 \x1f — 빈 칸이 있어도 bash read 가 밀리지 않게): run|skip · id · cli · model · effort · timeout · lastGoodModel · fallbackModels(,) · 이유
+# 🛑 model·effort 칸은 사람이 **고정**(modelPinned·effortPinned)했을 때만 채운다 — 비어 있으면 agents.sh 의 기본값
+#    (default_model·default_effort)이 쓰인다. init 이 적어 둔 예전 모델이 새 기본값을 가리지 않게 하려는 것이다.
 # <only> 를 주면(쉼표 목록) 그 AI 만 — 사람이 직접 고른 것이라 한도 쉬는 시간·사용 안 함은 무시하고 돌린다.
 # 설치가 안 됐거나(missing) 가둘 수 없거나(no-sandbox) 공격 실측에서 뚫린(unsafe) 것은 고른 것이어도 돌리지 않는다.
 $CMD{plan} = sub {
@@ -186,6 +191,7 @@ $CMD{plan} = sub {
     for my $id (sort keys %{ $db->{agents} }) {
       my $a = $db->{agents}{$id};
       next if %want && !$want{$id};
+      next unless allowed($id);
       $seen{$id} = 1;
       my ($run, $why) = (1, '');
       my $cd = iso_epoch($a->{cooldownUntil});
@@ -193,10 +199,15 @@ $CMD{plan} = sub {
       elsif (!%want && !$a->{enabled}) { ($run, $why) = (0, '사용 안 함(enabled=false)') }
       elsif (!%want && !$a->{available}) { ($run, $why) = (0, "$a->{status} — " . ($a->{statusDetail} || '')) }
       elsif (!%want && $cd > time) { ($run, $why) = (0, '사용량 한도 — ' . hhmm($cd) . ' 까지 쉼') }
-      push @o, join("\x1f", ($run ? 'run' : 'skip'), $id, $a->{cli} // '', $a->{model} // '', $a->{effort} // '',
+      push @o, join("\x1f", ($run ? 'run' : 'skip'), $id, $a->{cli} // '',
+        ($a->{modelPinned} ? $a->{model} // '' : ''), ($a->{effortPinned} ? $a->{effort} // '' : ''),
         $a->{timeout} // '', $a->{lastGoodModel} // '', join(',', @{ $a->{fallbackModels} || [] }), $why);
     }
-    for my $id (sort keys %want) { push @o, join("\x1f", 'skip', $id, '', '', '', '', '', '', '목록에 없는 AI — cowork.sh init 으로 스캔') unless $seen{$id} }
+    for my $id (sort keys %want) {
+      next if $seen{$id};
+      push @o, join("\x1f", 'skip', $id, '', '', '', '', '', '',
+        allowed($id) ? '목록에 없는 AI — cowork.sh init 으로 스캔' : 'cowork 는 이 AI 를 쓰지 않는다(claude·codex·agy 만)');
+    }
     return \@o;
   });
   out(map { "$_\n" } @$rows);
@@ -292,8 +303,8 @@ $CMD{set} = sub {
       if ($k =~ /^(enabled|modelPinned|effortPinned|available)$/) { $a->{$k} = $v =~ /^(1|true|yes|on)$/i ? JSON::PP::true : JSON::PP::false }
       elsif ($k eq 'timeout') { $a->{timeout} = length $v ? $v + 0 : undef }
       elsif ($k eq 'fallbackModels') { $a->{fallbackModels} = [grep { length } split /,/, $v] }
-      elsif ($k eq 'command') { $a->{command} = $J->decode($v) }
-      elsif ($k =~ /^(model|effort|status|statusDetail)$/) { $a->{$k} = $v }
+      elsif ($k =~ /^(model|effort)$/) { $a->{$k} = $v; $a->{"${k}Pinned"} = length $v ? JSON::PP::true : JSON::PP::false }   # 직접 준 값은 고정
+      elsif ($k =~ /^(status|statusDetail)$/) { $a->{$k} = $v }
       elsif ($k eq 'cooldownUntil') { $a->{cooldownUntil} = length $v ? $v : undef }
       else { die "바꿀 수 없는 항목: $k\n" }
     }
@@ -305,34 +316,6 @@ $CMD{set} = sub {
   return 0;
 };
 
-$CMD{'add-custom'} = sub {
-  my ($id, $cmdjson, $model) = @_;
-  die "add-custom: <id> <명령 JSON 배열> [<모델>]\n" unless $id && $cmdjson;
-  die "id 는 소문자·숫자·하이픈만: $id\n" unless $id =~ /^[a-z0-9][a-z0-9-]*$/;
-  my $c = eval { $J->decode($cmdjson) };
-  die "명령은 JSON 배열이어야 한다. 예: [\"mycli\",\"-p\",\"{PROMPT}\"]\n" unless ref $c eq 'ARRAY' && @$c;
-  die "명령에 {PROMPT} 또는 {PROMPT_FILE} 자리가 있어야 한다\n" unless grep { /\{PROMPT(_FILE)?\}/ } @$c;
-  with_db(1, sub {
-    my $db = shift;
-    my $a = $db->{agents}{$id} ||= new_agent(cli => 'custom');
-    $a->{cli} = 'custom'; $a->{command} = $c; $a->{model} = u8($model // '');
-    $a->{readonly} = 'sandbox-exec (OS 가 작업공간 쓰기를 막는다 — 없으면 실행하지 않는다)';
-    @$a{qw(status statusDetail available)} = ('installed', 'custom — init 으로 확인 질문을 해 보라', JSON::PP::true);
-  });
-  out("✅ custom AI $id 를 더했다. `cowork.sh init --verify` 로 답하는지·읽기 전용인지 확인하라.\n");
-  return 0;
-};
-
-$CMD{customs} = sub {
-  my $rows = with_db(0, sub {
-    my $db = shift;
-    [map { my $a = $db->{agents}{$_}; join("\t", $_, JSON::PP->new->utf8->canonical->encode($a->{command} || []), $a->{model} // '') }
-      grep { ($db->{agents}{$_}{cli} // '') eq 'custom' } sort keys %{ $db->{agents} }];
-  });
-  out(map { "$_\n" } @$rows);
-  return 0;
-};
-
 my %ST = (ok => '✅ 사용 가능', installed => '🟡 설치됨(미확인)', missing => '⬜ 미설치', 'no-sandbox' => '⛔ 샌드박스 없음',
   'auth-failed' => '🔑 로그인 필요', subscription => '💳 구독·결제 문제', limited => '⏳ 사용량 한도', 'probe-failed' => '❌ 응답 없음',
   unsafe => '🚨 읽기 전용 실패', unknown => '❔');
@@ -341,23 +324,21 @@ $CMD{show} = sub {
   my $txt = with_db(0, sub {
     my $db = shift;
     my @o = ("cowork AI 목록 — " . ($db->{scannedAt} ? "스캔 $db->{scannedAt}" : '스캔 안 함') . "\n");
-    for my $id (sort keys %{ $db->{agents} }) {
+    for my $id (grep { allowed($_) } sort keys %{ $db->{agents} }) {
       my $a = $db->{agents}{$id}; my $s = $a->{stats} || {};
       my $st = $ST{$a->{status} // 'unknown'} // $a->{status};
       $st .= ' · 사용 안 함' unless $a->{enabled};
       my $cd = iso_epoch($a->{cooldownUntil}); $st .= ' · ' . hhmm($cd) . ' 까지 쉼' if $cd > time;
       push @o, sprintf("\n  %s  %s  (%s · %s)\n", $st, $id, $a->{cli} // '', $a->{version} // '');
-      push @o, sprintf("      모델 %s%s · 등급 %s · 제한 %s · 실행 %d(성공 %d·실패 %d)%s\n",
-        length($a->{model} // '') ? $a->{model} : '(자동·CLI 기본)', $a->{modelPinned} ? '[고정]' : '',
-        length($a->{effort} // '') ? $a->{effort} : '-', ($a->{timeout} ? "$a->{timeout}s" : "기본"),
+      my ($dm, $de) = @{ $DEFAULT{$id} || [] };
+      my $m = $a->{modelPinned} ? $a->{model} . '[고정]' : ($dm // $a->{model} // '') || '(CLI 기본)';
+      my $e = $a->{effortPinned} ? $a->{effort} . '[고정]' : ($de // $a->{effort} // '') || '-';
+      push @o, sprintf("      모델 %s · 등급 %s · 제한 %s · 실행 %d(성공 %d·실패 %d)%s\n",
+        $m, $e, ($a->{timeout} ? "$a->{timeout}s" : "기본"),
         $s->{runs} // 0, $s->{ok} // 0, $s->{fail} // 0, defined $s->{avgSecs} ? " · 평균 $s->{avgSecs}s" : '');
       push @o, "      상태: $a->{statusDetail}\n" if length($a->{statusDetail} // '') && ($a->{status} // '') ne 'ok';
       if (my $f = ($a->{failures} || [])->[-1]) { push @o, "      최근 실패: $f->{at} · $f->{phase}/$f->{task} · $f->{diag}\n" }
       for my $n (lastn($a->{notes}, 3)) { push @o, "      메모: $n->{text}\n" }
-    }
-    if (%{ $db->{candidates} }) {
-      push @o, "\n  어댑터 없는 AI CLI(설치는 됨): " . join(', ', sort keys %{ $db->{candidates} }) . "\n";
-      push @o, "      → 읽기 전용 실행 방법을 확인한 뒤 cowork.sh add-custom <id> '[\"cli\",\"-p\",\"{PROMPT}\"]'\n";
     }
     return join '', @o;
   });

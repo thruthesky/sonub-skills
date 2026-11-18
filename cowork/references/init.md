@@ -1,16 +1,17 @@
 # /cowork init — AI 스캔과 시스템 프롬프트 만들기
 
-`init` 은 두 가지를 한다. ① 이 컴퓨터에서 **실제로 쓸 수 있는 AI** 를 가려 `.cowork/.cowork-agents.json` 에 기록한다.
+`init` 은 두 가지를 한다. ① claude·codex·agy 셋 중 이 컴퓨터에서 **실제로 쓸 수 있는 AI** 를 가려 `.cowork/.cowork-agents.json` 에 기록한다.
 ② 이 프로젝트의 시스템 프롬프트 `.cowork/cowork-prompt.md` 초안을 없을 때만 만든다. 둘 다 이후 모든 분석의 바탕이다.
 
 ## 언제 돌리나
 
 - 이 작업공간에서 cowork 를 처음 쓸 때
-- AI CLI 를 **새로 설치**했을 때 (예: `npm i -g @google/gemini-cli` 뒤)
-- 못 쓰던 AI 를 **로그인·결제**로 고쳤을 때 (예: `grok login`, `gemini` 로 Google 로그인, kimi 구독)
-- CLI 를 업데이트해 모델 목록이 바뀌었을 때 (copilot 의 grok 새 버전 등)
+- 세 CLI 중 하나를 **새로 설치**했을 때 (예: `npm i -g @openai/codex` 뒤)
+- 못 쓰던 AI 를 **로그인·결제**로 고쳤을 때 (예: `codex login`, `claude` 로그인, `agy` 로그인)
+- CLI 를 업데이트했을 때 — 기본 모델(claude `claude-fable-5-2` · codex `gpt-6.2-astra` · agy `gemini-4-hydrogen-xhigh`)을 받는지 다시 확인한다
 
 다시 돌려도 안전하다 — 사람이 고친 값(`enabled`·고정 모델·`timeout`)과 실패 기록·메모·통계는 보존된다.
+예전 판(v2)이 기록한 다른 AI(copilot·gemini·grok·kimi·opencode·custom)는 이때 목록에서 지운다.
 
 ## 절차
 
@@ -18,7 +19,7 @@
 
 ```bash
 bash "${CLAUDE_SKILL_DIR}/scripts/cowork.sh" init            # 기본 — 확인 질문까지(2~4분)
-bash "${CLAUDE_SKILL_DIR}/scripts/cowork.sh" init --verify   # 처음이거나 custom 을 더했을 때 — 읽기 전용 공격 실측까지
+bash "${CLAUDE_SKILL_DIR}/scripts/cowork.sh" init --verify   # 처음이거나 CLI·모델을 바꿨을 때 — 읽기 전용 공격 실측까지
 ```
 
 - 4분 넘게 걸릴 수 있으니 `run_in_background: true` 로 돌리고 완료 알림을 기다린다(`--quick` 은 수 초).
@@ -34,14 +35,12 @@ bash "${CLAUDE_SKILL_DIR}/scripts/cowork.sh" init --verify   # 처음이거나 c
 |---|---|---|
 | ✅ 사용 가능 | 확인 질문에 답했다 | — |
 | 🟡 설치됨(미확인) | `--quick` 이라 시험 안 함 | 분석에서 실패하면 그때 배운다 |
-| 🔑 로그인 필요 | 인증 안 됨·만료 | `<cli> login`(gemini 는 `gemini` 를 한 번 열어 Google 로그인) 뒤 `/cowork init` |
+| 🔑 로그인 필요 | 인증 안 됨·만료 | `<cli> login`(claude 는 `claude` 를 한 번 열어 로그인) 뒤 `/cowork init` |
 | 💳 구독·결제 문제 | 구독에 그 제품이 없음·잔액 부족 | 결제는 사람이 정한다 — 안 쓰려면 그대로 둔다 |
 | ⏳ 사용량 한도 | 한도 초과, 쉬는 시각까지 건너뜀 | 시각이 지나면 저절로 다시 쓴다 |
 | ❌ 응답 없음 | 시간 안에 답이 없거나 이유를 모름 | `.cowork/.probe/<AI>.log`·`.out` 을 열어 원인을 보고 `note` |
 | ⬜ 미설치 · ⛔ 샌드박스 없음 · 🚨 읽기 전용 실패 | 돌릴 수 없음 | 설치 / macOS 가 아님 / 쓰면 안 됨 |
 
-- **어댑터 없는 AI CLI** 줄이 있으면(cursor-agent·qwen·aider …) 사용자가 원할 때만 더한다 →
-  [agents-registry.md](agents-registry.md) "custom AI 더하기".
 - 로그인·결제는 사람만 할 수 있다(비밀번호·결제·2단계 인증). 그 한 단계만 정확한 명령으로 알리고 나머지는 끝낸다.
 
 ### 3. 시스템 프롬프트를 실제 내용으로 채운다 〔생략하지 말 것〕
@@ -78,9 +77,8 @@ bash "${CLAUDE_SKILL_DIR}/scripts/cowork.sh" init --verify   # 처음이거나 c
 | `cowork.sh init [--quick] [--verify] [--force]` | **이 명령** — AI 스캔 + 시스템 프롬프트 초안(`--force` 면 새로, 기존은 `.bak`) |
 | `cowork.sh agents` | AI 표 다시 보기 |
 | `cowork.sh enable <AI>` · `disable <AI>` | 쓰거나 쓰지 않게(init 을 다시 돌려도 유지) |
-| `cowork.sh set <AI> model=<ID> modelPinned=true` | 모델 고정(init 이 덮어쓰지 않는다) |
+| `cowork.sh set <AI> model=<ID>` · `effort=<등급>` | 기본값 대신 고정(init 이 덮어쓰지 않는다 — 비우면 기본값으로) |
 | `cowork.sh note <AI> "<메모>"` | 원인·해결 메모 — 다음 실행 머리에 보인다 |
-| `cowork.sh add-custom <AI> '<명령 JSON>' [<모델>]` | 어댑터 없는 CLI 더하기 |
 | `cowork.sh init-hook` | 별개 기능 — final-report 리뷰 Stop hook 설치 |
 
 전체 흐름과 규칙은 [../SKILL.md](../SKILL.md) 를 따른다.

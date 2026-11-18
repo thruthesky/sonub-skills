@@ -46,7 +46,8 @@
     },
     {
       "name": "cowork",
-      "description": "설치된 여러 AI CLI 에게 한 질문을 읽기 전용으로 맡겨 교차검증·종합. Ask every installed AI CLI the same question and cross-check.",
+      "description": "claude(Fable 5.2)·codex(GPT-6.2 Astra)·agy(Gemini 4 Hydrogen) 세 AI CLI 에게 한 질문을 읽기 전용으로 맡겨 교차검증·종합. Ask Claude Code, Codex and Antigravity the same question read-only and cross-check.",
+      "version": "3.0.0",
       "source": "./",
       "strict": false,
       "skills": [

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# cowork.sh — 이 컴퓨터에 설치돼 **실제로 쓸 수 있는** AI CLI 들(claude·codex·copilot 두 두뇌·agy·gemini·grok·
-#             kimi·opencode·사람이 더한 custom)을 읽기 전용 분석가로 병렬 실행한다.
+# cowork.sh — claude·codex·agy 세 AI CLI 중 이 컴퓨터에서 **실제로 쓸 수 있는** 것을 읽기 전용 분석가로 병렬 실행한다.
+#             모델: claude = Fable 5.2 · medium · codex = GPT-6.2 Astra · high · agy = Gemini 4 Hydrogen · xhigh
+#             (기본값과 근거는 agents.sh 의 default_model·default_effort — 2026-11-18 사용자 지시)
 #
 #   처음 한 번:  bash <스킬 폴더>/scripts/cowork.sh init        → .cowork/.cowork-agents.json + .cowork/cowork-prompt.md
 #   분석:        bash <스킬 폴더>/scripts/cowork.sh <폴더명> "<분석 요청>"
 #   결과:        .cowork/<폴더명>/<AI>-cowork.md  (그 뒤 오케스트레이터가 final-report.md 로 종합)
 #
-# 무엇을 돌리나 — `.cowork/.cowork-agents.json` 이 정한다. init 이 설치된 AI 를 찾아 확인 질문으로 실제로 답하는지
+# 무엇을 돌리나 — `.cowork/.cowork-agents.json` 이 정한다. init 이 세 AI 를 찾아 확인 질문으로 실제로 답하는지
 # 시험해 기록하고, 분석은 그 기록에서 **쓸 수 있는 것만** 고른다. AI 를 새로 설치했거나 로그인했으면 init 을 다시
 # 돌리면 된다(사람이 고친 값·실패 기록·메모는 보존). 실행 결과는 다시 그 파일에 쌓여 다음 실행을 바꾼다 —
 #   인증·구독 실패 → 다음부터 건너뜀 · 사용량 한도 → 쉬는 시간 동안 건너뜀 · 시간 초과 → 그 AI 의 제한 시간을 늘림 ·
@@ -57,19 +58,20 @@ usage() {
         cowork.sh init [--quick] [--verify] [--force]
         cowork.sh agents | list | review <폴더명> | init-hook
         cowork.sh note <AI> "<메모>" | enable <AI> | disable <AI> | set <AI> key=value…
-        cowork.sh add-custom <AI> '["cli","-p","{PROMPT}"]' [<모델>]
+
+  AI          claude(Fable 5.2 · medium) · codex(GPT-6.2 Astra · high) · agy(Gemini 4 Hydrogen · xhigh) — 이 셋만 쓴다
 
   <폴더명>    .cowork/<폴더명>/ — 작업 ID. 소문자·숫자·하이픈만(예: login-timeout). 사람이 준 이름 그대로 쓴다.
-              init·list·agents·note·enable·disable·set·add-custom·review·init-hook·help 는 명령이라 폴더명으로 못 쓴다.
-  init        설치된 AI CLI 를 찾아 확인 질문으로 실제로 답하는지 시험하고 .cowork/.cowork-agents.json 에 기록한다
+              init·list·agents·note·enable·disable·set·review·init-hook·help 는 명령이라 폴더명으로 못 쓴다.
+  init        세 AI CLI 를 찾아 확인 질문으로 실제로 답하는지 시험하고 .cowork/.cowork-agents.json 에 기록한다
               (다시 돌리면 갱신 — 사람이 고친 값·실패 기록·메모는 보존). 시스템 프롬프트 .cowork/cowork-prompt.md
               초안도 없으면 만든다(--force 면 새로, 기존은 .bak).
                 --quick   확인 질문 생략(설치·버전·모델만)   --verify  읽기 전용 공격 실측까지
   agents      AI 목록·상태·통계·최근 실패·메모를 본다
   note        AI 의 실패 원인·해결을 메모로 남긴다 — 다음 실행 요약에 보인다
   enable/disable  AI 를 쓰거나 쓰지 않게 한다(init 을 다시 돌려도 유지)
-  set         모델 고정 등: set codex model=gpt-6.1-sol modelPinned=true · set claude timeout=1800
-  add-custom  어댑터 없는 CLI 를 더한다(sandbox-exec 안에서만 돈다). {PROMPT}·{PROMPT_FILE}·{MODEL} 자리 치환
+  set         기본값 대신 고정: set codex model=gpt-6.2-sol · set claude effort=high · set claude timeout=1800
+              (model=·effort= 처럼 비우면 고정을 풀고 기본값으로 돌아간다)
   list        .cowork/ 작업 목록과 상태
   review      <폴더명>의 final-report.md 를 AI 들로 재검토해 갱신(보통 Stop hook 이 백그라운드로 부른다)
   init-hook   이 프로젝트 .claude/settings.json 의 Stop hook 에 final-report 리뷰를 멱등 설치
@@ -80,8 +82,8 @@ usage() {
   COWORK_ONLY          돌릴 AI(쉼표). 고르면 쉬는 시간·사용 안 함도 무시하고 돌린다
   COWORK_LIMIT_COOLDOWN_MIN  사용량 한도 뒤 건너뛰는 시간(분, 기본 180)
   COWORK_PROBE_TIMEOUT 확인 질문 제한 시간(초, 기본 120)
-  COWORK_MODEL_<AI>·COWORK_EFFORT_<AI>  이번 실행만 모델·등급(AI 이름의 하이픈은 밑줄, 대문자 — COWORK_MODEL_COPILOT_GROK)
-                       예전 이름도 받는다: COWORK_CLAUDE_MODEL·COWORK_CODEX_MODEL·COWORK_AGY_MODEL·COWORK_COPILOT_EFFORT …
+  COWORK_MODEL_<AI>·COWORK_EFFORT_<AI>  이번 실행만 모델·등급(대문자 — COWORK_MODEL_CODEX=gpt-6.2-sol)
+                       예전 이름도 받는다: COWORK_CLAUDE_MODEL·COWORK_CODEX_EFFORT·COWORK_AGY_MODEL …
   COWORK_ROOT          작업공간 루트(기본: 지금 폴더의 git 최상위, 아니면 지금 폴더)
 
 예:
@@ -519,7 +521,6 @@ case "${1:-}" in
   note) [ $# -ge 3 ] || usage; db note "$2" "${@:3}"; exit $? ;;
   enable | disable) [ $# -ge 2 ] || usage; db set "$2" "enabled=$([ "$1" = enable ] && echo true || echo false)"; exit $? ;;
   set) [ $# -ge 3 ] || usage; db set "$2" "${@:3}"; exit $? ;;
-  add-custom) [ $# -ge 3 ] || usage; mkdir -p "$REPO_ROOT/.cowork"; db add-custom "$2" "$3" "${4:-}"; exit $? ;;
   init-hook | --init-hook) do_init_hook; exit $? ;;
   review | --review) [ -n "${2:-}" ] || die "review 에는 폴더명이 필요하다. 예: cowork.sh review login-timeout"; do_review "$2"; exit $? ;;
   help | -h | --help | "") usage ;;

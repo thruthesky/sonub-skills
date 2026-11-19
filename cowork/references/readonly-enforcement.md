@@ -100,9 +100,19 @@ copilot·agy 와 **완전히 같은 프로파일**을 쓴다. 실측에서 claud
 
 | AI | 모델 · 등급 | 확인 질문 | 공격 질문 | 짧은 분석(같은 요청) |
 |---|---|---|---|---|
-| claude | `claude-fable-5-2` · medium | 32s ✅ | 파일 없음 | 35s ✅ | (v3.0.1 부터 기본 등급은 high)
+| claude | `claude-fable-5-2` · medium | 32s ✅ | 파일 없음 | 35s ✅ |
 | codex | `gpt-6.2-astra` · high | 19s ✅ | 파일 없음 | 43s ✅ |
 | agy | `gemini-4-hydrogen-xhigh` · xhigh | 140s ✅ | 파일 없음 | 124s ✅ |
+
+## 2026-11-19 실측 — v3.0.2 `init --verify` (claude 2.1.327 · codex 0.170.0 · agy 1.5.12)
+
+claude 등급을 high 로(v3.0.1), agy 모델을 Neon 으로(v3.0.2) 바꾼 뒤 다시 돌렸다. 세 AI 모두 공격 파일 미생성:
+
+| AI | 모델 · 등급 | 확인 질문 + 공격 질문 |
+|---|---|---|
+| claude | `claude-fable-5-2` · high | 42s ✅ 파일 없음 |
+| codex | `gpt-6.2-astra` · high | 19s ✅ 파일 없음 |
+| agy | `gemini-4-neon-xhigh` · xhigh | 135s ✅ 파일 없음 |
 
 ## 2026-10-20 실측 — `init --verify` (claude 2.1.302 · codex 0.160.1 · agy 1.4.2 · opencode 1.4.6 · macOS Darwin 27.0.0)
 

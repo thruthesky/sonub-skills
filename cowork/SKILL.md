@@ -1,14 +1,14 @@
 ---
 name: cowork
-description: 🛑 사용자가 "cowork"·"/cowork"·"코워크"라고 직접 지목했을 때만 사용한다. "분석해줘"·"검토해줘"·"원인 파악" 같은 일반 요청으로는 자동 트리거하지 않는다. 세 AI CLI — Claude Code(Fable 5.2 high)·Codex(GPT-6.2 Astra high)·agy(Gemini 4 Hydrogen) — 를 `/cowork init` 으로 찾고 확인 질문으로 실제로 답하는지 시험해 `.cowork/.cowork-agents.json` 에 기록한 뒤, 하나의 질문을 쓸 수 있는 AI 전부에게 동시에 읽기 전용 분석으로 던져 AI별 분석 파일을 만든다. 오케스트레이터가 근거를 직접 교차검증해 `final-report.md`로 종합·보고하고, 요청에 구현·수정이 포함되면 검증된 결론을 즉시 실행한다. AI 가 실패하면 원인(인증·구독·한도·모델 거절·시간 초과)을 기록해 다음 실행에서 피해 간다. 소프트웨어·기획·교재·레시피 등 모든 분야에서 동작하며 `.cowork/cowork-prompt.md`의 프로젝트 지침을 모든 분석에 주입한다. 사용 시점 — "/cowork init"·"cowork 초기화"·"AI 다시 스캔", "/cowork [폴더명] [프롬프트]"·"코워크로 분석해줘", cowork 목록·진행·AI 상태 확인. AgentTool·Workflow 대신 Bash 로 독립 CLI 프로세스를 실행한다.
+description: 🛑 사용자가 "cowork"·"/cowork"·"코워크"라고 직접 지목했을 때만 사용한다. "분석해줘"·"검토해줘"·"원인 파악" 같은 일반 요청으로는 자동 트리거하지 않는다. 세 AI CLI — Claude Code(Fable 5.2 high)·Codex(GPT-6.2 Astra high)·agy(Gemini 4 Neon) — 를 `/cowork init` 으로 찾고 확인 질문으로 실제로 답하는지 시험해 `.cowork/.cowork-agents.json` 에 기록한 뒤, 하나의 질문을 쓸 수 있는 AI 전부에게 동시에 읽기 전용 분석으로 던져 AI별 분석 파일을 만든다. 오케스트레이터가 근거를 직접 교차검증해 `final-report.md`로 종합·보고하고, 요청에 구현·수정이 포함되면 검증된 결론을 즉시 실행한다. AI 가 실패하면 원인(인증·구독·한도·모델 거절·시간 초과)을 기록해 다음 실행에서 피해 간다. 소프트웨어·기획·교재·레시피 등 모든 분야에서 동작하며 `.cowork/cowork-prompt.md`의 프로젝트 지침을 모든 분석에 주입한다. 사용 시점 — "/cowork init"·"cowork 초기화"·"AI 다시 스캔", "/cowork [폴더명] [프롬프트]"·"코워크로 분석해줘", cowork 목록·진행·AI 상태 확인. AgentTool·Workflow 대신 Bash 로 독립 CLI 프로세스를 실행한다.
 metadata:
-  version: 3.0.1
+  version: 3.0.2
 ---
 
 # cowork — claude·codex·agy 교차 분석 → 검증된 결론으로 실행
 
-> **v3.0.1 (2026-11-18)** — 쓰는 AI 를 셋으로 줄이고 모델을 못 박았다(v3.0.1: claude 등급 medium → high):
-> **claude = Claude Fable 5.2 · high** · **codex = GPT-6.2 Astra · high** · **agy = Gemini 4 Hydrogen · xhigh**.
+> **v3.0.2 (2026-11-19)** — 쓰는 AI 를 셋으로 줄이고 모델을 못 박았다(v3.0.1: claude 등급 medium → high · v3.0.2: agy 모델 Hydrogen → Neon):
+> **claude = Claude Fable 5.2 · high** · **codex = GPT-6.2 Astra · high** · **agy = Gemini 4 Neon · xhigh**.
 > copilot(Grok·MAI)·gemini·grok·kimi·opencode·custom 은 뺐다(되살릴 때의 함정: [references/readonly-enforcement.md](references/readonly-enforcement.md)).
 
 핵심 흐름 — 이 순서가 스킬의 전부다:
@@ -94,7 +94,7 @@ bash "${CLAUDE_SKILL_DIR}/scripts/cowork.sh" <폴더명> "<분석 요청 프롬�
   |---|---|---|
   | `claude` | `claude-fable-5-2` (Claude Fable 5.2) | `high` |
   | `codex` | `gpt-6.2-astra` (GPT-6.2 Astra) | `high` — `~/.codex/config.toml` 의 모델을 쓰지 않는다 |
-  | `agy` | `gemini-4-hydrogen-xhigh` (Gemini 4 Hydrogen) | `xhigh` — 그 모델의 최고 등급, ID 접미어가 곧 등급 |
+  | `agy` | `gemini-4-neon-xhigh` (Gemini 4 Neon) | `xhigh` — 그 모델의 최고 등급, ID 접미어가 곧 등급 |
 
   값은 `scripts/agents.sh` 의 `default_model`·`default_effort` 가 SSOT 다. 앞서는 순서: 환경변수 → `cowork.sh set <AI> model=<ID>`
   (직접 준 값은 고정이 되고 `model=` 로 비우면 풀린다) → 위 기본값. 모델이 거절되면 마지막 성공 모델·`fallbackModels`

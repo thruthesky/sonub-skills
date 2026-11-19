@@ -8,7 +8,7 @@
 - 이 작업공간에서 cowork 를 처음 쓸 때
 - 세 CLI 중 하나를 **새로 설치**했을 때 (예: `npm i -g @openai/codex` 뒤)
 - 못 쓰던 AI 를 **로그인·결제**로 고쳤을 때 (예: `codex login`, `claude` 로그인, `agy` 로그인)
-- CLI 를 업데이트했을 때 — 기본 모델(claude `claude-fable-5-2` · codex `gpt-6.2-astra` · agy `gemini-4-hydrogen-xhigh`)을 받는지 다시 확인한다
+- CLI 를 업데이트했을 때 — 기본 모델(claude `claude-fable-5-2` · codex `gpt-6.2-astra` · agy `gemini-4-neon-xhigh`)을 받는지 다시 확인한다
 
 다시 돌려도 안전하다 — 사람이 고친 값(`enabled`·고정 모델·`timeout`)과 실패 기록·메모·통계는 보존된다.
 예전 판(v2)이 기록한 다른 AI(copilot·gemini·grok·kimi·opencode·custom)는 이때 목록에서 지운다.

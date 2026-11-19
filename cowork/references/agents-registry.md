@@ -78,7 +78,7 @@ codex 의 `fallbackModels` 가 비었거나 예전 기본(`gpt-5.6-terra`)뿐이
 |---|---|---|---|---|
 | `claude` | `claude -p` | `claude-fable-5-2` · `high` | `--allowedTools "Read Grep Glob"` + `--disallowedTools` + sandbox-exec | plan 모드 금지 |
 | `codex` | `codex exec -o` | `gpt-6.2-astra` · `high` | `--sandbox read-only` | config 의 모델을 쓰지 않는다 · 거절되면 `gpt-6.2-sol` |
-| `agy` | `agy -p` | `gemini-4-hydrogen-xhigh` · `xhigh` | sandbox-exec 만 + `--dangerously-skip-permissions` | 없으면 실행 안 함 · ID 접미어가 곧 등급 |
+| `agy` | `agy -p` | `gemini-4-neon-xhigh` · `xhigh` | sandbox-exec 만 + `--dangerously-skip-permissions` | 없으면 실행 안 함 · ID 접미어가 곧 등급 |
 
 기본값은 `agents.sh` 의 `default_model`·`default_effort` 한 곳에 있다(2026-11-18 세 모델 모두 확인 질문·읽기 전용 공격 실측·실제 분석 통과 —
 claude 2.1.327 · codex-cli 0.169.1 · agy 1.5.11). 빠진 CLI(copilot·gemini·grok·kimi·opencode)의 실행법과 함정은 readonly-enforcement.md 에 남겨 두었다.
